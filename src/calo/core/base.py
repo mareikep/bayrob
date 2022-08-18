@@ -9,7 +9,7 @@ from dnutils import edict, ifnone, out
 
 from jpt import JPT
 from jpt.base.intervals import ContinuousSet
-from calo.utils.constants import calologger, calojsonlogger, calodocUP
+from calo.utils.constants import calologger, calojsonlogger, projectnameUP
 from calo.utils.utils import generatemln
 
 logger = dnutils.getlogger(calologger)
@@ -322,7 +322,7 @@ class CALO:
         return self._nodes
 
     def infer(self) -> None:
-        f"""Performs a query on {calodocUP.__doc__} models using the :attr:`query`.
+        f"""Performs a query on {projectnameUP.__doc__} models using the :attr:`query`.
         """
         logger.info('Loading models...')
 

@@ -8,13 +8,13 @@ import dnutils
 from dnutils import ifnone
 
 from calo.utils import locs
-from calo.utils.constants import calologger, calodocUP, calodoclow
+from calo.utils.constants import calologger, projectnameUP, projectnameLOW
 
 logger = dnutils.getlogger(calologger)
 
 
 class Config(ConfigParser):
-    f"""Global configuration data structure singleton for {calodocUP.__doc__}. 
+    f"""Global configuration data structure singleton for {projectnameUP.__doc__}. 
     Wraps around a :class:`configparser.ConfigParser`.
     The config file may look like this::
 
@@ -35,7 +35,7 @@ class Config(ConfigParser):
             maxfilecnt = 10
             uploadfldr = /tmp
 
-        [{calodoclow.__doc__}]
+        [{projectnameLOW.__doc__}]
             smoothed = True
             public = False
     """

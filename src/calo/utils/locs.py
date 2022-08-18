@@ -2,9 +2,10 @@ import os
 
 import appdirs
 
-from _version import APPNAME, APPAUTHOR
 
 # calo-dev/src/calo/
+from calo.utils.constants import APPNAME, APPAUTHOR
+
 code_base = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 
 # ~/.local/share/calo/
@@ -30,9 +31,9 @@ trdparty = os.path.join(app_data, '3rdparty')
 doc = os.path.join(app_data, 'doc')
 ontologies = os.path.join(app_data, 'ontologies')
 logs = os.path.join(app_data, 'logs')
-kb = os.path.join(code_base, 'kb')
-examples = os.path.join(src, 'examples')
+examples = os.path.join(app_data, 'examples')
 data = os.path.join(examples, 'data')
+models = os.path.join(examples, 'trees')
+kb = os.path.join(code_base, 'kb')
 web = os.path.join(code_base, 'web')
 resource = os.path.join(web, 'resource')
-models = os.path.join(examples, 'trees')

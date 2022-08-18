@@ -7,20 +7,24 @@ import xlwt
 
 
 ###########
+# PROJECT #
+###########
+def projectnameUP(): 'CALO'
+def projectnameLOW(): 'calo'
+APPNAME = projectnameUP.__doc__
+APPAUTHOR = 'picklum'
+
+###########
 # LOGGING #
 ###########
-def calodocUP(): 'CALO'
-def calodoclow(): 'calo'
+calologger = f'/calo'
+calojsonlogger = f'/calo/json'
+calofileloggerr = f'/calo/file/res'
+calofileloggerv = f'/calo/file/verbose'
+connectionlogger = '/calo/connection'
 
-
-calologger = f'{calodocUP.__doc__}Logger'
-calojsonlogger = f'{calodocUP.__doc__}JSONLogger'
-calofileloggerr = f'{calodocUP.__doc__}FileLoggerResults'
-calofileloggerv = f'{calodocUP.__doc__}FileLoggerVerbose'
-connectionlogger = 'ConnectionLogger'
-
-resultlog = 'calo_res-{}.log'
-logs = 'calo_log-{}.log'
+resultlog = f'{projectnameUP.__doc__}_res-{{}}.log'
+logs = f'{projectnameUP.__doc__}_log-{{}}.log'
 
 #################
 # TIME AND DATE #
