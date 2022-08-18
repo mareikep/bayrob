@@ -2,40 +2,65 @@ from __future__ import annotations
 
 import os
 import pprint
+import traceback
 
 import dnutils
 import numpy as np
-from dnutils import edict, ifnone, out
+from dnutils import edict, ifnone, out, stop
 
 from jpt import JPT
 from jpt.base.intervals import ContinuousSet
 from calo.utils.constants import calologger, calojsonlogger, projectnameUP
 from calo.utils.utils import generatemln
+from jpt.variables import VariableMap
 
-logger = dnutils.getlogger(calologger)
+logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 jsonlogger = dnutils.getlogger(calojsonlogger)
 
 
 class Step:
     '''
-    One step of a hypothesis is one reversed path through one tree, representing one action execution
+    One Step of a :class:`calo.core.base.Hypothesis` is one reversed path through one tree, representing one action
+    execution.
     '''
-    def __init__(self, sim, steps, tree, treename=None):
-        self.sim = sim
-        self.leaf = steps[0] if steps is not None else None
-        self.path = self.leaf.path if self.leaf else None
+    def __init__(self, confs, path, tree, treename=None):
+        """
+        :param confs: mapping from variables to a probability (confidence), that their expected value lies in the
+        interval defined by the user
+        :type confs: Dict[jpt.variables.Variable, float]
+        :param path: a path from a leaf node to the root representing one action execution ('Step')
+        :type path: List[jpt.tree.Node]
+        :param tree: the tree this step occurs in
+        :type tree: jpt.tree.JPT
+        :param treename: the name of the tree
+        :type treename: str
+        """
+        self.confs = confs
+        self.leaf = path[0] if path is not None else None
+        self._path = self.leaf.path if self.leaf else None
         self._treename = treename
         self.tree = tree
         self.value = self.leaf.value
 
     def copy(self) -> Step:
-        s_ = Step(self.sim, self.leaf, None, treename=str(self._treename))
-        s_.path = dict(self.path)
+        s_ = Step(self.confs, [self.leaf], None, treename=str(self._treename))
+        s_._path = VariableMap([(var, val) for var, val in self._path.items()])
         s_.value = dict(self.value)
+        s_.tree = self.tree
         return s_
 
+    @property
+    def path(self) -> VariableMap:
+        '''Contains the label representation of the values'''
+        return VariableMap([(var, var.domain.value2label(val)) for var, val in self._path.items()])
+
+    @property
+    def pathval(self) -> VariableMap:
+        '''Contains the internal represenation of the values'''
+        return self._path
+
     def tojson(self) -> dict:
-        return {'name': self.name, 'sim': self.sim, 'params': {k: str(v) for k, v in self.leaf.path.items()}, 'samples': self.leaf.samples}
+        return {'name': self.name, 'confs': self.confs, 'params': {k: str(v) for k, v in self.leaf.path.items()}, 'samples': self.leaf.samples}
 
     @property
     def name(self):
@@ -43,10 +68,10 @@ class Step:
 
     @property
     def idx(self) -> str:
-        return '{}:{}'.format(self.name if self.name is not None else '', self.leaf.idx)
+        return f'{self.name if self.name is not None else ""}'
 
     def __str__(self) -> str:
-        return '<Step "{}" ({}), params: {}>'.format(self.name, self.sim, ', '.join(['{}= {}'.format(k, str(v)) for k, v in self.leaf.path.items()]))
+        return '<Step "{}" ({}), params: {}>'.format(self.name, self.confs, ', '.join(['{}= {}'.format(k, str(v)) for k, v in self.leaf.path.items()]))
 
     def __repr__(self) -> str:
         return '<{} name={} at 0x{}>'.format(self.__class__.__name__, self.name, hash(self))
@@ -61,14 +86,13 @@ class Step:
 class Hypothesis:
     '''
     A Hypothesis is one possible trail through multiple (reversed) Trees, representing executing multiple actions
-    subsequently to meet given criteria/requirements
+    subsequently to meet given criteria/requirements.
     '''
 
     def __init__(self, idx, steps=None, queries=None):
         self.identifiers = []
         self.id = idx
-        self._value = 1
-        self._probability = 1
+        self._performance = 1
         self.steps = ifnone(steps, [])
         self.queries = ifnone(queries, [])
         self.result = {}
@@ -82,51 +106,47 @@ class Hypothesis:
         self.identifiers.extend(idx)
 
     @property
-    def value(self) -> float:
-        return self._value
+    def performance(self) -> float:
+        return self._performance
 
-    @property
-    def probability(self) -> float:
-        return self._probability
-
-    def execchain(self, trees, query) -> None:
+    def execchain(self, query) -> None:
         # previous prediction
         prevpred = {}
 
-        # TODO what does value do? how well does chain match query?
-        self._value = 1.
-
         # probability that execution of chain (so far) produces desired output
-        self._probability = 1.
+        self._performance = 1.
 
         for sidx, step in enumerate(self.steps):
-            out('enter execchain loop', step.path, step.tree.targets)
-            pred = step.tree.expectation(variables=step.tree.targets, evidence={var: ContinuousSet(var.domain.labels[val.lower], var.domain.labels[val.upper], val.left, val.right) for var, val in step.path.items()}, fail_on_unsatisfiability=False)
-            out('result execchain', {var: val.format_result() for var, val in pred.items()}, step._treename)
+            # TODO: variables = all targets or only targets present in query?
+            # exp = step.tree.expectation(variables=[t for t in step.tree.targets if t.name in query], evidence=step.path, fail_on_unsatisfiability=False)
+            exp = step.tree.expectation(variables=step.tree.targets, evidence=step.path, fail_on_unsatisfiability=False)
 
             # result-change check: punish long chains with states that do not change the result
-            if all([val in self.result and pred[val] == self.result[val] for val in list(set(pred).intersection(query))]):
-                self._value = np.NINF
-                self._probability = 0.
+            # TODO: make sure equality check still works!
+            if all([val in self.result and exp[val] == self.result[val] for val in [p for p in set(exp) if p.name in query]]):
+                self._performance = 0.
 
             # precondition check: if result of current step contains variable that is parameter in next step, the
             # values must match
-            for pvar, pval in step.path.items():
+            # TODO: step.path or step.pathval? -> values or labels? SHOULD BE VALUES (step.pathval)
+            for pvar, pval in step.pathval.items():
                 if pvar in prevpred:
                     if pval.contains(prevpred[pvar]):
-                        self.result.update(pred)
-                        self._value *= step.sim
-                        self._probability *= step.sim
+                        self.result.update(exp)
+                        # FIXME: temporary solution for performance measure!
+                        # self._performance *= step.confs
+                        self._performance *= sum(step.confs.values())/len(step.confs)
                     else:
-                        # values do not match -> step cannot follow the previous step, therefore this chain is rendered useless
-                        self._value = np.NINF
-                        self._probability = 0.
+                        # values do not match -> step cannot follow the previous step, therefore this chain is
+                        # rendered useless
+                        self._performance = 0.
                 else:
-                    self.result.update(pred)
-                    logger.warning(self._value, self.probability, step.sim)
-                    self._value *= step.sim
-                    self._probability *= step.sim
-            prevpred = pred
+                    self.result.update(exp)
+                    # FIXME: temporary solution for performance measure!
+                    # self._performance *= step.confs
+                    self._performance *= sum(step.confs.values())/len(step.confs)
+
+            prevpred = exp
 
     def addstep(self, candidate) -> None:
         self.steps.insert(0, candidate)
@@ -141,13 +161,13 @@ class Hypothesis:
         return hyp_
 
     def tojson(self) -> dict:
-        return {'identifier': self.id, 'result': self.result, 'value': self.value, 'steps': [s.tojson() for s in self.steps]}
+        return {'identifier': self.id, 'result': self.result, 'value': self.performance, 'steps': [s.tojson() for s in self.steps]}
 
     def __str__(self) -> str:
-        return '{}: ({:.2e}); {}; {} steps>'.format(self.id, self.value, self.result, len(self.steps))
+        return '{}: ({:.2e}); {}; {} steps>'.format(self.id, self.performance, self.result, len(self.steps))
 
     def __repr__(self) -> str:
-        return '<{} "{}" ({:.2e}) at 0x{}>'.format(self.__class__.__name__, self.id, self.value, hash(self))
+        return '<{} "{}" ({:.2e}) at 0x{}>'.format(self.__class__.__name__, self.id, self.performance, hash(self))
 
     def __eq__(self, other) -> bool:
         return hash(self) == hash(other)
@@ -222,7 +242,8 @@ class CALO:
     BFS = 1
 
     def __init__(self):
-        """The requirement profile mapping property names to :class:`jpt.base.intervals.ContinuousSet`.
+        """The requirement profile mapping property names to either :class:`jpt.base.intervals.ContinuousSet` or list
+        of values (for symbolic variables).
 
         :Example:
 
@@ -318,7 +339,7 @@ class CALO:
         return self._hypotheses
 
     @property
-    def nodes(self) -> list:
+    def nodes(self) -> dict:
         return self._nodes
 
     def infer(self) -> None:
@@ -350,12 +371,12 @@ class CALO:
         self._generatepaths_dfs_rec(query, Hypothesis([]))
 
     def _generatepaths_dfs_rec(self, query, hyp) -> None:
-
-        hyp.execchain(self.models, self.query)
+        # TODO: UPDATE
+        hyp.execchain(self.query)
         idx = len(hyp.steps)
 
-        if hyp.probability < self._resulttree.threshold:
-            logger.debug('{}Dropping'.format('  ' * idx), hyp.id, hyp.probability)
+        if hyp.performance < self._resulttree.threshold:
+            logger.debug('{}Dropping'.format('  ' * idx), hyp.id, hyp.performance)
             return
         if self._satisfies(hyp.result, self.query):
             if self.prefixexists(hyp):
@@ -402,12 +423,12 @@ class CALO:
         queries_ = []
         for h, query in zip(hyps, queries):
             # run current hypothesis on trees
-            h.execchain(self.models, self.query)
+            h.execchain(self.query)
             idx = len(h.steps)
 
             # drop current hypothesis if its probability is below the threshold set by the user
-            if h.probability < self._resulttree.threshold:
-                logger.debug(f'{"  "*idx}Dropping hypothesis {h.id} with probability {h.probability} < {self._resulttree.threshold}')
+            if h.performance < self._resulttree.threshold:  # FIXME: find better performance measure for hypothesis (less dependent on length of chain)
+                logger.debug(f'{"  "*idx}Dropping hypothesis {h.id} with probability {h.performance} < {self._resulttree.threshold}')
                 continue
             # add hypothesis to final result if it satisfies the given query
             if self._satisfies(h.result, self.query):
@@ -418,16 +439,10 @@ class CALO:
                 continue
             # generate candidates that match current query
             candidates = self._generate_candidates(query)
-            logger.warning('CANDIDATES\n' + "\n".join([str(c) for c in candidates]))
             for cidx, c in enumerate(candidates):
                 # update query such that it merges the old query with the requirements from the following steps
-                logger.debug('BEFORE UPDATE', edict(query), c.name, c.path, c.tree.targets)
-                logger.error('PATH LABELS', {var: ContinuousSet(var.domain.labels[val.lower], var.domain.labels[val.upper], val.left, val.right) for var, val in c.path.items()})
-
-                cpath = {var: ContinuousSet(var.domain.labels[val.lower], var.domain.labels[val.upper], val.left, val.right) for var, val in c.path.items()}
+                cpath = {var: var.domain.value2label(val) for var, val in c.path.items()}
                 q = edict(query) + cpath - c.tree.targets
-
-                logger.debug('AFTER UPDATE', q)
 
                 if q in h.queries: continue
                 h_ = h.copy(c.idx)
@@ -436,13 +451,10 @@ class CALO:
                 hyps_.append(h_)
                 queries_.append(q)
 
-        logger.debug('recursive call with')
-        pprint.pprint(queries_)
-        pprint.pprint(hyps_)
         self._generatepaths_bfs_rec(queries_, hyps_)
 
     def _generate_candidates(self, query) -> list[Step]:
-        return [Step(sim, steps, tree, treename=treename) for treename, tree in self.models.items() for idx, (sim, steps) in enumerate(tree.reverse(query))]
+        return [Step(confs, path, tree, treename=treename) for treename, tree in self.models.items() for idx, (confs, path) in enumerate(tree.reverse(query))]
 
     def prefixexists(self, hyp) -> bool:
         """Checks if any of the already added hypotheses is a prefix of ``hyp``, i.e. ``hyp`` contains unnecessary
@@ -465,21 +477,34 @@ class CALO:
         """Checks if a colored state ``sigma`` satisfies the requirement profile ``rho``, i.e. ``φ |= σ``
 
         :param sigma: a colored state, i.e. property-value mapping
-        :param rho: a requirement profile, i.e. property-interval mapping
-        :type sigma: dict
-        :type rho: dict
+        :type sigma: Dict[jpt.variables.Variable, jpt.trees.ExpectationResult]
+        :param rho: a requirement profile, i.e. property name-interval or property name-values mapping
+        :type rho: Dict[str, (ContinuousSet, str)]
         :returns: whether the state satisfies the requirement profile
         :rtype: bool
         """
+        sigma_ = {var.name: val for var, val in sigma.items()}
+
         # if any property defined in original requirement profile cannot be found in result
-        if any(x not in sigma for x in rho.keys()):
+        if any(x not in sigma_ for x in rho.keys()):
             return False
 
         # value of any resulting property needs to match interval defined in requirement profile (if present)
         for k, v in rho.items():
-            if k in sigma:
-                if not v.contains(sigma[k]):
-                    return False
+            if k in [var.name for var in sigma]:
+                if isinstance(v, ContinuousSet):
+                    if not v.contains_value(sigma_[k].result):
+                        return False
+                    # FIXME: check for expected value or enclosing interval?
+                    # if not v.contains_interval(ContinuousSet(sigma[k].lower, sigma[k].upper)):
+                    #     return False
+                elif isinstance(v, list):
+                    # case symbolic variable, v should be list
+                    if not sigma_[k].result in v:
+                        return False
+                else:
+                    if not sigma_[k].result == v:
+                        return False
         return True
 
     @staticmethod

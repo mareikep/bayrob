@@ -1334,7 +1334,7 @@ class CALOWeb:
                 pathvals = hyp.result
                 values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
                 data.update({hyp.id: values})
-                table_candidates.additem([hyp.id, str(hyp.probability)])
+                table_candidates.additem([hyp.id, str(hyp.performance)])
 
             # sort results in table descending by probability
             sort_by_sim(down=True)
@@ -1361,7 +1361,7 @@ class CALOWeb:
                 comp_profile = Composite(wnd_candproc.content)
                 comp_profile.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
 
-                # self.candidates is a list of [sim, RegressionTree nodes (path from leaf to src)]
+                # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
                 # construct data for tree
                 generate_nodes()
                 data = nodedict(self.calo.resulttree.src, cnamefull)
@@ -1391,9 +1391,9 @@ class CALOWeb:
                     n_.edgetext = step.name
                     n_.result = step.value.copy()
                     n_.parameters = step.path.copy()
-                    n_.sim = h.probability
+                    n_.confs = h.performance
 
-                    # leaf nodes show sim and overall result instead of step result
+                    # leaf nodes show confs and overall result instead of step result
                     if d == len(h.steps)-1:
                         n_.nodetext = h.id
                         n_.result = h.result.copy()
@@ -1733,7 +1733,7 @@ class CALOWeb:
                 pathvals = hyp.result
                 values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
                 data.update({hyp.id: values})
-                table_candidates.additem([hyp.id, str(hyp.probability)])
+                table_candidates.additem([hyp.id, str(hyp.performance)])
 
             # sort results in table descending by probability
             sort_by_sim(down=True)
@@ -1750,7 +1750,7 @@ class CALOWeb:
             if self.calo.resulttree:
                 cnamefull = table_candidates.selection.texts[0]
 
-                # self.candidates is a list of [sim, RegressionTree nodes (path from leaf to src)]
+                # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
                 # construct data for tree
                 generate_nodes()
                 data = nodedict(self.calo.resulttree.src, cnamefull)
@@ -1779,9 +1779,9 @@ class CALOWeb:
                     n_.edgetext = step.name
                     n_.result = step.value.copy()
                     n_.parameters = step.path.copy()
-                    n_.sim = h.probability
+                    n_.confs = h.performance
 
-                    # leaf nodes show sim and overall result instead of step result
+                    # leaf nodes show confs and overall result instead of step result
                     if d == len(h.steps)-1:
                         n_.nodetext = h.id
                         n_.result = h.result.copy()
