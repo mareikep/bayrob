@@ -2,7 +2,8 @@ import os
 
 from typing import List
 
-from core.base import CALO
+import calo
+from calo.core.base import CALO
 from jpt import JPT
 from pyrap.engine import PushService
 
@@ -56,15 +57,15 @@ class CALODST(DetachedSessionThread):
         self._calo.strategy = strategy
 
     @property
-    def resulttree(self) -> core.base.ResTree:
+    def resulttree(self) -> calo.core.base.ResTree:
         return self._calo.resulttree
 
     @property
-    def hypotheses(self) -> List[core.base.Hypothesis]:
+    def hypotheses(self) -> List[calo.core.base.Hypothesis]:
         return self._calo.hypotheses
 
     @property
-    def nodes(self) -> List[core.base.ResTree.Node]:
+    def nodes(self) -> List[calo.core.base.ResTree.Node]:
         return self._calo.nodes
 
     def allmodels(self, subdir=None) -> List[JPT]:

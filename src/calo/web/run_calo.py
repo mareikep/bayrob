@@ -21,20 +21,21 @@ from typing import Tuple, List, Callable
 
 import pyrap
 from dnutils import out, LinearScale
+
+from calo.utils.constants import calologger, calojsonlogger
 from src.calo import config
-from core.base import CALO, ResTree
-from logs.logs import init_loggers
-from utils.utils import res
+from calo.core.base import CALO, ResTree
+from calo.logs.logs import init_loggers
+from calo.utils.utils import res
 from jpt import JPT, infer_from_dataframe
 from jpt.base.intervals import ContinuousSet
-from web.dialogs import MinMaxBox
-from web.thread import CALODST
-from utils import locs
-from utils.constants import TABLEFORMAT, TMPFILESTRFMT
-from utils.errors import InvalidTypeError, UsageError, TooManyFilesError, FileTooLargeError, \
+from calo.web.dialogs import MinMaxBox
+from calo.web.thread import CALODST
+from calo.utils import locs
+from calo.utils.constants import TABLEFORMAT, TMPFILESTRFMT
+from calo.utils.errors import InvalidTypeError, UsageError, TooManyFilesError, FileTooLargeError, \
     MaximumAllowanceError, UploadError
-# from calo.utils.training_data import examplesfromcsv, examplesfromfile
-from utils.utils import toxls, pearson, _actions_to_treedata
+from calo.utils.utils import toxls, pearson, _actions_to_treedata
 from pyrap import session
 from pyrap.constants import DLG
 from pyrap.dialogs import options_list, ask_input, msg_err, MessageBox, FileUploadDialog
@@ -55,8 +56,8 @@ if config.getboolean('calo', 'smoothed', fallback=False):
 else:
     from pyrap.pwt.radar.radar import RadarChart as Radar
 
-logger = dnutils.getlogger('CALOLogger')
-jsonlogger = dnutils.getlogger('CALOJSONLogger')
+logger = dnutils.getlogger(calologger)
+jsonlogger = dnutils.getlogger(calojsonlogger)
 
 
 class CALOWeb:

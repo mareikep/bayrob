@@ -2,7 +2,7 @@ import datetime
 import os
 
 import dnutils
-from src.calo import config
+from calo import config
 
 from calo.database import connection
 from calo.utils import locs

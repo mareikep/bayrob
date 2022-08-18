@@ -4,12 +4,14 @@ import traceback
 
 import dnutils
 
-from core.base import CALO
-from logs.logs import init_loggers
-from pyrap.threads import DetachedSessionThread
-from utils.errors import UnsupportedFormat
+from calo.core.base import CALO
+from calo.logs.logs import init_loggers
 
-logger = dnutils.getlogger('Inference')
+from calo.utils.constants import calologger
+from pyrap.threads import DetachedSessionThread
+from calo.utils.errors import UnsupportedFormat
+
+logger = dnutils.getlogger(calologger)
 
 
 class Inference(DetachedSessionThread):
