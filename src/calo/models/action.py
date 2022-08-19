@@ -13,8 +13,11 @@ datalogger = dnutils.getlogger('datalogger')
 
 
 class Move:
+    # uncertainty for degrees and distance
     DEG_U = 5
     DIST_U = 0.05
+
+    # desired distance moved in one step
     STEPSIZE = 1
 
     def __init__(self, degu=5, distu=0.05):
