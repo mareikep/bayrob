@@ -38,12 +38,12 @@ class Step:
         self.confs = confs
         self.leaf = path[0] if path is not None else None
         self._path = self.leaf.path if self.leaf else None
-        self._treename = treename
+        self.treename = treename
         self.tree = tree
         self.value = self.leaf.value
 
     def copy(self) -> Step:
-        s_ = Step(self.confs, [self.leaf], None, treename=str(self._treename))
+        s_ = Step(self.confs, [self.leaf], None, treename=str(self.treename))
         s_._path = VariableMap([(var, val) for var, val in self._path.items()])
         s_.value = dict(self.value)
         s_.tree = self.tree
@@ -64,7 +64,7 @@ class Step:
 
     @property
     def name(self):
-        return f'{self._treename}-{self.leaf.idx}'
+        return f'{self.treename}-{self.leaf.idx}'
 
     @property
     def idx(self) -> str:
@@ -95,7 +95,7 @@ class Hypothesis:
         self._performance = 1
         self.steps = ifnone(steps, [])
         self.queries = ifnone(queries, [])
-        self.result = {}
+        self.result = VariableMap()
 
     @property
     def id(self) -> str:
