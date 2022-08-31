@@ -32,3 +32,8 @@ wheels/
 *.egg
 *.mtime_cache.dat
 *.log
+
+# do not automatically add output files
+*.png
+*.csv
+*.svg
