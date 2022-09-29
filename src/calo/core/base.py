@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import heapq
+import itertools
 import os
 import pprint
 import traceback
+from collections import defaultdict
+from typing import Dict, Any
 
 import dnutils
 import numpy as np
 from dnutils import edict, ifnone, out, stop
+from pathlib import Path
 
+import jpt
 from jpt import JPT
 from jpt.base.intervals import ContinuousSet
 from calo.utils.constants import calologger, calojsonlogger, projectnameUP
@@ -40,7 +46,7 @@ class Step:
         self._path = self.leaf.path if self.leaf else None
         self.treename = treename
         self.tree = tree
-        self.value = self.leaf.value
+        self.value = self.leaf.value if self.leaf else None
 
     def copy(self) -> Step:
         s_ = Step(self.confs, [self.leaf], None, treename=str(self.treename))
@@ -68,7 +74,7 @@ class Step:
 
     @property
     def idx(self) -> str:
-        return f'{self.name if self.name is not None else ""}'
+        return self.leaf.idx
 
     def __str__(self) -> str:
         return '<Step "{}" ({}), params: {}>'.format(self.name, self.confs, ', '.join(['{}= {}'.format(k, str(v)) for k, v in self.leaf.path.items()]))
@@ -84,18 +90,21 @@ class Step:
 
 
 class Hypothesis:
-    '''
+    """
     A Hypothesis is one possible trail through multiple (reversed) Trees, representing executing multiple actions
     subsequently to meet given criteria/requirements.
-    '''
+    """
 
     def __init__(self, idx, steps=None, queries=None):
         self.identifiers = []
         self.id = idx
-        self._performance = 1
+        self._performance = 0.
         self.steps = ifnone(steps, [])
         self.queries = ifnone(queries, [])
         self.result = VariableMap()
+        self.precond = VariableMap()
+        self.g = None
+        self.h = None
 
     @property
     def id(self) -> str:
@@ -106,6 +115,10 @@ class Hypothesis:
         self.identifiers.extend(idx)
 
     @property
+    def f(self) -> float:
+        return self.g + self.h
+
+    @property
     def performance(self) -> float:
         return self._performance
 
@@ -113,18 +126,21 @@ class Hypothesis:
         # previous prediction
         prevpred = {}
 
-        # probability that execution of chain (so far) produces desired output
-        self._performance = 1.
+        # probability that execution of chain produces desired output
+        perf = 1.
 
         for sidx, step in enumerate(self.steps):
             # TODO: variables = all targets or only targets present in query?
             # exp = step.tree.expectation(variables=[t for t in step.tree.targets if t.name in query], evidence=step.path, fail_on_unsatisfiability=False)
+            leaf = step.tree.apply({k: k.domain.label2value(v) for k, v in step.path.items()})
             exp = step.tree.expectation(variables=step.tree.targets, evidence=step.path, fail_on_unsatisfiability=False)
+            if exp is None:
+                leaf = list(leaf)
 
-            # result-change check: punish long chains with states that do not change the result
             # TODO: make sure equality check still works!
+            # result-change check: punish long chains with states that do not change the result
             if all([val in self.result and exp[val] == self.result[val] for val in [p for p in set(exp) if p.name in query]]):
-                self._performance = 0.
+                perf = 0.
 
             # precondition check: if result of current step contains variable that is parameter in next step, the
             # values must match
@@ -135,21 +151,23 @@ class Hypothesis:
                         self.result.update(exp)
                         # FIXME: temporary solution for performance measure!
                         # self._performance *= step.confs
-                        self._performance *= sum(step.confs.values())/len(step.confs)
+                        perf *= sum(step.confs.values())/len(step.confs)
                     else:
                         # values do not match -> step cannot follow the previous step, therefore this chain is
                         # rendered useless
-                        self._performance = 0.
+                        perf = 0.
                 else:
                     self.result.update(exp)
                     # FIXME: temporary solution for performance measure!
                     # self._performance *= step.confs
-                    self._performance *= sum(step.confs.values())/len(step.confs)
+                    perf *= sum(step.confs.values())/len(step.confs)
 
+            self._performance = perf
             prevpred = exp
 
-    def addstep(self, candidate) -> None:
+    def addstep(self, candidate, query) -> None:
         self.steps.insert(0, candidate)
+        self.queries.insert(0, query)
 
     def copy(self, idx) -> Hypothesis:
         if idx is None:
@@ -157,8 +175,21 @@ class Hypothesis:
         else:
             hyp_ = Hypothesis([idx] + self.identifiers)
         hyp_.steps = [s.copy() for s in self.steps]
-        hyp_.queries = [dict(q) for q in self.queries]
+        hyp_.queries = [q.copy() for q in self.queries]
         return hyp_
+
+    def loops(self) -> bool:
+        '''A hypothesis contains loops if ad step occurs (more than) twice and the corresponding queries (i.e. states)
+        match.
+        '''
+        for (s, q), (s_, q_) in itertools.combinations(zip(self.steps, self.queries), 2):
+            if s.name == s_.name:
+                if q == q_:
+                    out(q == q_)
+                    out(q)
+                    out(q_)
+                    return True
+        return False
 
     def tojson(self) -> dict:
         return {'identifier': self.id, 'result': self.result, 'value': self.performance, 'steps': [s.tojson() for s in self.steps]}
@@ -240,8 +271,9 @@ class CALO:
 
     DFS = 0
     BFS = 1
+    ASTAR = 2
 
-    def __init__(self):
+    def __init__(self, stepcost=None, heuristic=None):
         """The requirement profile mapping property names to either :class:`jpt.base.intervals.ContinuousSet` or list
         of values (for symbolic variables).
 
@@ -256,29 +288,78 @@ class CALO:
                             }
 
         """
-        self.query = {}
+        self._query = None
+        self._state = None
         self.threshold = 0
-        self._strategy = CALO.DFS
+        self._strategy = CALO.ASTAR
         self._datapaths = []
-        self._models = {}
-        self.usemodels = []
+        self._models = defaultdict(JPT)
+        self.omitmodels = []
         self._hypotheses = []
         self._nodes = {}
         self._resulttree = None
+        self._stepcost = stepcost or self._stepcost_default
+        self._heuristic = heuristic or self._heuristic_default
+
+    def _stepcost_default(self, current) -> float:
+        return len(current.steps) + 1
+
+    def _heuristic_default(self, current, goal) -> float:
+        '''
+        :param current: alskd
+        :type current:
+        '''
+        return 1.
 
     def adddatapath(self, path) -> None:
         if path not in self._datapaths:
             self._datapaths.append(path)
+        self.reloadmodels()
 
     def removedatapath(self, path) -> None:
         if path in self._datapaths:
             self._datapaths.remove(path)
+        self.reloadmodels()
 
     def reloadmodels(self) -> None:
         try:
-            self._models = dict([(t, JPT.load(os.path.join(p, t))) for p in self._datapaths for t in os.listdir(p) if t.endswith('.tree') and (not self.usemodels or t in self.usemodels)])
+            self._models = dict([(treefile.name, JPT.load(str(treefile))) for p in self._datapaths for treefile in Path(p).rglob('*.tree') if not treefile.name in self.omitmodels])
         except Exception:
-            logger.error(f'Could not load trees {[os.path.join(p, t) for p in self._datapaths for t in os.listdir(p) if t.endswith(".tree") and (not self.usemodels or t in self.usemodels)]}')
+            logger.error(f'Could not load trees {[str(treefile) for p in self._datapaths for treefile in Path(p).rglob("*.tree") if not treefile.name in self.omitmodels]}\n{traceback.print_exc()}')
+
+    @property
+    def query(self) -> jpt.variables.VariableMap:
+        """"""
+        return self._query
+
+    @query.setter
+    def query(self, q) -> None:
+        self._query = self.tovariablemapping(q)
+
+    @property
+    def state(self) -> jpt.variables.VariableMap:
+        """"""
+        return self._state
+
+    @state.setter
+    def state(self, s) -> None:
+        self._state = self.tovariablemapping(s)
+
+    def tovariablemapping(self, mapping) -> jpt.variables.VariableMap:
+        if isinstance(mapping, jpt.variables.VariableMap):
+            return mapping
+        elif all(isinstance(k, jpt.variables.Variable) for k, _ in mapping.items()):
+            return VariableMap([(k, v) for k, v in mapping.items()])
+        else:
+            variables = [v for _, tree in self._models.items() for v in tree.variables]
+            varnames = [v.name for v in variables]
+            try:
+                # there may be variables with identical names which are different python objects. It is assumed,
+                # however, that they are semantically the same, so each of them has to be updated
+                return VariableMap([(variables[i], v) for k, v in mapping.items() for i in [i for i, x in enumerate(varnames) if x == k]])
+                # return VariableMap([(variables[varnames.index(k)], v) for k, v in mapping.items()])
+            except ValueError:
+                raise Exception(f'Variable(s) {", ".join([k for k in mapping.keys() if k not in varnames])} are not available in models. Available variables: {varnames}')
 
     @property
     def datapaths(self) -> list:
@@ -287,7 +368,7 @@ class CALO:
         return self._datapaths
 
     @property
-    def models(self) -> dict[str, JPT]:
+    def models(self) -> defaultdict[str, JPT]:
         """The regression trees to limit the query to.
 
         :returns: the filenames of the pickled regression trees that are to be used for inference
@@ -314,9 +395,9 @@ class CALO:
     @strategy.setter
     def strategy(self, strategy) -> None:
         if isinstance(strategy, int):
-            self._strategy = CALO.DFS if strategy == 0 else CALO.BFS
+            self._strategy = {0: CALO.DFS, 1: CALO.BFS, 2: CALO.ASTAR}.get(strategy, None)
         elif isinstance(strategy, str):
-            self._strategy = CALO.DFS if strategy == 'DFS' else CALO.BFS
+            self._strategy = {'DFS': CALO.DFS, 'BFS': CALO.BFS, 'ASTAR': CALO.ASTAR, 'A*': CALO.ASTAR}.get(strategy, None)
         else:
             logger.error('Strategy is not a valid input', strategy)
 
@@ -350,120 +431,221 @@ class CALO:
         self._resulttree = ResTree(self.query, threshold=self.threshold)
         self._hypotheses = []
         self.reloadmodels()
-        logger.info(f'...done! Using models {", ".join(self.models)}')
+        logger.info(f'...done! Using models {", ".join(self.models.keys())}')
 
-        logger.info(f'Running hypothesis generation for query { {k: str(v) for k, v in self.query.items()} }, threshold {self.threshold}, strategy {"DFS" if self.strategy == 0 else "BFS"}')
+        logger.info(f'Running hypothesis generation for query { {k: str(v) for k, v in self.query.items()} }, threshold {self.threshold}, strategy {"DFS" if self.strategy == 0 else "BFS" if self.strategy == 1 else "A*"}')
 
         if self.strategy == CALO.DFS:
             self._generatepaths_dfs(self.query)
+        elif self.strategy == CALO.BFS:
+            self._generatepaths_bfs(self.query, self.state)
+        elif self.strategy == CALO.ASTAR:
+            logger.info('Calling A*...')
+            self._generatepaths_astar(self.query)
+            logger.info('after A*...')
         else:
-            self._generatepaths_bfs(self.query)
+            logger.error(f'{self.strategy} is not a valid strategy option.')
+
         logger.info(f'Found {len(self._hypotheses)} Hypothes{"is" if len(self._hypotheses) == 1 else "es"}\n{[str(h) for h in self._hypotheses]}')
         jsonlogger.info('Found Hypotheses', {k: str(v) for k, v in self.query.items()}, [h.tojson() for h in self._hypotheses])
 
-    def _generatepaths_dfs(self, query) -> None:
-        """Recursive, depth-first search variation of function to generate hypotheses
-        (paths through multiple trees) in order to satisfy query.
+    # A* Search Algorithm
+    def _generatepaths_astar(self, query) -> None:
+        # Initialize the open list
+        open = []
+        ocount = 0.
 
-        :param query: the requirement profile
-        :type query: dict
-        """
-        self._generatepaths_dfs_rec(query, Hypothesis([]))
+        # put the starting node on the open
+        # list
+        q0 = Hypothesis([])
+        q0.g = 0.
+        q0.h = 0.
+        q0.execchain(query)
 
-    def _generatepaths_dfs_rec(self, query, hyp) -> None:
-        # TODO: UPDATE
-        hyp.execchain(self.query)
-        idx = len(hyp.steps)
+        heapq.heappush(open, (0, ocount, q0))
+        ocount += 1.
 
-        if hyp.performance < self._resulttree.threshold:
-            logger.debug('{}Dropping'.format('  ' * idx), hyp.id, hyp.performance)
-            return
-        if self._satisfies(hyp.result, self.query):
-            if self.prefixexists(hyp):
-                indices = np.argwhere([self._prefixof(hyp, h) for h in self._hypotheses])
-                isshorter = False
-                for hidx in reversed(indices):
-                    out('checking', hidx, hidx[0], self._hypotheses[hidx[0]])
-                    if len(hyp.steps) < len(self._hypotheses[hidx[0]].steps):
-                        isshorter = True
-                        logger.debug('{}Removing hypothesis'.format('  ' * idx), self._hypotheses[hidx[0]].id)
-                        self._hypotheses.remove(self._hypotheses[hidx[0]])
-                if isshorter:
-                    logger.debug('{}Adding shorter hypothesis'.format('  ' * idx), hyp.id)
-                    self._hypotheses.append(hyp)
-            else:
-                logger.info('{}Found valid hypothesis. Adding'.format('  ' * idx), hyp.id)
-                self._hypotheses.append(hyp)
-            return
-        candidates = self._generate_candidates(query)
-        for cidx, c in enumerate(candidates):
-            q = edict(query) + c.path - self.models['{}.tree'.format(c.leaf.treename)].targets
-            if q in hyp.queries: continue
-            h_ = hyp.copy(c.idx)
-            h_.addstep(c)
-            h_.queries.append(q)
-            self._generatepaths_dfs_rec(q, h_)
+        query_ = query
 
-    def _generatepaths_bfs(self, query) -> None:
-        """Breadth-first search variation of function to generate hypotheses
-         (paths through multiple trees) in order to satisfy `query`.
-         The hypotheses are assembled from the last step to the first, prepending
-         one step after another.
+        # initialize the closed list
+        closed = []
+        ccount = 0.
 
-        :param query: the requirement profile
-        :type query: dict
-        """
-        self._generatepaths_bfs_rec([query], [Hypothesis([])])
+        # while the open list is not empty
+        while open:
+            # find the node with the least f on the open list, call it "q" and pop it off the open list
+            f, _, q = heapq.heappop(open)
 
-    def _generatepaths_bfs_rec(self, queries, hyps) -> None:
-        if not hyps:
-            return
+            # GOAL CHECK: accept hypothesis if it satisfies the given query; i.e. if it is a goal state AND
+            # preconditions are met
+            if self._satisfies(self.tovariablemapping({v.name: res.result for v, res in q.result.items()}), query) and self._satisfies(q.precond, self.state):
+                logger.warning(self.tovariablemapping({v.name: res.result for v, res in q.result.items()}))
+                logger.error(self.state, self.tovariablemapping({v.name: val for v, val in q.steps[0].path.items()}))
+                logger.info(f'Found valid hypothesis. Adding {q.id}')
+                self._hypotheses.append(q)
 
-        hyps_ = []
-        queries_ = []
-        for h, query in zip(hyps, queries):
-            # run current hypothesis on trees
-            h.execchain(self.query)
-            idx = len(h.steps)
+            # generate q's predecessors
+            predecessors = self._generate_candidates(query_)
 
-            # drop current hypothesis if its probability is below the threshold set by the user
-            if h.performance < self._resulttree.threshold:  # FIXME: find better performance measure for hypothesis (less dependent on length of chain)
-                logger.debug(f'{"  "*idx}Dropping hypothesis {h.id} with probability {h.performance} < {self._resulttree.threshold}')
-                continue
-            # add hypothesis to final result if it satisfies the given query
-            if self._satisfies(h.result, self.query):
-                # .. only if there is no equivalent hypothesis that is shorter (= has less steps)
-                if not self.prefixexists(h):
-                    logger.info(f'{"  "*idx}Found valid hypothesis. Adding {h.id}')
-                    self._hypotheses.append(h)
-                continue
-            # generate candidates that match current query
-            candidates = self._generate_candidates(query)
-            for cidx, c in enumerate(candidates):
-                # update query such that it merges the old query with the requirements from the following steps
-                cpath = {var: var.domain.value2label(val) for var, val in c.path.items()}
-                q = edict(query) + cpath - c.tree.targets
+            # for each predecessor
+            for pred in predecessors:
+                query_ = self.tovariablemapping(edict({k.name: v for k, v in query.items()}) + {k.name.replace('_in', '_out'): v for k, v in pred.path.items()})
 
-                if q in h.queries: continue
-                h_ = h.copy(c.idx)
-                h_.addstep(c)
-                h_.queries.append(q)
-                hyps_.append(h_)
-                queries_.append(q)
+                # if the current hypothesis already contains the query_, it will create loops by adding this predecessor
+                # and will therefore be useless, so skip it
+                if query_ in q.queries:
+                    logger.debug(f'Dropping predecessor {pred.idx} for hypothesis {q_.id} as it would create loops.')
+                    continue
 
-        self._generatepaths_bfs_rec(queries_, hyps_)
+                q_ = q.copy(pred.idx)
+                q_.addstep(pred, query_)
+                q_.precond = self.tovariablemapping({v.name: val for v, val in pred.path.items()})
+                q_.execchain(query_)
+
+                # compute both g and h for the new hypothesis containing this predecessor
+                #   newhyp.g = distance between q_ and q
+                #   newhyp.h = estimated distance from goal to q_; i.e. how close is current 'state' from the initial
+                #   query
+                q_.g = self._stepcost(q_)
+                q_.h = self._heuristic(q_, query_)
+
+                # if there is an equivalent hypothesis that is shorter (= has fewer steps), skip this successor
+                if self.equivexists(q_):
+                    logger.debug(f'Dropping hypothesis {q_.id}. Prefix or equivalent exists.')
+                    continue
+
+                if q_.loops():
+                    logger.debug(f'Dropping hypothesis {q_.id}. Loops.')
+                    continue
+
+                # if a node with the same position as successor is in the CLOSED list which has a lower f than
+                #   successor, skip this successor otherwise, add  the node to the open list
+                # ... but only if it is not dropped due to a performance lower than required by the user
+                if q_.performance < self._resulttree.threshold:
+                    logger.debug(f'Dropping hypothesis {q_.id} with probability {q_.performance} < {self._resulttree.threshold}')
+                    continue
+                heapq.heappush(open, (q_.f, ocount, q_))
+                ocount += 1.
+
+            # push q on the closed list
+            heapq.heappush(closed, (q.f, ccount, q))
+            ccount += 1
+            out('__________________________\n')
+
+    # def _generatepaths_dfs(self, query) -> None:
+    #     """Recursive, depth-first search variation of function to generate hypotheses
+    #     (paths through multiple trees) in order to satisfy query.
+    #
+    #     :param query: the requirement profile
+    #     :type query: jpt.variables.VariableMap
+    #     """
+    #     return self._generatepaths_dfs_rec(query, Hypothesis([]))
+    #
+    # def _generatepaths_dfs_rec(self, query, hyp) -> None:
+    #     # TODO: UPDATE
+    #     hyp.execchain(self.query)
+    #     idx = len(hyp.steps)
+    #
+    #     if hyp.performance < self._resulttree.threshold:
+    #         logger.debug('{}Dropping'.format('  ' * idx), hyp.id, hyp.performance)
+    #         return
+    #     if self._satisfies(hyp.result, self.query):
+    #         if self.equivexists(hyp):
+    #             indices = np.argwhere([self._prefixof(hyp, h) for h in self._hypotheses])
+    #             isshorter = False
+    #             for hidx in reversed(indices):
+    #                 out('checking', hidx, hidx[0], self._hypotheses[hidx[0]])
+    #                 if len(hyp.steps) < len(self._hypotheses[hidx[0]].steps):
+    #                     isshorter = True
+    #                     logger.debug('{}Removing hypothesis'.format('  ' * idx), self._hypotheses[hidx[0]].id)
+    #                     self._hypotheses.remove(self._hypotheses[hidx[0]])
+    #             if isshorter:
+    #                 logger.debug('{}Adding shorter hypothesis'.format('  ' * idx), hyp.id)
+    #                 self._hypotheses.append(hyp)
+    #         else:
+    #             logger.info('{}Found valid hypothesis. Adding'.format('  ' * idx), hyp.id)
+    #             self._hypotheses.append(hyp)
+    #         return
+    #     candidates = self._generate_candidates(query)
+    #     for cidx, c in enumerate(candidates):
+    #         q = edict(query) + c.path - self.models['{}.tree'.format(c.leaf.treename)].targets
+    #         if q in hyp.queries: continue
+    #         h_ = hyp.copy(c.idx)
+    #         h_.addstep(c)
+    #         h_.queries.append(q)
+    #         self._generatepaths_dfs_rec(q, h_)
+    #
+    # def _generatepaths_bfs(self, query, state) -> None:
+    #     """Breadth-first search variation of function to generate hypotheses
+    #      (paths through multiple trees) in order to satisfy `query`.
+    #      The hypotheses are assembled from the last step to the first, prepending
+    #      one step after another.
+    #
+    #     :param query: the requirement profile
+    #     :type query: jpt.variables.VariableMap
+    #     """
+    #     self._generatepaths_bfs_rec([query], [state], [Hypothesis([])])
+    #
+    # def _generatepaths_bfs_rec(self, queries, states, hyps) -> None:
+    #     if not hyps:
+    #         return
+    #
+    #     hyps_ = []
+    #     queries_ = []
+    #     states_ = []
+    #     for h, query in zip(hyps, queries):
+    #         # run current hypothesis on trees
+    #         h.execchain(self.query)
+    #         idx = len(h.steps)
+    #
+    #         # drop current hypothesis if its probability is below the threshold set by the user
+    #         if h.performance < self._resulttree.threshold:  # FIXME: find better performance measure for hypothesis (less dependent on length of chain)
+    #             logger.debug(f'{"  "*idx}Dropping hypothesis {h.id} with probability {h.performance} < {self._resulttree.threshold}')
+    #             continue
+    #         # accept hypothesis if it satisfies the given query
+    #         if self._satisfies(self.tovariablemapping({v.name.replace('_out', '_in'): res.result for v, res in h.result.items()}), self.query):
+    #             # ... but only if there is no equivalent hypothesis that is shorter (= has fewer steps)
+    #             if not self.equivexists(h):
+    #                 logger.info(f'{"  "*idx}Found valid hypothesis. Adding {h.id}')
+    #                 self._hypotheses.append(h)
+    #             continue
+    #         # generate candidates that match current query
+    #         candidates = self._generate_candidates(query)
+    #         for cidx, c in enumerate(candidates):
+    #             # update query such that it merges the old query with the requirements from the following steps
+    #             # q_ = edict(query) + c.path - [v.name for v in c.tree.targets]
+    #             # q_ = self.tovariablemapping(edict({k.name: v for k, v in query.items()}) + {k.name.replace('_in', '_out'): v for k, v in c.path.items()})
+    #             q_ = self.tovariablemapping(edict({k.name: v for k, v in query.items()}) + {k.name.replace('_in', '_out'): v for k, v in c.path.items()})
+    #             # s_ = self.tovariablemapping(edict({k.name: v for k, v in state.items()}) + {v.name.replace('_out', '_in'): res.result for v, res in h.result.items()})
+    #             # s_ = self.tovariablemapping(edict({k.name: v for k, v in state.items()}) + {k.name: v for k, v in c.path.items()})
+    #
+    #             if q_ in h.queries: continue
+    #             h_ = h.copy(c.idx)
+    #             h_.addstep(c)
+    #             h_.queries.append(q_)
+    #             hyps_.append(h_)
+    #             # states_.append(s_)
+    #             queries_.append(q_)
+    #
+    #     self._generatepaths_bfs_rec(queries_, states_, hyps_)
 
     def _generate_candidates(self, query) -> list[Step]:
-        return [Step(confs, path, tree, treename=treename) for treename, tree in self.models.items() for idx, (confs, path) in enumerate(tree.reverse(query))]
+        """
 
-    def prefixexists(self, hyp) -> bool:
-        """Checks if any of the already added hypotheses is a prefix of ``hyp``, i.e. ``hyp`` contains unnecessary
-        steps.
+        :param query: a variable-interval mapping
+        :type query: jpt.variables.VariableMap
+        """
+        return [Step(confs, path, tree, treename=treename) for treename, tree in self.models.items() for idx, (confs, path) in enumerate(tree.reverse({k.name: v for k, v in query.items()}))]
+
+    def equivexists(self, hyp) -> bool:
+        """Checks if any of the already added hypotheses is prefix of ``hyp``, i.e. ``hyp`` contains unnecessary
+        steps, or TODO is an equivalent of ``hyp`` with a lower or equal performance
 
         :param hyp: the current hypothesis under consideration
-        :type hyp: core.base.Hypothesis
+        :type hyp: calo.core.base.Hypothesis
         :rtype: bool
         """
+
         return any([self._prefixof(hyp, hyp2) for hyp2 in self._hypotheses])
 
     def _prefixof(self, h1, h2) -> bool:
@@ -474,36 +656,34 @@ class CALO:
 
     @staticmethod
     def _satisfies(sigma, rho) -> bool:
-        """Checks if a colored state ``sigma`` satisfies the requirement profile ``rho``, i.e. ``φ |= σ``
+        """Checks if a state ``sigma`` satisfies the requirement profile ``rho``, i.e. ``φ |= σ``
 
-        :param sigma: a colored state, i.e. property-value mapping
-        :type sigma: Dict[jpt.variables.Variable, jpt.trees.ExpectationResult]
-        :param rho: a requirement profile, i.e. property name-interval or property name-values mapping
-        :type rho: Dict[str, (ContinuousSet, str)]
+        :param sigma: a state, e.g. a property-value mapping or position
+        :type sigma: jpt.variables.VariableMap
+        :param rho: a requirement profile, e.g. a property name-interval, property name-values mapping or position
+        :type rho: jpt.variables.VariableMap
         :returns: whether the state satisfies the requirement profile
         :rtype: bool
         """
-        sigma_ = {var.name: val for var, val in sigma.items()}
-
         # if any property defined in original requirement profile cannot be found in result
-        if any(x not in sigma_ for x in rho.keys()):
+        if any(x not in sigma for x in rho.keys()):
             return False
 
-        # value of any resulting property needs to match interval defined in requirement profile (if present)
+        # value of any resulting variable needs to match interval defined in requirement (if present)
         for k, v in rho.items():
-            if k in [var.name for var in sigma]:
+            if k in sigma:
                 if isinstance(v, ContinuousSet):
-                    if not v.contains_value(sigma_[k].result):
+                    if not v.contains_value(sigma[k]):
                         return False
                     # FIXME: check for expected value or enclosing interval?
                     # if not v.contains_interval(ContinuousSet(sigma[k].lower, sigma[k].upper)):
                     #     return False
                 elif isinstance(v, list):
                     # case symbolic variable, v should be list
-                    if not sigma_[k].result in v:
+                    if not sigma[k] in v:
                         return False
                 else:
-                    if not sigma_[k].result == v:
+                    if not sigma[k] == v:
                         return False
         return True
 
@@ -533,7 +713,7 @@ class CALO:
 
         if 'tree' in model:
             logger.debug('Training regression tree')
-            tree = JPT(name=name)
+            tree = JPT()
             tree.learn(data)
             tree.plot(filename='{}-tree'.format(name), directory=os.path.join(path, 'plots'))
             tree.pickle(os.path.join(path, '{}.tree'.format(name)))

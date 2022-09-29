@@ -1,5 +1,9 @@
+import math
+import os
+
 import dnutils
 import numpy as np
+from dnutils import out
 from jpt.base.intervals import ContinuousSet
 from matplotlib import pyplot as plt
 
@@ -24,63 +28,123 @@ def runcalo():
     # starting position / initial direction
     start_x = 0
     start_y = 0
-    xdir = 0
-    ydir = 1
+    start_xdir = 0
+    start_ydir = 1
 
     # goal position
-    goal_x = 5
-    goal_y = 5
+    goal_x = 2 # 2  # 60
+    goal_y = 7 # 6  # 20
+    # goal_xdir = .6
+    # goal_ydir = .6
 
-    # query is difference from goal and start
-    deltax = goal_x-start_x
-    deltay = goal_y-start_y
 
-    deltaxdir = goal_x - xdir
-    deltaydir = goal_y - ydir
-
-    normfactor = np.linalg.norm([deltaxdir, deltaydir])
-    deltaxdirnorm = deltaxdir / normfactor
-    deltaydirnorm = deltaydir / normfactor
-
-    # init calo
-    calo = CALO()
-    calo.adddatapath(locs.logs)
-    calo.reloadmodels()
-
+    factor = .5
+    initstate = {
+        'x_in': 0,
+        'y_in': 0,
+        'xdir_in': start_xdir,
+        'ydir_in': start_ydir
+    }
     q = {
-        'deltax': ContinuousSet(deltax - 2.5, deltax + 2.5),
-        'deltay': ContinuousSet(deltay - 2.5, deltay + 2.5),
-        'deltaxdir': ContinuousSet(deltaxdirnorm - 2.5, deltaxdirnorm + 2.5),
-        'deltaydir': ContinuousSet(deltaydirnorm - 2.5, deltaydirnorm + 2.5),
+        # 'x_out': ContinuousSet(goal_x - factor*goal_x, goal_x + factor*goal_x),
+        'x_out': ContinuousSet(1.4, 1.8),
+        # 'y_out': ContinuousSet(goal_y - factor*goal_y, goal_y + factor*goal_y)
+        'y_out': ContinuousSet(5.6, 6.2)
+        # 'xdir_out': ContinuousSet(goal_xdir - .3, goal_xdir + .3),
+        # 'ydir_out': ContinuousSet(goal_ydir - .3, goal_ydir + .3),
     }
 
+    out(q)
+    def g(hyp):
+        out(hyp.result)
+        steps = 0.
+        for step in hyp.steps:
+            if 'numsteps' in step.leaf.value:
+                steps += step.leaf.value["numsteps"].expectation()
+            else:
+                steps += 1  # constant value for turn step or step.leaf.value["angle"].expectation()
+        return steps
+
+    def h(hyp, curq):
+        dist = 0.
+        orientationdiff = 0.
+        for step in hyp.steps:
+            if "x_in" in step.leaf.value and "y_in" in step.leaf.value:
+                # distance from first step (= "start" of hypothesis) to start state
+                dist += abs(step.leaf.value['x_in'].expectation() - 0.) + abs(step.leaf.value['y_in'].expectation() - 0.)
+                return dist
+            if "xdir_in" in step.leaf.value and "ydir_in" in step.leaf.value:
+                # difference in orientation from first step to start state
+                rad = math.atan2(step.leaf.value['ydir_in'].expectation() - start_ydir, step.leaf.value['xdir_in'].expectation() - start_xdir)
+                deg = abs(math.degrees(rad))
+                orientationdiff += deg
+                return orientationdiff
+        return dist + orientationdiff
+
+
+    # init calo
+    calo = CALO(stepcost=g, heuristic=h)
+    # calo.adddatapath(os.path.join(locs.examples, 'robotaction'))
+    calo.adddatapath(os.path.join(locs.examples, 'robotaction-mini'))
     calo.query = q
-    calo.strategy = CALO.BFS
+    calo.state = initstate
+    calo.strategy = CALO.ASTAR
     calo.infer()
 
-    # plot start position and direction
-    plt.scatter(start_x, start_y, marker='*', label='Start', c='k')
-    plt.quiver(start_x, start_y, xdir, ydir, label='init dir', color='k')
+    fig, ax = plt.subplots()
 
+    # plot start position and direction
+    ax.scatter(start_x, start_y, marker='*', label='Start', c='k')
+    ax.quiver(start_x, start_y, start_xdir, start_ydir, color='k', width=0.001)
+
+    tleaves = []
+    mleaves = []
     # plot results
-    for h in calo.hypotheses:
-        x = start_x + h.result['deltax'].result
-        y = start_y + h.result['deltay'].result
+    c = np.random.rand(len(calo.hypotheses))
+    X = []
+    Y = []
+    XDIR = []
+    YDIR = []
+    lbls = []
+    for j, h in enumerate(calo.hypotheses):
+        x = start_x + h.result['x_out'].result
+        y = start_y + h.result['y_out'].result
+        dirx = start_x + h.result['xdir_out'].result
+        diry = start_y + h.result['ydir_out'].result
 
         # generate plot legend labels
         steps = f'{len(h.steps)} Steps: '
         for i, s in enumerate(h.steps):
             if "MOVEFORWARD" in s.treename:
                 steps += f'{i}: MOVE {s.leaf.value["numsteps"].expectation():.2f} STEPS (Leaf {s.leaf.idx}); '
+                mleaves.append(s.leaf.idx)
             else:
                 steps += f'{i}: TURN {s.leaf.value["angle"].expectation():.2f} DEGREES (Leaf {s.leaf.idx}); '
-        plt.scatter(x, y, marker='*', label=steps)
+                tleaves.append(s.leaf.idx)
 
+        X.append(x)
+        Y.append(y)
+        XDIR.append(start_x - dirx)
+        YDIR.append(start_y - diry)
+        lbls.append(steps)
+
+    ax.scatter(X, Y, marker='*', label=lbls, c=c)
+    ax.quiver([start_x]*len(X), [start_y]*len(Y), XDIR, YDIR, c, width=0.001)
+
+    for i, txt in enumerate(lbls):
+        ax.annotate(txt, (X[i], Y[i]))
+
+    print('---------------------------------------------------------------')
+    print('Turn leaves', set(sorted(tleaves)))
+    print('Move leaves', set(sorted(mleaves)))
+    print('STEPS', ',\n'.join(lbls))
     # plot goal position and direction
-    plt.scatter(goal_x, goal_y, marker='*', label='Goal', c='green')
-    plt.quiver(goal_x, goal_y, deltaxdir, deltaydir, label='goal dir', color='green')
+    ax.scatter(goal_x, goal_y, marker='*', label='Goal', c='green')
+    ax.quiver(goal_x, goal_y, goal_x-start_x, goal_y-start_y, color='green', width=0.001)
 
     plt.grid()
+    plt.xlim(-2, 100)
+    plt.ylim(-2, 100)
     plt.legend()
     plt.show()
 
@@ -91,6 +155,16 @@ if __name__ == '__main__':
 
 
 
-
-
-
+#
+# import os
+# from jpt.trees import JPT
+# from calo.utils import locs
+# p = os.path.join(locs.examples, 'robotaction-mini', '2022-09-19_08:48-ALL-TURN.tree')
+# tree = JPT.load(p)
+# l = tree.leaves[26]
+# q = {k.name: k.domain.value2label(v) for k,v in l.path.items()}
+# tree.expectation(variables=tree.targets, evidence=q)
+# dist = l.distributions['xdir_in']
+# evset = q['xdir_in']
+# dist._p(evset)
+#

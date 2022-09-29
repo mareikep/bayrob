@@ -63,7 +63,7 @@ jsonlogger = dnutils.getlogger(calojsonlogger)
 class CALOWeb:
     def __init__(self):
         self.calo = CALODST(self)
-        self.calo.adddatapath(locs.models)
+        self.calo.adddatapath(locs.examples)
         self.radar = None
         self.wnd_reqprof = None
         self.stats = {}
@@ -88,7 +88,7 @@ class CALOWeb:
 
     @staticmethod
     def loaddescrs() -> dict:
-        fpath = os.path.join(locs.data, 'charvals.json')
+        fpath = os.path.join(locs.examples, 'paperexample', 'charvals.json')
         with open(fpath) as f:
             d = json.load(f)
         return d
@@ -171,7 +171,7 @@ class CALOWeb:
             if self.calo.is_alive():
                 self.calo.join()
             self.calo = CALODST(self)
-            self.calo.adddatapath(locs.models)
+            self.calo.adddatapath(locs.examples)
             return f(*args, **kwargs)
         return decorated
 
@@ -1063,8 +1063,7 @@ class CALOWeb:
                 comp_features = Composite(comp_profile)
                 comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
                 feature_table = Table(comp_features, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
-                expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(
-                    locs.data, 'exampledata.json'), 'r'))])
+                expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.examples, 'paperexample', 'exampledata.json'), 'r'))])
                 combo_experiments = Combo(comp_features, editable=False, items=expdata, minwidth=px(220), halign='fill', valign='fill')
 
                 def sort_by_feat(*_) -> None:
@@ -1123,7 +1122,7 @@ class CALOWeb:
                     else:
                         self.descrs[featurename] = {'name': featurename, 'id': featurename, 'min': str(minval), 'max': str(maxval), 'unit': answer[0]}
 
-                    fpath = os.path.join(locs.data, 'charvals.json')
+                    fpath = os.path.join(locs.examples, 'paperexample', 'charvals.json')
                     with open(fpath, 'w+') as fp:
                         json.dump(self.descrs, fp)
 
@@ -1546,7 +1545,7 @@ class CALOWeb:
         comp_features = Composite(comp_profile)
         comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
         feature_table = Table(comp_features, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
-        expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.data, 'exampledata.json'), 'r'))])
+        expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.examples, 'paperexample', 'exampledata.json'), 'r'))])
         combo_experiments = Combo(comp_features, editable=False, items=expdata, minwidth=self._shell.width.value/2, halign='fill', valign='fill')
 
         def sort_by_feat(*_):

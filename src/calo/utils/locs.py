@@ -29,11 +29,7 @@ else:
 
 trdparty = os.path.join(app_data, '3rdparty')
 doc = os.path.join(app_data, 'doc')
-ontologies = os.path.join(app_data, 'ontologies')
 logs = os.path.join(app_data, 'logs')
 examples = os.path.join(app_data, 'examples')
-data = os.path.join(examples, 'data')
-models = os.path.join(examples, 'trees')
-kb = os.path.join(code_base, 'kb')
 web = os.path.join(code_base, 'web')
 resource = os.path.join(web, 'resource')

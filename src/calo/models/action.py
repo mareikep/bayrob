@@ -30,34 +30,37 @@ class Move:
         return x * math.cos(deg) - y * math.sin(deg), x * math.sin(deg) + y * math.cos(deg)
 
     @staticmethod
-    def turnleft(world) -> None:
-        Move.turndeg(world, -90)
+    def turnleft(agent) -> None:
+        Move.turndeg(agent, -90)
 
     @staticmethod
-    def turnright(world) -> None:
-        Move.turndeg(world, 90)
+    def turnright(agent) -> None:
+        Move.turndeg(agent, 90)
 
     @staticmethod
-    def turndeg(world, deg=45) -> None:
+    def turndeg(agent, deg=45) -> None:
         g = Gaussian(deg, abs(Move.DEG_U * deg / 180))
-        world.dir = Move.rotate(world.dirx, world.diry, g.sample(1))
+        agent.dir = Move.rotate(agent.dirx, agent.diry, g.sample(1))
 
     @staticmethod
-    def moveforward(world, dist=1) -> None:
-        p_ = world.pos
+    def moveforward(agent, dist=1) -> None:
+        p_ = agent.pos
         for i in range(dist):
-            Move.movestep(world)
+            Move.movestep(agent)
 
-        datalogger.error(p_, world.pos, dist)
+        datalogger.debug(p_, agent.pos, dist)
 
     @staticmethod
-    def movestep(world) -> None:
+    def movestep(agent) -> None:
         g = Gaussian(Move.STEPSIZE, Move.DIST_U)
         dist = g.sample(1)
-        world.pos = world.x + world.dirx * dist, world.y + world.diry * dist
+        agent.collided = agent.world.collides([agent.x + agent.dirx * dist, agent.y + agent.diry * dist])
+        if not agent.collided:
+            agent.pos = agent.x + agent.dirx * dist, agent.y + agent.diry * dist
+
 
     @staticmethod
-    def sampletrajectory(world, actions=None, p=None, steps=10) -> np.ndarray:
+    def sampletrajectory(agent, actions=None, p=None, steps=10) -> np.ndarray:
         if p is None:
             p = []
         if actions is None:
@@ -66,9 +69,9 @@ class Move:
         poses = []
         for i in range(steps):
             action = choice(actions, replace=False, p=p)
-            action(world)
-            plt.scatter(*world.pos, marker='*', label=f'Pos {i} ({action.__name__})', c='k')
-            poses.append(world.pos + world.dir)
+            action(agent)
+            plt.scatter(*agent.pos, marker='*', label=f'Pos {i} ({action.__name__})', c='k')
+            poses.append(agent.pos + agent.dir)
 
         poses = np.array(poses)
         plt.plot(poses[:, 0], poses[:, 1], label='Trajectory')
@@ -109,23 +112,10 @@ class TrajectorySimulation:
         newy = min(self._sizey, max(0, posy + self._deltay * self.dir(self._proby)))
         return [newx, newy, self._dirxmap.get(newx-posx), self._dirymap.get(newy-posy)]
 
-    # def sample(self, n, initpos=None):
-    #     # return trajectory with n steps starting from either random or given positions
-    #     # a given position can be used to connect trajectories
-    #     samples = []
-    #     if initpos is not None:
-    #         samples.append(initpos)
-    #     else:
-    #         samples.append(self._initpos(self._sizex, self._sizey))
-    #     for i in range(n-1):
-    #         samples.append(self.step(*samples[-1][:2]))
-    #     return samples
-
     def sample(self, n=1, s=10, initpos=None) -> pd.DataFrame:
         # return n trajectories with s steps starting from either random or given positions
         # a given position can be used to connect trajectories
 
-        # trajectories = []
         if initpos is None:
             initpos = [self._initpos(self._sizex, self._sizey)]*n
         elif isinstance(initpos, (list, tuple)) and not isinstance(initpos[0], (list, tuple)):
