@@ -84,8 +84,7 @@ def runcalo():
 
     # init calo
     calo = CALO(stepcost=g, heuristic=h)
-    # calo.adddatapath(os.path.join(locs.examples, 'robotaction'))
-    calo.adddatapath(os.path.join(locs.examples, 'robotaction-mini'))
+    calo.adddatapath(os.path.join(locs.examples, 'robotaction', '2022-09-19_08:48'))
     calo.query = q
     calo.state = initstate
     calo.strategy = CALO.ASTAR
@@ -155,7 +154,7 @@ if __name__ == '__main__':
 
 
 
-#
+
 # import os
 # from jpt.trees import JPT
 # from calo.utils import locs
@@ -167,4 +166,4 @@ if __name__ == '__main__':
 # dist = l.distributions['xdir_in']
 # evset = q['xdir_in']
 # dist._p(evset)
-#
+
