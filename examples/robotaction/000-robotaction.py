@@ -105,9 +105,9 @@ def jpt_moveforward(dt):
     # FIXME: use targets=movevars[2:5] once JSON error (bool not JSON serializable) is fixed
     # jpt_moveforward = JPT(variables=movevars, targets=movevars[2:5], min_samples_leaf=.02)
     jpt_moveforward = JPT(variables=movevars, targets=movevars[4:6], min_samples_leaf=int(data_moveforward.shape[0] * 0.01))
-    jpt_moveforward.learn(columns=data_moveforward.values.T)
+    jpt_moveforward.learn(columns=data_moveforward.values.T, keep_samples=True)
     jpt_moveforward.save(os.path.join(locs.examples, 'robotaction', dt, f'ALL-MOVEFORWARD.tree'))
-    logger.debug('...done! Plotting TURN tree...')
+    logger.debug('...done! Plotting MOVEFORWARD tree...')
     jpt_moveforward.plot(title='MOVEFORWARD', plotvars=movevars, filename=f'ALL-MOVEFORWARD', directory=os.path.join(locs.examples, 'robotaction', dt))
     logger.debug('...done!')
 
@@ -119,7 +119,7 @@ def jpt_turn(dt):
     data_turn = pd.read_csv(os.path.join(locs.examples, 'robotaction', dt, f'ALL-TURN.csv'), delimiter=',', header=0)
     turnvars = infer_from_dataframe(data_turn, unique_domain_names=True)
     jpt_turn = JPT(variables=turnvars, targets=turnvars[2:4], min_samples_leaf=int(data_turn.shape[0] * 0.01))
-    jpt_turn.learn(columns=data_turn.values.T)
+    jpt_turn.learn(columns=data_turn.values.T, keep_samples=True)
     jpt_turn.save(os.path.join(locs.examples, 'robotaction', dt, f'ALL-TURN.tree'))
     logger.debug('...done! Plotting TURN tree...')
     jpt_turn.plot(title='TURN', plotvars=turnvars, filename=f'ALL-TURN', directory=os.path.join(locs.examples, 'robotaction', dt))
@@ -129,6 +129,7 @@ def jpt_turn(dt):
 if __name__ == '__main__':
     init_loggers(level='debug')
     DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
+    DT = f'2022-09-19_08:48'
     # DT = f'2022-09-14_08:44'
     if not os.path.exists(os.path.join(locs.examples, 'robotaction', DT)):
         os.mkdir(os.path.join(locs.examples, 'robotaction', DT))
