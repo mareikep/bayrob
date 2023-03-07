@@ -1,16 +1,17 @@
-import math
 import os
+from pathlib import Path
 
 import dnutils
 import numpy as np
-from dnutils import out
-from jpt.base.intervals import ContinuousSet
 from matplotlib import pyplot as plt
 
-from calo.core.base import CALO
+from calo.core.caloastar import CALOAStar
+from calo.core.hypothesis_robot import Hypothesis_Robot
 from calo.logs.logs import init_loggers
 from calo.utils import locs
 from calo.utils.constants import calologger
+from jpt import JPT
+from jpt.base.intervals import ContinuousSet
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -31,64 +32,45 @@ def runcalo():
     start_xdir = 0
     start_ydir = 1
 
-    # goal position
-    goal_x = 2 # 2  # 60
-    goal_y = 7 # 6  # 20
-    # goal_xdir = .6
-    # goal_ydir = .6
+    # goal position: ex. (-16, -9)
+    # goal_x = -16
+    # goal_y = -9
+    goal_x = -10
+    goal_y = -10
 
-
-    factor = .5
-    initstate = {
-        'x_in': 0,
-        'y_in': 0,
+    start = {
+        'x_in': start_x,
+        'y_in': start_y,
         'xdir_in': start_xdir,
         'ydir_in': start_ydir
     }
-    q = {
-        # 'x_out': ContinuousSet(goal_x - factor*goal_x, goal_x + factor*goal_x),
-        'x_out': ContinuousSet(1.4, 1.8),
-        # 'y_out': ContinuousSet(goal_y - factor*goal_y, goal_y + factor*goal_y)
-        'y_out': ContinuousSet(5.6, 6.2)
-        # 'xdir_out': ContinuousSet(goal_xdir - .3, goal_xdir + .3),
-        # 'ydir_out': ContinuousSet(goal_ydir - .3, goal_ydir + .3),
+
+    goal = {
+        'x_out': goal_x,
+        'y_out': goal_y,
     }
 
-    out(q)
-    def g(hyp):
-        out(hyp.result)
-        steps = 0.
-        for step in hyp.steps:
-            if 'numsteps' in step.leaf.value:
-                steps += step.leaf.value["numsteps"].expectation()
-            else:
-                steps += 1  # constant value for turn step or step.leaf.value["angle"].expectation()
-        return steps
+    models = dict([(treefile.name, JPT.load(str(treefile))) for p in [os.path.join(locs.examples, 'robotaction', '2022-09-14_08:44')] for treefile in Path(p).rglob('*.tree')])
+    tolerance = .3
 
-    def h(hyp, curq):
-        dist = 0.
-        orientationdiff = 0.
-        for step in hyp.steps:
-            if "x_in" in step.leaf.value and "y_in" in step.leaf.value:
-                # distance from first step (= "start" of hypothesis) to start state
-                dist += abs(step.leaf.value['x_in'].expectation() - 0.) + abs(step.leaf.value['y_in'].expectation() - 0.)
-                return dist
-            if "xdir_in" in step.leaf.value and "ydir_in" in step.leaf.value:
-                # difference in orientation from first step to start state
-                rad = math.atan2(step.leaf.value['ydir_in'].expectation() - start_ydir, step.leaf.value['xdir_in'].expectation() - start_xdir)
-                deg = abs(math.degrees(rad))
-                orientationdiff += deg
-                return orientationdiff
-        return dist + orientationdiff
-
+    goal_ = {
+        'x_out': ContinuousSet(goal['x_out'] - abs(tolerance * goal['x_out']),
+                               goal['x_out'] + abs(tolerance * goal['x_out'])),
+        'y_out': ContinuousSet(goal['y_out'] - abs(tolerance * goal['y_out']),
+                               goal['y_out'] + abs(tolerance * goal['y_out']))
+    }
 
     # init calo
-    calo = CALO(stepcost=g, heuristic=h)
-    calo.adddatapath(os.path.join(locs.examples, 'robotaction', '2022-09-19_08:48'))
-    calo.query = q
-    calo.state = initstate
-    calo.strategy = CALO.ASTAR
-    calo.infer()
+    castar = CALOAStar(Hypothesis_Robot, start, goal_, models=models)
+    pathb = castar.search()
+    print(pathb)
+
+    # bidir_astar = BiDirAStar(CALOAStar, init, goal, g=g, h=h)
+    # pathb = bidir_astar.search()
+    # print(pathb)
+
+    # calo = CALO(CALOAStar, initstate, q, datapaths=[os.path.join(locs.examples, 'robotaction', '2022-09-14_08:44')], stepcost=g, heuristic=h)
+    # calo.infer()
 
     fig, ax = plt.subplots()
 
@@ -99,13 +81,13 @@ def runcalo():
     tleaves = []
     mleaves = []
     # plot results
-    c = np.random.rand(len(calo.hypotheses))
+    c = np.random.rand(len(pathb))
     X = []
     Y = []
     XDIR = []
     YDIR = []
     lbls = []
-    for j, h in enumerate(calo.hypotheses):
+    for j, h in enumerate(pathb):
         x = start_x + h.result['x_out'].result
         y = start_y + h.result['y_out'].result
         dirx = start_x + h.result['xdir_out'].result
@@ -128,7 +110,7 @@ def runcalo():
         lbls.append(steps)
 
     ax.scatter(X, Y, marker='*', label=lbls, c=c)
-    ax.quiver([start_x]*len(X), [start_y]*len(Y), XDIR, YDIR, c, width=0.001)
+    ax.quiver([start_x]*len(X), [start_y]*len(Y), XDIR, YDIR, c, width=0.001)  # FIXME: direction vector needs to be relative!
 
     for i, txt in enumerate(lbls):
         ax.annotate(txt, (X[i], Y[i]))
@@ -151,19 +133,3 @@ def runcalo():
 if __name__ == '__main__':
     init_loggers(level='debug')
     runcalo()
-
-
-
-
-# import os
-# from jpt.trees import JPT
-# from calo.utils import locs
-# p = os.path.join(locs.examples, 'robotaction-mini', '2022-09-19_08:48-ALL-TURN.tree')
-# tree = JPT.load(p)
-# l = tree.leaves[26]
-# q = {k.name: k.domain.value2label(v) for k,v in l.path.items()}
-# tree.expectation(variables=tree.targets, evidence=q)
-# dist = l.distributions['xdir_in']
-# evset = q['xdir_in']
-# dist._p(evset)
-

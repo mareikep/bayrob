@@ -10,12 +10,75 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from typing import List
 
+import jpt
+from calo.core.hypothesis import Step
 from calo.utils import locs
 from calo.utils.constants import calologger
 from calo.utils.constants import xlsHEADER, xlsNUM, xlsDATE
+from jpt.base.intervals import ContinuousSet
 
+from jpt.variables import VariableMap
 
 logger = dnutils.getlogger(calologger)
+
+
+def satisfies(sigma, rho) -> bool:
+    """Checks if a state ``sigma`` satisfies the requirement profile ``rho``, i.e. ``φ |= σ``
+
+    :param sigma: a state, e.g. a property-value mapping or position
+    :type sigma: jpt.variables.VariableMap
+    :param rho: a requirement profile, e.g. a property name-interval, property name-values mapping or position
+    :type rho: jpt.variables.VariableMap
+    :returns: whether the state satisfies the requirement profile
+    :rtype: bool
+    """
+    # if any property defined in original requirement profile cannot be found in result
+    if any(x not in sigma for x in rho.keys()):
+        return False
+
+    # value of any resulting variable needs to match interval defined in requirement (if present)
+    for k, v in rho.items():
+        if k in sigma:
+            if isinstance(v, ContinuousSet):
+                if not v.contains_value(sigma[k]):
+                    return False
+                # FIXME: check for expected value or enclosing interval?
+                # if not v.contains_interval(ContinuousSet(sigma[k].lower, sigma[k].upper)):
+                #     return False
+            elif isinstance(v, list):
+                # case symbolic variable, v should be list
+                if not sigma[k] in v:
+                    return False
+            else:
+                if not sigma[k] == v:
+                    return False
+    return True
+
+
+def tovariablemapping(mapping, models) -> jpt.variables.VariableMap:
+    if isinstance(mapping, jpt.variables.VariableMap):
+        return mapping
+    elif all(isinstance(k, jpt.variables.Variable) for k, _ in mapping.items()):
+        return VariableMap([(k, v) for k, v in mapping.items()])
+    else:
+        variables = [v for _, tree in models.items() for v in tree.variables]
+        varnames = [v.name for v in variables]
+        try:
+            # there may be variables with identical names which are different python objects. It is assumed,
+            # however, that they are semantically the same, so each of them has to be updated
+            return VariableMap([(variables[i], v) for k, v in mapping.items() for i in [i for i, x in enumerate(varnames) if x == k]])
+            # return VariableMap([(variables[varnames.index(k)], v) for k, v in mapping.items()])
+        except ValueError:
+            raise Exception(f'Variable(s) {", ".join([k for k in mapping.keys() if k not in varnames])} are not available in models. Available variables: {varnames}')
+
+
+# def generate_candidates(query, models) -> List[Step]:
+#     """
+#
+#     :param query: a variable-interval mapping
+#     :type query: jpt.variables.VariableMap
+#     """
+#     return [Step(confs, path, treename, query) for treename, tree in models.items() for idx, (confs, path) in enumerate(tree.reverse({k.name: v for k, v in query.items()}))]
 
 
 def res(p):
