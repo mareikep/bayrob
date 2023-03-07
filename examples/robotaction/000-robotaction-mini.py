@@ -15,6 +15,7 @@ from jpt import infer_from_dataframe, JPT
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 RUNS = 10
+ACTIONS = 10
 
 
 def robot_pos_random(dt):
@@ -32,7 +33,7 @@ def robot_pos_random(dt):
         w.obstacle(-1, 1, 0, 4)
         a.world = w
 
-        for action in range(10):
+        for action in range(ACTIONS):
             deg = randint(-180, 180)
             turns.append(a.dir + (deg,))
             Move.turndeg(a, deg)
