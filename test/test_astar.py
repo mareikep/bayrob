@@ -2,6 +2,7 @@ import math
 import unittest
 
 from calo.core.astar import AStar, Node, BiDirAStar
+from typing import List, Any
 
 
 class SubNode(Node):
@@ -47,7 +48,7 @@ class SubAStar(AStar):
         self.goal = SubNode(goal[1], goal[0], goal[1], goal[0], 99999, None)
         super().__init__(self.start, self.goal)
 
-    def generate_successors(self, node):
+    def generate_successors(self, node) -> List[Node]:
         successors = []
         for action in SubAStar.DELTA:
             pos_x = node.pos_x + action[1]
@@ -72,10 +73,10 @@ class SubAStar(AStar):
             )
         return successors
 
-    def isgoal(self, node, onlygoal=True):
+    def isgoal(self, node) -> bool:
         return node.pos == self.target.pos
 
-    def retrace_path(self, node):
+    def retrace_path(self, node) -> Any:
         current_node = node
         path = []
         while current_node is not None:
