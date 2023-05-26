@@ -4,7 +4,6 @@ import os
 import dnutils
 from calo import config
 
-from calo.database import connection
 from calo.utils import locs
 from calo.utils.constants import calologger, calojsonlogger, calofileloggerv, calofileloggerr, \
     FILESTRFMT, resultlog, logs
@@ -19,6 +18,8 @@ LEVELS = {'debug': dnutils.DEBUG,
 
 def init_loggers(level='info') -> None:
     if 'mongo' in config and config.getboolean('mongo', 'available', fallback=False):
+        from calo.database import connection
+
         loggers = {
             calologger: dnutils.newlogger(dnutils.logs.console,
                                           dnutils.logs.MongoHandler(connection.logs.calologdebug, checkkeys=False), level=LEVELS.get(level)),
