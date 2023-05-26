@@ -312,13 +312,83 @@ def _actions_to_treedata(el, ad) -> dict:
 
 
 def dotproduct(v1, v2):
-  return sum((a*b) for a, b in zip(v1, v2))
+    return sum((a*b) for a, b in zip(v1, v2))
+
 
 def length(v):
-  return math.sqrt(dotproduct(v, v))
+    return math.sqrt(dotproduct(v, v))
+
 
 def angle(v1, v2):
-  return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
+    return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
+
 
 def angledeg(v1, v2):
     return math.degrees(angle(v1, v2))
+
+
+def vector(v1, v2):
+    return [(a-b) for a, b in zip(v2, v1)]
+
+
+def unit(v):
+    mag = length(v)
+    return np.array(v) / mag
+
+
+def distance(p0, p1):
+    return length(vector(p0, p1))
+
+
+def scale(v, sc):
+    return np.array(v) * sc
+
+
+def add(v1, v2):
+    return [(a+b) for a, b in zip(v1, v2)]
+
+
+def pnt2line(pnt, start, end):
+    '''Given a line with coordinates 'init_pos' and 'end' and the
+    coordinates of a point 'pnt' the proc returns the shortest
+    distance from pnt to the line and the coordinates of the
+    nearest point on the line.
+
+    1  Convert the line segment to a vector ('line_vec').
+    2  Create a vector connecting init_pos to pnt ('pnt_vec').
+    3  Find the length of the line vector ('line_len').
+    4  Convert line_vec to a unit vector ('line_unitvec').
+    5  Scale pnt_vec by line_len ('pnt_vec_scaled').
+    6  Get the dot product of line_unitvec and pnt_vec_scaled ('t').
+    7  Ensure t is in the range 0 to 1.
+    8  Use t to get the nearest location on the line to the end
+       of vector pnt_vec_scaled ('nearest').
+    9  Calculate the distance from nearest to pnt_vec_scaled.
+    10 Translate nearest back to the init_pos/end line.
+    Malcolm Kesson 16 Dec 2012
+
+    :param pnt: List or Tuple
+    :param start:  List or Tuple
+    :param end:  List or Tuple
+    :return:
+    '''
+    if len(pnt) == 2:
+        pnt.append(0)
+    if len(start) == 2:
+        start.append(0)
+    if len(end) == 2:
+        end.append(0)
+    line_vec = vector(start, end)
+    pnt_vec = vector(start, pnt)
+    line_len = length(line_vec)
+    line_unitvec = unit(line_vec)
+    pnt_vec_scaled = scale(pnt_vec, 1.0/line_len)
+    t = dotproduct(line_unitvec, pnt_vec_scaled)
+    if t < 0.0:
+        t = 0.0
+    elif t > 1.0:
+        t = 1.0
+    nearest = scale(line_vec, t)
+    dist = distance(nearest, pnt_vec)
+    nearest = add(nearest, start)
+    return dist, nearest
