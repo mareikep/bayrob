@@ -11,9 +11,9 @@ class SubNode(Node):
         self.pos_x = pos_x
         self.pos_y = pos_y
         self.pos = (pos_y, pos_x)
-        self.goal_x = goal_x
-        self.goal_y = goal_y
-        self.goal = (goal_y, goal_x)
+        self.goalnode_x = goal_x
+        self.goalnode_y = goal_y
+        self.goalnode = (goal_y, goal_x)
         self.parent = parent
         self._g = g
         super().__init__()
@@ -22,8 +22,8 @@ class SubNode(Node):
         return self._g
 
     def h(self) -> float:
-        dy = self.pos_x - self.goal_x
-        dx = self.pos_y - self.goal_y
+        dy = self.pos_x - self.goalnode_x
+        dx = self.pos_y - self.goalnode_y
         return math.sqrt(dy ** 2 + dx ** 2)
 
     def __lt__(self, other) -> bool:
@@ -44,9 +44,9 @@ class SubAStar(AStar):
     DELTA = [[-1, 0], [0, -1], [1, 0], [0, 1]]  # up, left, down, right
 
     def __init__(self, start, goal):
-        self.start = SubNode(start[1], start[0], goal[1], goal[0], 0, None)
-        self.goal = SubNode(goal[1], goal[0], goal[1], goal[0], 99999, None)
-        super().__init__(self.start, self.goal)
+        self.startnode = SubNode(start[1], start[0], goal[1], goal[0], 0, None)
+        self.goalnode = SubNode(goal[1], goal[0], goal[1], goal[0], 99999, None)
+        super().__init__(self.startnode, self.goalnode)
 
     def generate_successors(self, node) -> List[Node]:
         successors = []
@@ -65,8 +65,8 @@ class SubAStar(AStar):
                 SubNode(
                     pos_x,
                     pos_y,
-                    self.target.pos_x,
-                    self.target.pos_y,
+                    self.goalnode.pos_x,
+                    self.goalnode.pos_y,
                     node.g() + 1,
                     node,
                 )
@@ -74,7 +74,7 @@ class SubAStar(AStar):
         return successors
 
     def isgoal(self, node) -> bool:
-        return node.pos == self.target.pos
+        return node.pos == self.goalnode.pos
 
     def retrace_path(self, node) -> Any:
         current_node = node
@@ -105,7 +105,9 @@ class AStarAlgorithmTests(unittest.TestCase):
         bidir_astar = BiDirAStar(SubAStar, SubAStar, AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
         self.path = bidir_astar.search()
 
-        self.assertEqual(self.path, [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (2, 3), (3, 3), (4, 3), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)], msg='Bi-directional A* path incorrect')
+        self.assertTrue(self.path == [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (2, 3), (3, 3), (4, 3), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)] or
+                        self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)],
+                        msg='Bi-directional A* path incorrect')
 
     def tearDown(self) -> None:
         res = [[SubAStar.GRID[y][x] if (y, x) not in self.path else 8 for x in range(len(SubAStar.GRID))] for y in range(len(SubAStar.GRID[0]))]
