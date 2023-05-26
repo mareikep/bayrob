@@ -119,7 +119,7 @@ class BiDirAStar:
         return path
 
     def common_node(self, fnode, bnode) -> bool:
-        return bnode.pos == fnode.pos or bnode.pos == bnode.goal or fnode.pos == fnode.goal
+        return bnode.pos == fnode.pos or bnode.pos == bnode.goalnode or fnode.pos == fnode.goalnode
 
     def search(self) -> None:
         while self.f_astar.open or self.b_astar.open:
@@ -134,8 +134,8 @@ class BiDirAStar:
             heapq.heappush(self.f_astar.closed, (cur_fnode.f, cur_fnode))
             heapq.heappush(self.b_astar.closed, (cur_bnode.f, cur_bnode))
 
-            self.f_astar.target = cur_bnode
-            self.b_astar.target = cur_fnode
+            self.f_astar.goalnode = cur_bnode
+            self.b_astar.goalnode = cur_fnode
 
             successors = {
                 self.f_astar: self.f_astar.generate_successors(cur_fnode),
