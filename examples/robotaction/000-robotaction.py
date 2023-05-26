@@ -17,22 +17,24 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 RUNS = 1000
 ACTIONS = 100
 
+
 def robot_pos_random(dt):
     logger.debug('Generating random robot data...')
+
+    # init agent and world
+    w = Grid()
+    w.obstacle(25, 25, 50, 50)
+    w.obstacle(-10, 10, 0, 40)
+    w.obstacle(50, -30, 20, 10)
+    w.obstacle(-75, -10, -50, -40)
+    w.obstacle(-25, -50, -15, -75)
 
     # write sample data for MOVEFORWARD and TURN action of robot (absolute positions)
     for j in range(RUNS):
         poses = []  # for plotting
         turns = []
 
-        # init agent and world
         a = Agent([0, 0], [1, 0])
-        w = Grid()
-        w.obstacle(25, 25, 50, 50)
-        w.obstacle(-10, 10, 0, 40)
-        w.obstacle(50, -30, 20, 10)
-        w.obstacle(-75, -10, -50, -40)
-        w.obstacle(-25, -50, -15, -75)
         a.world = w
 
         for action in range(ACTIONS):
@@ -59,8 +61,12 @@ def robot_pos_random(dt):
         plt.scatter(df_moveforward['x'], df_moveforward['y'], marker='*', c='cornflowerblue')
         plt.plot(df_moveforward['x'], df_moveforward['y'], c='cornflowerblue')
         plt.scatter(df_moveforward['x'].iloc[0], df_moveforward['y'].iloc[0], marker='o', c='green', label='Start')
-        plt.scatter(df_moveforward['x'].iloc[-1], df_moveforward['y'].iloc[-1], marker='o', c='red', label='End')
-        plt.savefig(os.path.join(locs.examples, 'robotaction', dt, f'{j}-MOVE.svg'))  # TODO: if something failed, type was changed from png to svg!
+        plt.scatter(df_moveforward['x'].iloc[-1], df_moveforward['y'].iloc[-1], marker='o', c='red', label='End', zorder=1000)
+        plt.savefig(os.path.join(locs.examples, 'robotaction', dt, f'{j}-MOVE.png'), format="png")  # TODO: remove to save storage space and prevent overload of produced images
+
+    for i, o in enumerate(w.obstacles):
+        plt.annotate(f'O_{i}', (o[0] + (o[2] - o[0]) / 2, o[1] + (o[3] - o[1]) / 2))
+    plt.savefig(os.path.join(locs.examples, 'robotaction', dt, f'ALL-MOVE.png'), format="png")
 
     logger.debug('...done! Generating plot...')
 
@@ -136,13 +142,13 @@ if __name__ == '__main__':
     init_loggers(level='debug')
     DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
     # DT = f'2022-09-19_08:48'
-    # DT = f'2022-09-14_08:44'
+    DT = f'2023-05-16_14:02'
     if not os.path.exists(os.path.join(locs.examples, 'robotaction', DT)):
         os.mkdir(os.path.join(locs.examples, 'robotaction', DT))
     logger.debug(f'Running robotaction data generation with timestamp {DT}')
 
-    robot_pos_random(DT)
-    data_curation(DT)
+    # robot_pos_random(DT)
+    # data_curation(DT)
     jpt_moveforward(DT)
     jpt_turn(DT)
     
