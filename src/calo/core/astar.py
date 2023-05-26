@@ -31,14 +31,17 @@ class Node:
 
 class AStar:
     """Abstract A* class. Inheriting classes need to implement functions for
-    goal check, path retracing and successor generation."""
+    goal check, path retraction and successor generation."""
     def __init__(self, start, goal, **kwargs):
-        self.start = start
-        self.target = goal
+        """
+
+        """
+        self.startnode = start
+        self.goalnode = goal
         self.__dict__.update(kwargs)
 
         self.open = []
-        heapq.heappush(self.open, (self.start.f, self.start))
+        heapq.heappush(self.open, (self.startnode.f, self.startnode))
         self.closed = []
 
         self.reached = False
@@ -46,38 +49,37 @@ class AStar:
     def generate_successors(self, node) -> List[Node]:
         raise NotImplementedError
 
-    def isgoal(self, node, onlygoal=True) -> bool:
+    def isgoal(self, node) -> bool:
         """Check if current node is goal node"""
         raise NotImplementedError
 
     def retrace_path(self, node) -> Any:
-        """Path from start to goal"""
+        """Path from init_pos to goal"""
         raise NotImplementedError
 
     def search(self) -> None:
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
 
-            # -------------------------
-            # if self.isgoal(cur_node):
-            #     self.reached = True
-            #     return self.retrace_path(cur_node)
-            # -------------------------
-
-            # if valid hypothesis is found (hypothesis reaches goal AND precondition is init state), stop searching.
-            if self.isgoal(cur_node, onlygoal=False):
-                logger.warning('FOUND VALID HYPOTHESIS!', cur_node)
+            # OLD----------------------
+            if self.isgoal(cur_node):
                 self.reached = True
                 return self.retrace_path(cur_node)
-
-            # if hypothesis does not match goal at all b, drop it.
-            if not self.isgoal(cur_node, onlygoal=True) and cur_node.identifiers:
-                logger.warning('Hypothesis candidate', cur_node.id, 'does not match goal. Drop it!')
-                heapq.heappush(self.closed, (cf, cur_node))
-                continue
-            # else: current hypothesis promising (goal is met but no complete path yet), find new nodes to prepend
-            logger.info('Hypothesis candidate', cur_node.id, 'matches goal. Expanding!')
-            # -------------------------
+            # NEW----------------------
+            # if valid hypothesis is found (hypothesis reaches goal AND precondition is init state), stop searching.
+            # if self.isgoal(cur_node, onlygoal=False):
+            #     logger.warning('FOUND VALID HYPOTHESIS!', cur_node)
+            #     self.reached = True
+            #     return self.retrace_path(cur_node)
+            #
+            # # if hypothesis does not match goal at all, drop it. (FIXME: should not happen, as generate_successors shouldn't have selected it in the first place
+            # if not self.isgoal(cur_node, onlygoal=True) and cur_node.identifiers:
+            #     logger.warning('Hypothesis candidate', cur_node.id, 'does not match goal. Drop it!')
+            #     heapq.heappush(self.closed, (cf, cur_node))
+            #     continue
+            # # else: current hypothesis promising (goal is met but no complete path yet), find new nodes to prepend
+            # logger.info('Hypothesis candidate', cur_node.id, 'matches goal. Expanding!')
+            # /NEW---------------------
 
             heapq.heappush(self.closed, (cf, cur_node))
             successors = self.generate_successors(cur_node)
@@ -97,17 +99,17 @@ class AStar:
                         heapq.heappush(self.open, (cf_, c_))
 
         if not self.reached:
-            return self.start
+            return self.startnode
 
 
 class BiDirAStar:
 
-    def __init__(self, astar, start, goal, **kwargs):
-        self.f_astar = astar(start, goal, **kwargs)
-        self.b_astar = astar(goal, start, **kwargs)
+    def __init__(self, fastar, bastar, start, goal, **kwargs):
+        self.f_astar = fastar(start, goal, **kwargs)
+        self.b_astar = bastar(goal, start, **kwargs)
         self.reached = False
 
-    def retrace_path(self, fnode, bnode):
+    def retrace_path(self, fnode, bnode) -> Any:
         fpath = self.f_astar.retrace_path(fnode)
         bpath = self.b_astar.retrace_path(bnode)
         bpath.reverse()
@@ -116,10 +118,10 @@ class BiDirAStar:
         path.extend([p for p in bpath if p not in fpath])
         return path
 
-    def common_node(self, fnode, bnode):
+    def common_node(self, fnode, bnode) -> bool:
         return bnode.pos == fnode.pos or bnode.pos == bnode.goal or fnode.pos == fnode.goal
 
-    def search(self):
+    def search(self) -> None:
         while self.f_astar.open or self.b_astar.open:
             _, cur_fnode = heapq.heappop(self.f_astar.open)
             _, cur_bnode = heapq.heappop(self.b_astar.open)
@@ -157,4 +159,4 @@ class BiDirAStar:
                             heapq.heappush(astar.open, (c_.f, c_))
 
         if not self.reached:
-            return self.f_astar.start
+            return self.f_astar.init_pos
