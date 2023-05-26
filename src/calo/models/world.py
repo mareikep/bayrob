@@ -1,4 +1,5 @@
 import numpy as np
+from typing import List, Any, Dict
 
 
 class World:
@@ -23,6 +24,10 @@ class Grid(World):
             y1 = y0
             y0 = tmp
         self._obstacles.append([x0, y0, x1, y1])
+
+    @property
+    def obstacles(self) -> List[List[float]]:
+        return self._obstacles
 
     def collides(self, pos) -> bool:
         return any([o[0] <= pos[0] <= o[2] and o[1] <= pos[1] <= o[3] for o in self._obstacles])
