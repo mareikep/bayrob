@@ -8,8 +8,7 @@ from calo.core.astar import AStar, Node, BiDirAStar
 from typing import List, Any
 
 from calo.utils import locs
-from calo.utils.p2l import pnt2line
-from calo.utils.utils import tovariablemapping, angledeg
+from calo.utils.utils import tovariablemapping, angledeg, pnt2line
 from jpt.base.intervals import ContinuousSet
 
 from jpt.trees import Leaf, JPT
