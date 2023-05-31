@@ -4,14 +4,12 @@ import unittest
 from calo.core.astar import AStar, Node, BiDirAStar
 from typing import List, Any
 
-from calo.utils.utils import angledeg
-
 
 class State:
     def __init__(
             self,
-            posx: float,
-            posy: float
+            posx: float,  # column
+            posy: float  # row
     ):
         self.posx = posx
         self.posy = posy
@@ -28,7 +26,14 @@ class SubAStar(AStar):
         [0, 0, 0, 0, 1, 0, 0],
     ]
 
-    ACTIONS = [[-1, 0], [0, -1], [1, 0], [0, 1]]  # up, left, down, right
+    ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]  # up, left, down, right
+    OBSTACLE = 1
+    FREE = 0
+    STEP = 8
+
+    REP = {FREE: '\u2B1C',
+           OBSTACLE: '\u2B1B',
+           STEP: '\u22C6'}
 
     def __init__(
             self,
@@ -48,7 +53,7 @@ class SubAStar(AStar):
                 continue
 
             # check for collision
-            if SubAStar.GRID[pos_y][pos_x] != 0:
+            if SubAStar.GRID[pos_y][pos_x] != SubAStar.FREE:
                 continue
 
             state = State(
@@ -67,14 +72,17 @@ class SubAStar(AStar):
 
         return successors
 
+    @staticmethod
+    def strworld(grid, legend=True):
+        world = '\n' + '\n'.join([' '.join([SubAStar.REP[grid[row][col]] for col in range(len(grid[row]))]) for row in range(len(grid))])
+        lgnd = f'\n\n{SubAStar.REP[SubAStar.FREE]} Free cell\n{SubAStar.REP[SubAStar.OBSTACLE]} Obstacle\n{SubAStar.REP[SubAStar.STEP]} Path step\n'
+        return world + (lgnd if legend else '\n')
+
     def isgoal(self, node) -> bool:
         return node.state.posx == self.goalstate.posx and node.state.posy == self.goalstate.posy
 
     def h(self, state) -> float:
-        # dy = state.posx - self.goalnode_x
-        # dx = state.posy - self.goalnode_y
-        # return math.sqrt(dy ** 2 + dx ** 2)
-
+        # Euclidean distance
         dx = state.posx - self.goalstate.posx
         dy = state.posy - self.goalstate.posy
         return math.sqrt(dx ** 2 + dy ** 2)
@@ -100,12 +108,11 @@ class AStarAlgorithmTests(unittest.TestCase):
         )
 
         cls.goal = State(
-            posx=len(SubAStar.GRID) - 1,
-            posy=len(SubAStar.GRID[0]) - 1
+            posx=len(SubAStar.GRID[0]) - 1,
+            posy=len(SubAStar.GRID) - 1,
         )
 
-        for elem in SubAStar.GRID:
-            print(elem)
+        print(SubAStar.strworld(SubAStar.GRID, legend=False))
 
     def test_astar_path(self) -> None:
         a_star = SubAStar(AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
@@ -122,7 +129,8 @@ class AStarAlgorithmTests(unittest.TestCase):
                         msg='Bi-directional A* path incorrect')
 
     def tearDown(self) -> None:
-        res = [[SubAStar.GRID[y][x] if (y, x) not in self.path else 8 for x in range(len(SubAStar.GRID))] for y in range(len(SubAStar.GRID[0]))]
-        print()
-        for elem in res:
-            print(elem)
+        res = [[SubAStar.GRID[y][x] if (y, x) not in self.path else SubAStar.STEP for x in range(len(SubAStar.GRID))] for y in range(len(SubAStar.GRID[0]))]
+        print(SubAStar.strworld(res))
+
+
+
