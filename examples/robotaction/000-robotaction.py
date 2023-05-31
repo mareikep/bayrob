@@ -119,7 +119,12 @@ def jpt_moveforward(dt):
     jpt_mf.learn(columns=data_moveforward.values.T, keep_samples=True)
     jpt_mf.save(os.path.join(locs.examples, 'robotaction', dt, f'MOVEFORWARD.tree'))
     logger.debug('...done! Plotting MOVEFORWARD tree...')
-    jpt_mf.plot(title='MOVEFORWARD', plotvars=jpt_mf.variables, filename=f'MOVEFORWARD', directory=os.path.join(locs.examples, 'robotaction', dt))
+    jpt_mf.plot(title='MOVEFORWARD',
+                plotvars=jpt_mf.variables,
+                filename=f'MOVEFORWARD',
+                directory=os.path.join(locs.examples, 'robotaction', dt),
+                leaffill='#CCDAFF',
+                nodefill='#768ABE')
     logger.debug('...done!')
 
 
@@ -134,7 +139,12 @@ def jpt_turn(dt):
     jpt_t.learn(columns=data_turn.values.T, keep_samples=True)
     jpt_t.save(os.path.join(locs.examples, 'robotaction', dt, f'TURN.tree'))
     logger.debug('...done! Plotting TURN tree...')
-    jpt_t.plot(title='TURN', plotvars=jpt_t.variables, filename=f'TURN', directory=os.path.join(locs.examples, 'robotaction', dt))
+    jpt_t.plot(title='TURN',
+               plotvars=jpt_t.variables,
+               filename=f'TURN',
+               directory=os.path.join(locs.examples, 'robotaction', dt),
+               leaffill='#CCDAFF',
+               nodefill='#768ABE')
     logger.debug('...done!')
 
     

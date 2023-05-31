@@ -3,20 +3,18 @@ import itertools
 import math
 import os
 from datetime import datetime
+from typing import List
 
 import dnutils
 import numpy as np
 import pandas as pd
+from jpt.base.intervals import ContinuousSet
 from matplotlib import pyplot as plt
-from typing import List
 
 import jpt
-from calo.core.hypothesis import Step
 from calo.utils import locs
 from calo.utils.constants import calologger
 from calo.utils.constants import xlsHEADER, xlsNUM, xlsDATE
-from jpt.base.intervals import ContinuousSet
-
 from jpt.variables import VariableMap
 
 logger = dnutils.getlogger(calologger)
@@ -72,17 +70,9 @@ def tovariablemapping(mapping, models) -> jpt.variables.VariableMap:
             raise Exception(f'Variable(s) {", ".join([k for k in mapping.keys() if k not in varnames])} are not available in models. Available variables: {varnames}')
 
 
-# def generate_candidates(query, models) -> List[Step]:
-#     """
-#
-#     :param query: a variable-interval mapping
-#     :type query: jpt.variables.VariableMap
-#     """
-#     return [Step(confs, path, treename, query) for treename, tree in models.items() for idx, (confs, path) in enumerate(tree.reverse({k.name: v for k, v in query.items()}))]
-
-
 def res(p):
     return os.path.join(locs.resource, p)
+
 
 def generatemln(data, threshold=10):
     """Expects a list of Example items and generates a template MLN from it as well as training DBs."""
@@ -348,8 +338,8 @@ def add(v1, v2):
     return [(a+b) for a, b in zip(v1, v2)]
 
 
-def pnt2line(pnt, start, end):
-    '''Given a line with coordinates 'init_pos' and 'end' and the
+def pnt2line(pnt: List, start: List, end: List):
+    """Given a line with coordinates 'init_pos' and 'end' and the
     coordinates of a point 'pnt' the proc returns the shortest
     distance from pnt to the line and the coordinates of the
     nearest point on the line.
@@ -367,11 +357,11 @@ def pnt2line(pnt, start, end):
     10 Translate nearest back to the init_pos/end line.
     Malcolm Kesson 16 Dec 2012
 
-    :param pnt: List or Tuple
-    :param start:  List or Tuple
-    :param end:  List or Tuple
-    :return:
-    '''
+    :param pnt: List
+    :param start:  List
+    :param end:  List
+    :return: Tuple
+    """
     if len(pnt) == 2:
         pnt.append(0)
     if len(start) == 2:

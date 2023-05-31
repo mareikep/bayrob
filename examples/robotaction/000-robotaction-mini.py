@@ -21,6 +21,10 @@ ACTIONS = 10
 def robot_pos_random(dt):
     logger.debug('Generating random robot data...')
 
+    w = Grid(10, 10)
+    w.obstacle(2, 2, 5, 5)
+    w.obstacle(-1, 1, 0, 4)
+
     # write sample data for MOVEFORWARD and TURN action of robot (absolute positions)
     for j in range(RUNS):
         poses = []  # for plotting
@@ -28,9 +32,6 @@ def robot_pos_random(dt):
 
         # init agent and world
         a = Agent([0, 0], [1, 0])
-        w = Grid(10, 10)
-        w.obstacle(2, 2, 5, 5)
-        w.obstacle(-1, 1, 0, 4)
         a.world = w
 
         for action in range(ACTIONS):
@@ -54,8 +55,12 @@ def robot_pos_random(dt):
         plt.scatter(df_moveforward['x'], df_moveforward['y'], marker='*', c='cornflowerblue')
         plt.plot(df_moveforward['x'], df_moveforward['y'], c='cornflowerblue')
         plt.scatter(df_moveforward['x'].iloc[0], df_moveforward['y'].iloc[0], marker='o', c='green', label='Start')
-        plt.scatter(df_moveforward['x'].iloc[-1], df_moveforward['y'].iloc[-1], marker='o', c='red', label='End')
-        plt.savefig(os.path.join(locs.examples, 'robotaction', dt, f'{j}-MOVE.png'))
+        plt.scatter(df_moveforward['x'].iloc[-1], df_moveforward['y'].iloc[-1], marker='o', c='red', label='End', zorder=1000)
+        plt.savefig(os.path.join(locs.examples, 'robotaction', dt, f'{j}-MOVE.png'), format="svg")
+
+    for i, o in enumerate(w.obstacles):
+        plt.annotate(f'O_{i}', (o[0] + (o[2] - o[0]) / 2, o[1] + (o[3] - o[1]) / 2))
+    plt.savefig(os.path.join(locs.examples, 'robotaction', dt, f'ALL-MOVE.svg'), format="svg")  # TODO: if something failed, type was changed from png to svg!
 
     logger.debug('...done! Generating plot...')
 
