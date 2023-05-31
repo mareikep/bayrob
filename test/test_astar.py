@@ -4,30 +4,17 @@ import unittest
 from calo.core.astar import AStar, Node, BiDirAStar
 from typing import List, Any
 
+from calo.utils.utils import angledeg
 
-class SubNode(Node):
 
-    def __init__(self, pos_x, pos_y, goal_x, goal_y, g, parent):
-        self.pos_x = pos_x
-        self.pos_y = pos_y
-        self.pos = (pos_y, pos_x)
-        self.goalnode_x = goal_x
-        self.goalnode_y = goal_y
-        self.goalnode = (goal_y, goal_x)
-        self.parent = parent
-        self._g = g
-        super().__init__()
-
-    def g(self) -> float:
-        return self._g
-
-    def h(self) -> float:
-        dy = self.pos_x - self.goalnode_x
-        dx = self.pos_y - self.goalnode_y
-        return math.sqrt(dy ** 2 + dx ** 2)
-
-    def __lt__(self, other) -> bool:
-        return self.f < other.f
+class State:
+    def __init__(
+            self,
+            posx: float,
+            posy: float
+    ):
+        self.posx = posx
+        self.posy = posy
 
 
 class SubAStar(AStar):
@@ -41,18 +28,21 @@ class SubAStar(AStar):
         [0, 0, 0, 0, 1, 0, 0],
     ]
 
-    DELTA = [[-1, 0], [0, -1], [1, 0], [0, 1]]  # up, left, down, right
+    ACTIONS = [[-1, 0], [0, -1], [1, 0], [0, 1]]  # up, left, down, right
 
-    def __init__(self, start, goal):
-        self.startnode = SubNode(start[1], start[0], goal[1], goal[0], 0, None)
-        self.goalnode = SubNode(goal[1], goal[0], goal[1], goal[0], 99999, None)
-        super().__init__(self.startnode, self.goalnode)
+    def __init__(
+            self,
+            initstate: State,
+            goalstate: State,  # might be belief state later
+    ):
+        super().__init__(initstate, goalstate)
 
     def generate_successors(self, node) -> List[Node]:
         successors = []
-        for action in SubAStar.DELTA:
-            pos_x = node.pos_x + action[1]
-            pos_y = node.pos_y + action[0]
+        for action in SubAStar.ACTIONS:
+            pos_x = node.state.posx + action[1]
+            pos_y = node.state.posy + action[0]
+
             # check if agent stays within grid lines
             if not (0 <= pos_x <= len(SubAStar.GRID[0]) - 1 and 0 <= pos_y <= len(SubAStar.GRID) - 1):
                 continue
@@ -61,26 +51,39 @@ class SubAStar(AStar):
             if SubAStar.GRID[pos_y][pos_x] != 0:
                 continue
 
+            state = State(
+                posx=pos_x,
+                posy=pos_y
+            )
+
             successors.append(
-                SubNode(
-                    pos_x,
-                    pos_y,
-                    self.goalnode.pos_x,
-                    self.goalnode.pos_y,
-                    node.g() + 1,
-                    node,
+                Node(
+                    state=state,
+                    g=node.g + 1,
+                    h=self.h(state),
+                    parent=node,
                 )
             )
+
         return successors
 
     def isgoal(self, node) -> bool:
-        return node.pos == self.goalnode.pos
+        return node.state.posx == self.goalstate.posx and node.state.posy == self.goalstate.posy
+
+    def h(self, state) -> float:
+        # dy = state.posx - self.goalnode_x
+        # dx = state.posy - self.goalnode_y
+        # return math.sqrt(dy ** 2 + dx ** 2)
+
+        dx = state.posx - self.goalstate.posx
+        dy = state.posy - self.goalstate.posy
+        return math.sqrt(dx ** 2 + dy ** 2)
 
     def retrace_path(self, node) -> Any:
         current_node = node
         path = []
         while current_node is not None:
-            path.append((current_node.pos_y, current_node.pos_x))
+            path.append((current_node.state.posy, current_node.state.posx))
             current_node = current_node.parent
         path.reverse()
         return path
@@ -90,8 +93,17 @@ class AStarAlgorithmTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.init = (0, 0)
-        cls.goal = (len(SubAStar.GRID) - 1, len(SubAStar.GRID[0]) - 1)
+
+        cls.init = State(
+            posx=0,
+            posy=0
+        )
+
+        cls.goal = State(
+            posx=len(SubAStar.GRID) - 1,
+            posy=len(SubAStar.GRID[0]) - 1
+        )
+
         for elem in SubAStar.GRID:
             print(elem)
 
