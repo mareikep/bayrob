@@ -1,190 +1,178 @@
 import math
 import os
-import unittest
-
 from pathlib import Path
+from typing import List, Dict, Union
 
-from calo.core.astar import AStar, Node, BiDirAStar
-from typing import List, Any
-
-from calo.utils import locs
-from calo.utils.utils import tovariablemapping, angledeg, pnt2line
 from jpt.base.intervals import ContinuousSet
 
+from calo.core.astar import AStar, Node
+from calo.utils import locs
+from calo.utils.utils import angledeg, pnt2line
 from jpt.trees import Leaf, JPT
 
 
-class SubNode(Node):
-
-    def __init__(self, init_pos_x, init_pos_y, pos_x, pos_y, goal_x, goal_y, parent, init_dir_x=None, init_dir_y=None, dir_x=None, dir_y=None, leaf=None, tree=None):
-        self.init_pos_x = init_pos_x
-        self.init_pos_y = init_pos_y
-        self.init_pos = (init_pos_x, init_pos_y)
-        self.pos_x = pos_x
-        self.pos_y = pos_y
-        self.pos = (pos_x, pos_y)
-        self.goal_x = goal_x
-        self.goal_y = goal_y
-        self.goal = (goal_x, goal_y)
-        self.dir_x = dir_x
-        self.dir_y = dir_y
-        self.dir = (dir_x, dir_y)
-        self.init_dir_x = init_dir_x
-        self.init_dir_y = init_dir_y
-        self.init_dir = (init_dir_x, init_dir_y)
-        self.parent = parent
-        self.leaf = leaf
-        self.tree = tree  # this is only for debugging (prettyprint)
-        super().__init__()
-
-    def g(self) -> float:
-        # distance (Euclidean) travelled so far (from init_pos to current position)
-        gcost = 0.
-        dx = self.init_pos_x - self.pos_x
-        dy = self.init_pos_y - self.pos_y
-        gcost += math.sqrt(dx ** 2 + dy ** 2)
-
-        # if no directions are given, return costs at this point
-        if any([x is None for x in [self.dir_x, self.dir_y, self.init_dir_x, self.init_dir_y]]):
-            return gcost
-
-        # difference in orientation (from init_dir to current dir)
-        gcost += angledeg([self.dir_x, self.dir_y], [self.init_dir_x, self.init_dir_y])
-
-        return gcost
-
-    def h(self) -> float:
-        # Euclidean distance from current position to goal node
-        hcost = 0.
-        if isinstance(self.goal_x, ContinuousSet) and isinstance(self.goal_y, ContinuousSet):
-            # assuming the goal area is a rectangle, calculate the minimum distance between the current position (= point)
-            # to the nearest edge of the rectangle
-            hcost += min([d for d, _ in [
-                pnt2line([self.pos_x, self.pos_y], [self.goal_x.lower, self.goal_y.lower], [self.goal_x.lower, self.goal_y.upper]),
-                pnt2line([self.pos_x, self.pos_y], [self.goal_x.lower, self.goal_y.lower], [self.goal_x.upper, self.goal_y.lower]),
-                pnt2line([self.pos_x, self.pos_y], [self.goal_x.lower, self.goal_y.upper], [self.goal_x.upper, self.goal_y.upper]),
-                pnt2line([self.pos_x, self.pos_y], [self.goal_x.upper, self.goal_y.lower], [self.goal_x.upper, self.goal_y.upper])
-            ]])
-        else:
-            # current position and goal position are points
-            dx = self.pos_x - self.goal_x
-            dy = self.pos_y - self.goal_y
-            hcost += math.sqrt(dx ** 2 + dy ** 2)
-
-        # if no directions are given, return costs at this point
-        if any([x is None for x in [self.dir_x, self.dir_y]]):
-            return hcost
-
-        # difference in orientation (current dir to dir to goal node)
-        # vec to goal node:
-        dx = self.goal_x - self.pos_x
-        dy = self.goal_y - self.pos_y
-        hcost += angledeg([self.dir_x, self.dir_y], [dx, dy])
-
-        return hcost
-
-    def __lt__(self, other) -> bool:
-        return self.f < other.f
-
-    def __str__(self):  # only for debugging
-        current_node = self
-        path = ""
-        while current_node is not None:
-            if current_node.parent is not None:
-                path += f"-{current_node.tree}({current_node.leaf.idx})"
-            current_node = current_node.parent
-        return "H" + path
+class State:
+    def __init__(
+            self,
+            posx: Union[float, ContinuousSet],
+            posy: Union[float, ContinuousSet],
+            dirx: Union[float, ContinuousSet] = None,
+            diry: Union[float, ContinuousSet] = None
+    ):
+        self.posx = posx
+        self.posy = posy
+        self.dirx = dirx
+        self.diry = diry
 
 
 class SubAStar(AStar):
 
-    def __init__(self, start, goal, dir, models):
-        startnode = SubNode(start[0], start[1], start[0], start[1], goal[0], goal[1], None, init_dir_x=dir[0], init_dir_y=dir[1], dir_x=dir[0], dir_y=dir[1], leaf=None, tree=None)
-        goalnode = SubNode(start[0], start[1], goal[0], goal[1], goal[0], goal[1], None)
+    def __init__(
+            self,
+            initstate: State,
+            goalstate: State,  # might be belief state later
+            models: Dict
+    ):
         self.models = models
-        super().__init__(startnode, goalnode)
+        super().__init__(initstate, goalstate)
 
-    def generate_candidatesteps(self, node) -> List[Leaf]:
+    def stepcost(self, state) -> float:
+        # distance (Euclidean) travelled so far (from init_pos to current position)
+        cost = 0.
+        dx = self.initstate.posx - state.posx
+        dy = self.initstate.posy - state.posy
+        cost += math.sqrt(dx ** 2 + dy ** 2)
+
+        # difference in orientation (from init dir to current dir)
+        cost += angledeg([state.dirx, state.diry], [self.initstate.dirx, self.initstate.diry])
+
+        return cost
+
+    def h(self, state) -> float:
+        # Euclidean distance from current position to goal node
+        cost = 0.
+        if isinstance(self.goalstate.posx, ContinuousSet) and isinstance(self.goalstate.posy, ContinuousSet):
+            # assuming the goal area is a rectangle, calculate the minimum distance between the current position (= point)
+            # to the nearest edge of the rectangle
+            cost += min([d for d, _ in [
+                pnt2line([state.posx, state.posy], [self.goalstate.posx.lower, self.goalstate.posy.lower], [self.goalstate.posx.lower, self.goalstate.posy.upper]),
+                pnt2line([state.posx, state.posy], [self.goalstate.posx.lower, self.goalstate.posy.lower], [self.goalstate.posx.upper, self.goalstate.posy.lower]),
+                pnt2line([state.posx, state.posy], [self.goalstate.posx.lower, self.goalstate.posy.upper], [self.goalstate.posx.upper, self.goalstate.posy.upper]),
+                pnt2line([state.posx, state.posy], [self.goalstate.posx.upper, self.goalstate.posy.lower], [self.goalstate.posx.upper, self.goalstate.posy.upper])
+            ]])
+        else:
+            # current position and goal position are points
+            dx = state.posx - self.goalstate.posx
+            dy = state.posy - self.goalstate.posy
+            cost += math.sqrt(dx ** 2 + dy ** 2)
+
+        # if no directions are given, return costs at this point
+        if any([x is None for x in [state.dirx, state.diry]]):
+            return cost  # TODO
+
+        # difference in orientation (current dir to dir to goal node)
+        # vec to goal node:
+        dx = self.goalstate.posx - state.posx
+        dy = self.goalstate.posy - state.posy
+        cost += angledeg([state.dirx, state.diry], [dx, dy])
+
+        return cost
+
+    def generate_steps(self, node) -> List[Leaf]:
         """Generates potential next steps by restricting the trees to only contain leaves that are reachable from the
         current position.
 
-        :param query: a variable-interval mapping
-        :type query: jpt.variables.VariableMap or None
+        :param node: the current node
+        :type node: SubNode
         """
-        evidence = tovariablemapping({'x_in': node.pos_x, 'y_in': node.pos_y, 'xdir_in': node.dir_x, 'ydir_in': node.dir_y, }, self.models)
-        condtrees = [[tn, tree.conditional_jpt(evidence=evidence)] for tn, tree in self.models.items()]
+        evidence = {
+            'x_in': node.state.posx,
+            'y_in': node.state.posy,
+            'xdir_in': node.state.dirx,
+            'ydir_in': node.state.diry}
+
+        condtrees = [[tn, tree.conditional_jpt(evidence=tree.bind({k: v for k, v in evidence.items() if k in tree.varnames}))] for tn, tree in self.models.items()]
+
         return [(leaf, treename) for treename, tree in condtrees for _, leaf in tree.leaves.items()]
 
     def generate_successors(self, node) -> List[Node]:
         successors = []
-        for succ, tn in self.generate_candidatesteps(node):
+        for succ, tn in self.generate_steps(node):
 
             # update position
-            pos_x = node.pos_x
-            pos_y = node.pos_y
+            pos_x = node.state.posx
+            pos_y = node.state.posy
             if 'x_out' in succ.value and 'y_out' in succ.value:
-                pos_x = node.pos_x + succ.value['x_out'].expectation()
-                pos_y = node.pos_y + succ.value['y_out'].expectation()
+                pos_x = succ.value['x_out'].expectation()
+                pos_y = succ.value['y_out'].expectation()
 
             # update direction
-            dir_x = node.dir_x
-            dir_y = node.dir_y
+            dir_x = node.state.dirx
+            dir_y = node.state.diry
             if 'xdir_out' in succ.value and 'ydir_out' in succ.value:
                 dir_x = succ.value['xdir_out'].expectation()
                 dir_y = succ.value['ydir_out'].expectation()
 
-            # check if agent stays within grid lines
-            # if not (0 <= pos_x <= len(SubAStar.GRID[0]) - 1 and 0 <= pos_y <= len(SubAStar.GRID) - 1):
-            #     continue
+            state = State(
+                posx=pos_x,
+                posy=pos_y,
+                dirx=dir_x,
+                diry=dir_y
+            )
 
-            # check for collision TODO: model obstacles manually? --> or check for succ.value['collision'].expectation()
-            # if SubAStar.GRID[pos_y][pos_x] != 0:
-            #     continue
+            # TODO: check model collision? --> succ.value['collision'].expectation()
 
             successors.append(
-                SubNode(
-                    self.startnode.init_pos_x,
-                    self.startnode.init_pos_y,
-                    pos_x,
-                    pos_y,
-                    self.goalnode.pos_x,
-                    self.goalnode.pos_y,
-                    node,
-                    init_dir_x=self.startnode.init_dir_x,
-                    init_dir_y=self.startnode.init_dir_y,
-                    dir_x=dir_x,
-                    dir_y=dir_y,
-                    leaf=succ,
-                    tree=tn
+                Node(
+                    state=state,
+                    g=node.g + self.stepcost(state),
+                    h=self.h(state),
+                    parent=node,
+                    tree=tn,  # TODO: remove! --> only for debugging
+                    leaf=succ  # TODO: remove! --> only for debugging
                 )
             )
         return successors
 
     def isgoal(self, node) -> bool:
         # true if node pos and target pos are equal
-        if isinstance(self.goalnode.goal_x, ContinuousSet) and isinstance(self.goalnode.goal_y, ContinuousSet):
-            return self.goalnode.goal_x.contains_value(node.pos_x) and self.goalnode.goal_y.contains_value(node.pos_y)
+        if isinstance(self.goalstate.posx, ContinuousSet) and isinstance(self.goalstate.posy, ContinuousSet):
+            return self.goalstate.posx.contains_value(node.state.posx) and self.goalstate.posy.contains_value(node.state.posy)
         else:
-            return node.pos == self.goalnode.goal
-
-    def retrace_path(self, node) -> Any:
-        current_node = node
-        path = []
-        while current_node is not None:
-            path.append((current_node.pos_y, current_node.pos_x))
-            current_node = current_node.parent
-        path.reverse()
-        return path
+            return node.state.posx == self.goalstate.posx and node.state.posy == self.goalstate.posy
 
 
 if __name__ == "__main__":
-    init = (0, 0)
-    initdir = (0, 1)
-    goal = (0, 1)
-    models = dict([(treefile.name, JPT.load(str(treefile))) for p in
-                       [os.path.join(locs.examples, 'robotaction', '2023-05-16_14:02')] for treefile in
-                       Path(p).rglob('*.tree')])
+    models = dict(
+        [
+            (
+                treefile.name,
+                JPT.load(str(treefile))
+            )
+            for p in [os.path.join(locs.examples, 'robotaction', '2023-05-16_14:02')]
+            for treefile in Path(p).rglob('*.tree')
+        ]
+    )
 
-    a_star = SubAStar(init, goal, initdir, models)
+    initstate = State(
+        posx=0,
+        posy=0,
+        dirx=1,
+        diry=0
+    )
+
+    goalstate = State(
+        posx=5,
+        posy=3,
+        dirx=None,
+        diry=None
+    )
+
+    a_star = SubAStar(
+        initstate=initstate,
+        goalstate=goalstate,
+        models=models
+    )
+
     path = a_star.search()
     print(path)
