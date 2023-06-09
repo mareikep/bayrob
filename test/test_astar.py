@@ -31,9 +31,17 @@ class SubAStar(AStar):
     FREE = 0
     STEP = 8
 
-    REP = {FREE: '\u2B1C',
-           OBSTACLE: '\u2B1B',
-           STEP: '\u22C6'}
+    # symbol representations for pretty printing
+    REP = {
+        FREE: '\u2B1C',  # empty box
+        OBSTACLE: '\u2B1B',  # filled box
+        STEP: '\u22C6',  # star
+        (-1, 0): '\u2191',  # arrow up
+        (0, -1): '\u2190',  # arrow left
+        (1, 0): '\u2193',  # arrow down
+        (0, 1): '\u2192',  # arrow right
+        None: '\u2666'  # diamond
+    }
 
     def __init__(
             self,
@@ -42,7 +50,10 @@ class SubAStar(AStar):
     ):
         super().__init__(initstate, goalstate)
 
-    def generate_successors(self, node) -> List[Node]:
+    def generate_successors(
+            self,
+            node
+    ) -> List[Node]:
         successors = []
         for action in SubAStar.ACTIONS:
             pos_x = node.state.posx + action[1]
@@ -73,21 +84,39 @@ class SubAStar(AStar):
         return successors
 
     @staticmethod
-    def strworld(grid, legend=True):
+    def strworld(
+            grid,
+            legend=True
+    ):
+        lgnd = f'\n\n{SubAStar.REP[SubAStar.FREE]} Free cell\n' \
+               f'{SubAStar.REP[SubAStar.OBSTACLE]} Obstacle\n' \
+               f'{SubAStar.REP[None]} Goal\n' \
+               f'{" ".join([SubAStar.REP[x] for x in SubAStar.ACTIONS])} Action executed\n'
+        if grid is None:
+            return lgnd
+
         world = '\n' + '\n'.join([' '.join([SubAStar.REP[grid[row][col]] for col in range(len(grid[row]))]) for row in range(len(grid))])
-        lgnd = f'\n\n{SubAStar.REP[SubAStar.FREE]} Free cell\n{SubAStar.REP[SubAStar.OBSTACLE]} Obstacle\n{SubAStar.REP[SubAStar.STEP]} Path step\n'
         return world + (lgnd if legend else '\n')
 
-    def isgoal(self, node) -> bool:
+    def isgoal(
+            self,
+            node
+    ) -> bool:
         return node.state.posx == self.goalstate.posx and node.state.posy == self.goalstate.posy
 
-    def h(self, state) -> float:
+    def h(
+            self,
+            state
+    ) -> float:
         # Euclidean distance
         dx = state.posx - self.goalstate.posx
         dy = state.posy - self.goalstate.posy
         return math.sqrt(dx ** 2 + dy ** 2)
 
-    def retrace_path(self, node) -> Any:
+    def retrace_path(
+            self,
+            node
+    ) -> Any:
         current_node = node
         path = []
         while current_node is not None:
@@ -129,8 +158,13 @@ class AStarAlgorithmTests(unittest.TestCase):
                         msg='Bi-directional A* path incorrect')
 
     def tearDown(self) -> None:
-        res = [[SubAStar.GRID[y][x] if (y, x) not in self.path else SubAStar.STEP for x in range(len(SubAStar.GRID))] for y in range(len(SubAStar.GRID[0]))]
-        print(SubAStar.strworld(res))
+        # generate mapping from path step (=position) to action executed from this position
+        actions = {k: v for k, v in zip(self.path, [(b[0] - a[0], b[1] - a[1]) for a, b in list(zip(self.path, self.path[1:]))])}
 
+        # draw path steps into grid (use action symbols)
+        res = [[SubAStar.GRID[y][x] if (y, x) not in self.path else actions.get((y, x), None) for x in range(len(SubAStar.GRID))] for y in range(len(SubAStar.GRID[0]))]
+        print(SubAStar.strworld(res, legend=False))
 
-
+    @classmethod
+    def tearDownClass(cls) -> None:
+        print(SubAStar.strworld(None))
