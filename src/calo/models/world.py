@@ -1,5 +1,7 @@
+from random import uniform
+
 import numpy as np
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Tuple
 
 
 class World:
@@ -7,13 +9,31 @@ class World:
         pass
 
 
+class Agent:
+    def __init__(
+            self,
+            world: World = None
+    ) -> None:
+        self._world = world
+
+
 class Grid(World):
-    def __init__(self, x=100, y=100) -> None:
+    def __init__(
+            self,
+            x=100,
+            y=100
+    ) -> None:
         super().__init__()
-        self.coords = 0, 0, x, y
+        self.coords = -x, -y, x, y
         self._obstacles = []
 
-    def obstacle(self, x0, y0, x1, y1) -> None:
+    def obstacle(
+            self,
+            x0,
+            y0,
+            x1,
+            y1
+    ) -> None:
         # make sure x0/y0 are bottom left corner, x1/y1 upper right for collision check
         if x1 < x0:
             tmp = x1
@@ -29,17 +49,28 @@ class Grid(World):
     def obstacles(self) -> List[List[float]]:
         return self._obstacles
 
-    def collides(self, pos) -> bool:
-        return any([o[0] <= pos[0] <= o[2] and o[1] <= pos[1] <= o[3] for o in self._obstacles])
+    def collides(
+            self,
+            pos: Tuple[float, float]
+    ) -> bool:
+        # check obstacle collision AND wall collision
+        hitobstacle = any([o[0] <= pos[0] <= o[2] and o[1] <= pos[1] <= o[3] for o in self._obstacles])
+        ingrid = any([self.coords[0] <= pos[0] <= self.coords[2] and self.coords[1] <= pos[1] <= self.coords[3]])
+        return hitobstacle or not ingrid
 
 
-class Agent:
-    def __init__(self, pos, dir) -> None:
-        self._x = self._y = 0
+class GridAgent(Agent):
+    def __init__(
+            self,
+            world: Grid = None,
+            pos: Tuple[float, float] = None,
+            dir: Tuple[float, float] = None
+    ) -> None:
+        super().__init__(world=world)
+        self._posx = self._posy = 0
         self._dirx = self._diry = 0
         self.pos = pos
         self.dir = dir
-        self._world = None
         self._collided = False
 
     def __str__(self) -> str:
@@ -47,28 +78,40 @@ class Agent:
 
     @property
     def pos(self) -> (float, float):
-        return self._x, self._y
+        return self._posx, self._posy
 
     @pos.setter
-    def pos(self, pos) -> None:
-        self._x, self._y = pos
+    def pos(
+            self,
+            pos: Tuple[float, float] = None
+    ) -> None:
+        if pos is None:
+            self._posx, self._posy = (None, None)
+        else:
+            self._posx, self._posy = pos
 
     @property
     def dir(self) -> (float, float):
         return self._dirx, self._diry
 
     @dir.setter
-    def dir(self, dir) -> None:
-        # always set normalized direction vector
-        self._dirx, self._diry = dir/np.linalg.norm(dir)
+    def dir(
+            self,
+            dir: Tuple[float, float] = None
+    ) -> None:
+        if dir is None:
+            self._dirx, self._diry = (None, None)
+        else:
+            # always set normalized direction vector
+            self._dirx, self._diry = dir/np.linalg.norm(dir)
 
     @property
     def x(self) -> float:
-        return self._x
+        return self._posx
 
     @property
     def y(self) -> float:
-        return self._y
+        return self._posy
 
     @property
     def dirx(self) -> float:
@@ -79,11 +122,14 @@ class Agent:
         return self._diry
 
     @property
-    def world(self) -> World:
+    def world(self) -> Grid:
         return self._world
 
     @world.setter
-    def world(self, w) -> None:
+    def world(
+            self,
+            w: Grid
+    ) -> None:
         self._world = w
 
     @property
@@ -91,5 +137,23 @@ class Agent:
         return self._collided
 
     @collided.setter
-    def collided(self, c) -> None:
+    def collided(
+            self,
+            c: bool
+    ) -> None:
         self._collided = c
+
+    def init_random(self):
+        initdir = (
+            uniform(-1, 1),
+            uniform(-1, 1)
+        )
+        initpos = (
+            uniform(self.world.coords[0], self.world.coords[2]),
+            uniform(self.world.coords[1], self.world.coords[3])
+        )
+        if not self.world.collides(initpos):
+            self.pos = initpos
+            self.dir = initdir
+        else:
+            self.init_random()

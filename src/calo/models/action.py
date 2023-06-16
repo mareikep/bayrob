@@ -1,11 +1,14 @@
 import math
+import jpt
 
 import dnutils
 import numpy as np
 import pandas as pd
+from dnutils import ifnone
+from jpt.variables import LabelAssignment
 from matplotlib import pyplot as plt
 from numpy.random import randint, choice
-from typing import List
+from typing import List, Dict, Tuple, Any
 
 from jpt.distributions import Gaussian
 
@@ -20,30 +23,49 @@ class Move:
     # desired distance moved in one step
     STEPSIZE = 1
 
-    def __init__(self, degu=5, distu=0.05):
+    def __init__(
+            self,
+            degu: float = 5,
+            distu: float = 0.05
+    ):
         Move.DEG_U = degu
         Move.DIST_U = distu
 
     @staticmethod
-    def rotate(x, y, deg) -> (float, float):
+    def rotate(
+            x: float,
+            y: float,
+            deg: float
+    ) -> (float, float):
         deg = np.radians(-deg)
-        return x * math.cos(deg) - y * math.sin(deg), x * math.sin(deg) + y * math.cos(deg)
+        newdir = x * math.cos(deg) - y * math.sin(deg), x * math.sin(deg) + y * math.cos(deg)
+        return newdir
 
     @staticmethod
-    def turnleft(agent) -> None:
+    def turnleft(
+            agent
+    ) -> None:
         Move.turndeg(agent, -90)
 
     @staticmethod
-    def turnright(agent) -> None:
+    def turnright(
+            agent
+    ) -> None:
         Move.turndeg(agent, 90)
 
     @staticmethod
-    def turndeg(agent, deg=45) -> None:
+    def turndeg(
+            agent,
+            deg=45
+    ) -> None:
         g = Gaussian(deg, abs(Move.DEG_U * deg / 180))
         agent.dir = Move.rotate(agent.dirx, agent.diry, g.sample(1))
 
     @staticmethod
-    def moveforward(agent, dist=1) -> None:
+    def moveforward(
+            agent,
+            dist=1
+    ) -> None:
         p_ = agent.pos
         for i in range(dist):
             Move.movestep(agent)
@@ -51,7 +73,9 @@ class Move:
         datalogger.debug(p_, agent.pos, dist)
 
     @staticmethod
-    def movestep(agent) -> None:
+    def movestep(
+            agent
+    ) -> None:
         g = Gaussian(Move.STEPSIZE, Move.DIST_U)
         dist = g.sample(1)
         agent.collided = agent.world.collides([agent.x + agent.dirx * dist, agent.y + agent.diry * dist])
@@ -60,7 +84,12 @@ class Move:
 
 
     @staticmethod
-    def sampletrajectory(agent, actions=None, p=None, steps=10) -> np.ndarray:
+    def sampletrajectory(
+            agent,
+            actions=None,
+            p=None,
+            steps=10
+    ) -> np.ndarray:
         if p is None:
             p = []
         if actions is None:
@@ -81,9 +110,98 @@ class Move:
 
         return poses
 
+    @staticmethod
+    def plot(
+            jpt_: jpt.trees.JPT,
+            qvarx: jpt.variables.Variable,
+            qvary: jpt.variables.Variable,
+            evidence: Dict[jpt.variables.Variable, Any] = None,
+            title: str = None,
+            conf: float = None,
+            limx: Tuple = None,
+            limy: Tuple = None,
+            limz: Tuple = None,
+            save: str = None,
+            show: bool = False
+    ) -> None:
+        """Plots a heatmap representing the
+
+        :param jpt_: The
+        :param qvarx:
+        :param qvary:
+        :param evidence:
+        :param title:
+        :param conf:
+        :param limx:
+        :param limy:
+        :param limz:
+        :param save:
+        :param show:
+        :return: None
+        """
+        from jpt.base.utils import format_path
+
+        # determine limits
+        xmin = ifnone(limx, jpt_.priors[qvarx.name].pdf.intervals[0].upper, lambda x: x[0])  # get limits for qvarx variable
+        xmax = ifnone(limx, jpt_.priors[qvarx.name].pdf.intervals[-1].lower, lambda x: x[1])  # get limits for qvarx variable
+        ymin = ifnone(limy, jpt_.priors[qvary.name].pdf.intervals[0].upper, lambda x: x[0])  # get limits for qvary variable
+        ymax = ifnone(limy, jpt_.priors[qvary.name].pdf.intervals[-1].lower, lambda x: x[1])  # get limits for qvary variable
+
+        # generate datapoints
+        x = np.linspace(xmin, xmax, 100)
+        y = np.linspace(ymin, ymax, 100)
+
+        X, Y = np.meshgrid(x, y)
+        Z = np.array(
+            [
+                jpt_.pdf(
+                    jpt_.bind({
+                        qvarx: x,
+                        qvary: y
+                    })
+                ) for x, y, in zip(X.ravel(), Y.ravel())
+            ]).reshape(X.shape)
+
+        zmin = ifnone(limz, Z.min(), lambda x: x[0])
+        zmax = ifnone(limz, Z.max(), lambda x: x[1])
+
+        # show only values above a certain threshold, consider lower values as high-uncertainty areas
+        if conf is not None:
+            Z[Z < conf] = 0.
+
+        # init plot
+        fig, ax = plt.subplots(num=1, clear=True)
+        fig.patch.set_facecolor('#4b006e')  # set bg color around the plot area (royal purple)
+        ax.set_facecolor('#35063e')  # set bg color of plot area (dark purple)
+        cmap = 'BuPu'  # viridis, Blues, PuBu, 0rRd, BuPu
+
+        # generate heatmap
+        c = ax.pcolormesh(X, Y, Z, cmap=cmap, vmin=zmin, vmax=zmax)
+        ax.set_title(f'P({qvarx.name}, {qvary.name}{f"|{format_path(evidence, precision=3)}" if evidence else ""})')
+
+        # setting the limits of the plot to the limits of the data
+        ax.axis([xmin, xmax, ymin, ymax])
+        ax.set_xlabel(f'{qvarx.name}')
+        ax.set_ylabel(f'{qvary.name}')
+        fig.colorbar(c, ax=ax)
+        fig.suptitle(title)
+        fig.canvas.manager.set_window_title('A* JPT')
+
+        if save:
+            plt.savefig(save)
+
+        if show:
+            plt.show()
+
 
 class TrajectorySimulation:
-    def __init__(self, x=10, y=10, probx=None, proby=None):
+    def __init__(
+            self,
+            x=10,
+            y=10,
+            probx=None,
+            proby=None
+    ):
         self._deltax = 1
         self._deltay = 1
         self._sizex = x
@@ -94,7 +212,11 @@ class TrajectorySimulation:
         self._probx = probx or [.4, .2, .4]
         self._proby = proby or [.4, .2, .4]
 
-    def _initpos(self, x, y) -> List[float]:
+    def _initpos(
+            self,
+            x,
+            y
+    ) -> List[float]:
         # select normally distributed initial position on field
         x_ = [i for i in range(x)]
         y_ = [i for i in range(y)]
@@ -102,17 +224,29 @@ class TrajectorySimulation:
         newy = int(min(self._sizey, max(0, np.random.normal(np.mean(y_), np.std(y_)))))
         return [newx, newy, self._dirxmap.get(0), self._dirymap.get(0)]
 
-    def dir(self, prob) -> int:
+    def dir(
+            self,
+            prob
+    ) -> int:
         # select horizontal or vertical direction according to given distribution
         return choice([-1, 0, 1], replace=False, p=prob)
 
-    def step(self, posx, posy) -> List[float]:
+    def step(
+            self,
+            posx,
+            posy
+    ) -> List[float]:
         # determine new position by adding delta in direction according to distributions; limit by field boundaries
         newx = min(self._sizex, max(0, posx + self._deltax * self.dir(self._probx)))
         newy = min(self._sizey, max(0, posy + self._deltay * self.dir(self._proby)))
         return [newx, newy, self._dirxmap.get(newx-posx), self._dirymap.get(newy-posy)]
 
-    def sample(self, n=1, s=10, initpos=None) -> pd.DataFrame:
+    def sample(
+            self,
+            n=1,
+            s=10,
+            initpos=None
+    ) -> pd.DataFrame:
         # return n trajectories with s steps starting from either random or given positions
         # a given position can be used to connect trajectories
 
