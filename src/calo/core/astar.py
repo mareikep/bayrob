@@ -32,7 +32,10 @@ class Node:
     def f(self) -> float:
         return self.g + self.h
 
-    def __lt__(self, other) -> bool:
+    def __lt__(
+            self,
+            other
+    ) -> bool:
         return self.f < other.f
 
     def __repr__(self):  # TODO: remove! --> only for debugging
@@ -40,7 +43,7 @@ class Node:
         path = ""
         while current_node is not None:
             if current_node.parent is not None:
-                path += f"-{current_node.tree}({current_node.leaf.idx})"
+                path = f"-{current_node.tree}({current_node.leaf.idx})" + path
             current_node = current_node.parent
         return "H" + path
 
@@ -65,23 +68,41 @@ class AStar:
 
         self.reached = False
 
-    def h(self, state: Any) -> float:
+    def h(
+            self,
+            state: Any
+    ) -> float:
         raise NotImplementedError
 
-    def g(self, state: Any) -> float:
+    def g(
+            self,
+            state: Any
+    ) -> float:
         raise NotImplementedError
 
-    def stepcost(self, state: Any) -> float:
+    def stepcost(
+            self,
+            state: Any
+    ) -> float:
         raise NotImplementedError
 
-    def generate_successors(self, node: Node) -> List[Node]:
+    def generate_successors(
+            self,
+            node: Node
+    ) -> List[Node]:
         raise NotImplementedError
 
-    def isgoal(self, node: Node) -> bool:
+    def isgoal(
+            self,
+            node: Node
+    ) -> bool:
         """Check if current node is goal node"""
         raise NotImplementedError
 
-    def retrace_path(self, node) -> Any:
+    def retrace_path(
+            self,
+            node
+    ) -> Any:
         current_node = node
         path = []
         while current_node is not None:
@@ -91,15 +112,22 @@ class AStar:
         return path
 
     def search(self) -> Any:
+        logger.debug(f'Searching path from {self.initstate} to {self.goalstate}')
+
         init = Node(state=self.initstate, g=0., h=self.h(self.initstate), parent=None)
         heapq.heappush(self.open, (init.f, init))
 
         while self.open:
-            print(f'Size prio queue: {len(self.open)}')  # TODO: remove! --> only for debugging
             cf, cur_node = heapq.heappop(self.open)
 
             if self.isgoal(cur_node):
                 self.reached = True
+
+                try:
+                    self.plot(cur_node)
+                except NotImplementedError:
+                    logger.info('Could not plot result. Function not implemented.')
+
                 return self.retrace_path(cur_node)
 
             heapq.heappush(self.closed, (cf, cur_node))
@@ -120,7 +148,14 @@ class AStar:
                         heapq.heappush(self.open, (cf_, c_))
 
         if not self.reached:
+            logger.warning(f'Could not find a path from {self.initstate} to {self.goalstate}')
             return [init]
+
+    def plot(
+            self,
+            node
+    ) -> None:
+        raise NotImplementedError
 
 
 class BiDirAStar:
@@ -150,6 +185,7 @@ class BiDirAStar:
 
         path = fpath
         path.extend([p for p in bpath if p not in fpath])
+
         return path
 
     def common_node(
@@ -185,6 +221,13 @@ class BiDirAStar:
             # if both paths have common node
             if self.common_node(cur_fnode, cur_bnode):
                 self.reached = True
+
+                try:
+                    self.f_astar.plot(cur_fnode)
+                    self.b_astar.plot(cur_bnode)
+                except NotImplementedError:
+                    logger.info('Could not plot result. Function not implemented.')
+
                 return self.retrace_path(cur_fnode, cur_bnode)
 
             heapq.heappush(self.f_astar.closed, (cur_fnode.f, cur_fnode))
@@ -215,4 +258,5 @@ class BiDirAStar:
                             heapq.heappush(astar.open, (c_.f, c_))
 
         if not self.reached:
+            logger.warning(f'Could not find a path from {self.initstate} to {self.goalstate}')
             return [init]
