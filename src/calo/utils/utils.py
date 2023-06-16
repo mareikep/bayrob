@@ -2,33 +2,35 @@
 import itertools
 import math
 import os
+import re
 from datetime import datetime
-from typing import List
+from typing import List, Union, Tuple, Dict
+
+from pathlib import Path
 
 import dnutils
+import jpt
 import numpy as np
 import pandas as pd
-from jpt.base.intervals import ContinuousSet
-from matplotlib import pyplot as plt
-
-import jpt
 from calo.utils import locs
-from calo.utils.constants import calologger
+from calo.utils.constants import calologger, FILESTRFMT
 from calo.utils.constants import xlsHEADER, xlsNUM, xlsDATE
+from jpt.base.intervals import ContinuousSet
 from jpt.variables import VariableMap
+from matplotlib import pyplot as plt
 
 logger = dnutils.getlogger(calologger)
 
 
-def satisfies(sigma, rho) -> bool:
+def satisfies(
+        sigma: jpt.variables.VariableMap,
+        rho: jpt.variables.VariableMap
+) -> bool:
     """Checks if a state ``sigma`` satisfies the requirement profile ``rho``, i.e. ``φ |= σ``
 
     :param sigma: a state, e.g. a property-value mapping or position
-    :type sigma: jpt.variables.VariableMap
     :param rho: a requirement profile, e.g. a property name-interval, property name-values mapping or position
-    :type rho: jpt.variables.VariableMap
     :returns: whether the state satisfies the requirement profile
-    :rtype: bool
     """
     # if any property defined in original requirement profile cannot be found in result
     if any(x not in sigma for x in rho.keys()):
@@ -53,7 +55,10 @@ def satisfies(sigma, rho) -> bool:
     return True
 
 
-def tovariablemapping(mapping, models) -> jpt.variables.VariableMap:
+def tovariablemapping(
+        mapping,
+        models
+) -> jpt.variables.VariableMap:
     if isinstance(mapping, jpt.variables.VariableMap):
         return mapping
     elif all(isinstance(k, jpt.variables.Variable) for k, _ in mapping.items()):
@@ -70,15 +75,20 @@ def tovariablemapping(mapping, models) -> jpt.variables.VariableMap:
             raise Exception(f'Variable(s) {", ".join([k for k in mapping.keys() if k not in varnames])} are not available in models. Available variables: {varnames}')
 
 
-def res(p):
+def res(
+        p: str
+) -> str:
     return os.path.join(locs.resource, p)
 
 
-def generatemln(data, threshold=10):
+def generatemln(
+        data,
+        threshold=10
+):
     """Expects a list of Example items and generates a template MLN from it as well as training DBs."""
     import pyximport
     pyximport.install()
-    from fta.learning.quantiles import Quantiles
+    from jpt.distributions.quantile import QuantileDistribution
     from pracmln import MLN, Database
 
     featpreds = []
@@ -93,7 +103,7 @@ def generatemln(data, threshold=10):
     # generate quantiles for discretizing variables that have too many (>threshold) values
     for i, feat in enumerate(allfeatures):
         if len(set(X[:, i])) > threshold:
-            quantiles[feat] = Quantiles(np.array(X[:, i], order='C'), epsilon=.0001)
+            quantiles[feat] = QuantileDistribution(np.array(X[:, i], order='C'), epsilon=.0001)
 
     mln = MLN()
     dbs = []
@@ -133,7 +143,12 @@ def scatterplot(*args, **kwargs):
     return ax
 
 
-def toxls(filename, header, data, sheet='Sheet1') -> bool:
+def toxls(
+        filename,
+        header,
+        data,
+        sheet='Sheet1'
+) -> bool:
     """
     Generates an .xls file from the given ``data``.
 
@@ -186,7 +201,14 @@ def cov(x) -> np.ndarray:
     return covmat
 
 
-def pearson(data, use_tgts=True, use_fts=True, removenans=True, ignorenans=True, ignore=None) -> (List[List[str]], np.ndarray):
+def pearson(
+        data,
+        use_tgts=True,
+        use_fts=True,
+        removenans=True,
+        ignorenans=True,
+        ignore=None
+) -> (List[List[str]], np.ndarray):
     # determine pairwise pearson correlation coefficient for features and targets in dataset
     features = data[0].features
     targets = data[0].targets
@@ -219,7 +241,11 @@ def pearson(data, use_tgts=True, use_fts=True, removenans=True, ignorenans=True,
     return pcc(X, p, ignorenans=ignorenans)
 
 
-def pcc(X, fnames, ignorenans=True) -> (List[List[str]], np.ndarray):
+def pcc(
+        X,
+        fnames,
+        ignorenans=True
+) -> (List[List[str]], np.ndarray):
     """
     Gets a matrix of data, where each row is a sample, each column a variable and returns two matrices containing the
     feature names and the pearson correlation coefficients of the respective variables
@@ -253,7 +279,11 @@ def pcc(X, fnames, ignorenans=True) -> (List[List[str]], np.ndarray):
 
 
 # calculate PCC (Pearson correlation coefficient)
-def pcc_(C, i, j) -> float:
+def pcc_(
+        C,
+        i,
+        j
+) -> float:
     """
     Calculates the PCC (Pearson correlation coefficient) for the respective variables of the given indices
     :param C:   The covariance matrix for the variables
@@ -264,7 +294,10 @@ def pcc_(C, i, j) -> float:
     return C[i][j] / math.sqrt(C[i][i] * C[j][j])
 
 
-def _actions_to_treedata(el, ad) -> dict:
+def _actions_to_treedata(
+        el,
+        ad
+) -> dict:
     """For tree visualization; assuming ad is pd.DataFrame, el pd.Series; from NEEM data csv files like:
 
             id	type	startTime	endTime	duration	success	failure	parent	next	previous	object_acted_on	object_type	bodyPartsUsed	arm	grasp	effort
@@ -301,7 +334,10 @@ def _actions_to_treedata(el, ad) -> dict:
     }
 
 
-def dotproduct(v1, v2):
+def dotproduct(
+        v1,
+        v2
+):
     return sum((a*b) for a, b in zip(v1, v2))
 
 
@@ -309,15 +345,28 @@ def length(v):
     return math.sqrt(dotproduct(v, v))
 
 
-def angle(v1, v2):
-    return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
+def angle(
+        v1,
+        v2
+):
+    try:
+        math.acos(np.round(dotproduct(v1, v2) / (length(v1) * length(v2)), 8))
+    except:
+        print('')
+    return math.acos(np.round(dotproduct(v1, v2) / (length(v1) * length(v2)), 8))
 
 
-def angledeg(v1, v2):
+def angledeg(
+        v1,
+        v2
+):
     return math.degrees(angle(v1, v2))
 
 
-def vector(v1, v2):
+def vector(
+        v1,
+        v2
+):
     return [(a-b) for a, b in zip(v2, v1)]
 
 
@@ -326,26 +375,39 @@ def unit(v):
     return np.array(v) / mag
 
 
-def distance(p0, p1):
+def distance(
+        p0,
+        p1
+):
     return length(vector(p0, p1))
 
 
-def scale(v, sc):
+def scale(
+        v,
+        sc
+):
     return np.array(v) * sc
 
 
-def add(v1, v2):
+def add(
+        v1,
+        v2
+):
     return [(a+b) for a, b in zip(v1, v2)]
 
 
-def pnt2line(pnt: List, start: List, end: List):
-    """Given a line with coordinates 'init_pos' and 'end' and the
+def pnt2line(
+        pnt: Union[List, Tuple],
+        start: Union[List, Tuple],
+        end: Union[List, Tuple]
+) -> Tuple:
+    """Given a line with coordinates 'start' and 'end' and the
     coordinates of a point 'pnt' the proc returns the shortest
     distance from pnt to the line and the coordinates of the
     nearest point on the line.
 
     1  Convert the line segment to a vector ('line_vec').
-    2  Create a vector connecting init_pos to pnt ('pnt_vec').
+    2  Create a vector connecting start to pnt ('pnt_vec').
     3  Find the length of the line vector ('line_len').
     4  Convert line_vec to a unit vector ('line_unitvec').
     5  Scale pnt_vec by line_len ('pnt_vec_scaled').
@@ -354,20 +416,18 @@ def pnt2line(pnt: List, start: List, end: List):
     8  Use t to get the nearest location on the line to the end
        of vector pnt_vec_scaled ('nearest').
     9  Calculate the distance from nearest to pnt_vec_scaled.
-    10 Translate nearest back to the init_pos/end line.
+    10 Translate nearest back to the start/end line.
     Malcolm Kesson 16 Dec 2012
 
-    :param pnt: List
-    :param start:  List
-    :param end:  List
+    :param pnt: Union(List, Tuple)
+    :param start:  Union(List, Tuple)
+    :param end:  Union(List, Tuple)
     :return: Tuple
     """
-    if len(pnt) == 2:
-        pnt.append(0)
-    if len(start) == 2:
-        start.append(0)
-    if len(end) == 2:
-        end.append(0)
+
+    # if pnt == start or pnt == end:
+    #     return 0, pnt
+
     line_vec = vector(start, end)
     pnt_vec = vector(start, pnt)
     line_len = length(line_vec)
@@ -382,3 +442,96 @@ def pnt2line(pnt: List, start: List, end: List):
     dist = distance(nearest, pnt_vec)
     nearest = add(nearest, start)
     return dist, nearest
+
+
+def visualize_jpt_outer_limits(
+        models: Dict[str, jpt.trees.JPT],
+) -> None:
+    from matplotlib import patches
+    from matplotlib.cm import get_cmap
+
+    cmap = get_cmap('Dark2')
+    colors = cmap.colors
+
+    fig, ax = plt.subplots(num=1, clear=True)
+
+    minlim = maxlim = 0
+    for i, (tn, t) in enumerate(models.items()):
+        if tn == 'TURN.tree': continue
+        for y, (idx, l) in enumerate(t.leaves.items()):
+            xl = l.value['x_out'].cdf.intervals[0].upper
+            xu = l.value['x_out'].cdf.intervals[-1].lower
+            yl = l.value['y_out'].cdf.intervals[0].upper
+            yu = l.value['y_out'].cdf.intervals[-1].lower
+
+
+            minlim = min([minlim, xl, yl])
+            maxlim = max([maxlim, xu, yu])
+            ax.add_patch(patches.Rectangle((xl, yl), xu - xl, yu - yl, linewidth=1, color=colors[i], alpha=.2))
+            ax.annotate(f'{tn}-{l.idx}-{idx}', (xl, yl))
+
+    ax.set_xlim([minlim, maxlim])
+    ax.set_ylim([minlim, maxlim])
+    plt.grid()
+    plt.show()
+
+
+def visualize_jpt(
+        models: Dict[str, jpt.trees.JPT],
+        conf: float = None,
+        evidence=None,
+        title=None
+):
+    from calo.models.action import Move
+
+    for i, (tn, t) in enumerate(models.items()):
+
+        Move.plot(
+            jpt_=t,
+            qvarx='x_out',
+            qvary='y_out',
+            evidence=evidence,
+            title=title,
+            conf=conf,
+        )
+
+
+def pnt2line_alt(
+        pnt: Union[List, Tuple],
+        start: Union[List, Tuple],
+        end: Union[List, Tuple]
+) -> Tuple[float, List]:
+    from mathutils.geometry import intersect_point_line
+
+    pnt_intersect, _ = intersect_point_line(pnt, start, end)
+
+    d = distance(pnt, pnt_intersect)
+
+    return d, list(pnt_intersect)
+
+
+def recent_example(
+        p: str = '.',
+        pattern: str = None
+) -> str:
+    '''Return the name of the folder most recently created (assuming the folders are
+    named in the given pattern, which is used for training robot action data)'''
+    cdate = datetime.now()
+    pattern = pattern or r'\d{4}-\d{2}-\d{2}_\d{2}:\d{2}'
+
+    files = []
+    for x in Path(p).iterdir():
+        a = re.search(pattern, str(x))
+        if a is not None:
+            files.append((a.group(), abs(cdate-datetime.strptime(a.group(), FILESTRFMT))))
+
+    return os.path.join(os.path.abspath(p), min([(fd, fn) for fn, fd in files], key=lambda x: x[0])[1])
+
+
+if __name__ == '__main__':
+    pnt, start, end = [1., 0.], [1., 0.], [3., 4.]
+    res1 = pnt2line(pnt, start, end)
+    res2 = pnt2line(pnt, end, start)
+    res3 = pnt2line_alt(pnt, start, end)
+    res4 = pnt2line_alt(pnt, end, start)
+    print(res1, res2, res3, res4)
