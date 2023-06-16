@@ -19,6 +19,7 @@ from jpt.distributions import Gaussian
 
 class JointProbabilityTreesMPE(unittest.TestCase):
 
+    @classmethod
     def setUpClass(cls) -> None:
         cls.dt = None
 

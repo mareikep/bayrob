@@ -21,14 +21,24 @@ jsonlogger = dnutils.getlogger(calojsonlogger)
 
 class ResTree:
 
-    def __init__(self, query, threshold=0):
+    def __init__(
+            self,
+            query,
+            threshold=0
+    ):
         self.threshold = threshold
         self.query = query
         self.root = None
 
     class Node:
 
-        def __init__(self, parent, nodetext='', edgetext='', printnode=False):
+        def __init__(
+                self,
+                parent,
+                nodetext='',
+                edgetext='',
+                printnode=False
+        ):
             self.children = []
             self._parent = parent
             self.nodetext = nodetext
@@ -68,20 +78,34 @@ class ResTree:
             return self._parent
 
         @parent.setter
-        def parent(self, parent) -> None:
+        def parent(
+                self,
+                parent
+        ) -> None:
             self._parent = parent
 
         def __repr__(self) -> str:
             return self.nodetext
 
-        def __eq__(self, other) -> bool:
+        def __eq__(
+                self,
+                other
+        ) -> bool:
             return self.nodetext == other.nodetext
 
 
 class CALO:
     """The CALO reasoning system."""
 
-    def __init__(self, astar, start, goal, datapaths=None, stepcost=None, heuristic=None):
+    def __init__(
+            self,
+            astar,
+            start,
+            goal,
+            datapaths=None,
+            stepcost=None,
+            heuristic=None
+    ):
         """The requirement profile mapping property names to either :class:`jpt.base.intervals.ContinuousSet` or list
         of values (for symbolic variables).
 
@@ -108,12 +132,18 @@ class CALO:
         self._nodes = {}
         self._resulttree = None
 
-    def adddatapath(self, path) -> None:
+    def adddatapath(
+            self,
+            path
+    ) -> None:
         if path not in self._datapaths:
             self._datapaths.append(path)
         self.reloadmodels()
 
-    def removedatapath(self, path) -> None:
+    def removedatapath(
+            self,
+            path
+    ) -> None:
         if path in self._datapaths:
             self._datapaths.remove(path)
         self.reloadmodels()
@@ -174,7 +204,10 @@ class CALO:
         return self._models
 
     @models.setter
-    def models(self, trees) -> None:
+    def models(
+            self,
+            trees
+    ) -> None:
         if all([isinstance(t, str) for t in trees]):
             self._models = dict([(t, JPT.load(os.path.join(p, t))) for p in self._datapaths for t in trees if t in os.listdir(p)])
         elif all([isinstance(t, JPT) for t in trees]):
@@ -439,7 +472,10 @@ class CALO:
     #     """
     #     return [Step(confs, path, treename, query) for treename, tree in models.items() for idx, (confs, path) in enumerate(tree.reverse({k.name: v for k, v in query.items()}))]
 
-    def equivexists(self, hyp) -> bool:
+    def equivexists(
+            self,
+            hyp
+    ) -> bool:
         """Checks if any of the already added hypotheses is prefix of ``hyp``, i.e. ``hyp`` contains unnecessary
         steps, or TODO is an equivalent of ``hyp`` with a lower or equal performance
 
@@ -450,7 +486,11 @@ class CALO:
 
         return any([self._prefixof(hyp, hyp2) for hyp2 in self._hypotheses])
 
-    def _prefixof(self, h1, h2) -> bool:
+    def _prefixof(
+            self,
+            h1,
+            h2
+    ) -> bool:
         """Returns True if Hypothesis `h1` is a prefix of `h2`, i.e. if the first n steps are identical for both
         hypotheses.
         """
@@ -490,7 +530,12 @@ class CALO:
     #     return True
 
     @staticmethod
-    def learn(name, data, model='tree', path='.') -> None:
+    def learn(
+            name,
+            data,
+            model='tree',
+            path='.'
+    ) -> None:
         """Learns a new model with the given ``name`` using the training ``data``.
 
         :param name: the name for the model to be learned, e.g. the process name

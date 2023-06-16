@@ -6,7 +6,7 @@ from calo import config
 
 from calo.utils import locs
 from calo.utils.constants import calologger, calojsonlogger, calofileloggerv, calofileloggerr, \
-    FILESTRFMT, resultlog, logs
+    FILESTRFMT, FILESTRFMT_NOTIME, resultlog, logs
 
 LEVELS = {'debug': dnutils.DEBUG,
           'info': dnutils.INFO,
@@ -26,14 +26,14 @@ def init_loggers(level='info') -> None:
             calojsonlogger: dnutils.newlogger(dnutils.logs.MongoHandler(connection.logs.calolog, checkkeys=False), level=LEVELS.get(level)),
             calofileloggerr: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, resultlog.format(datetime.datetime.now().strftime(FILESTRFMT)))), level=LEVELS.get(level)),
             calofileloggerv: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, resultlog.format(datetime.datetime.now().strftime(FILESTRFMT)))), level=LEVELS.get(level)),
-            'datalogger': dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT)}-MOVE.csv')), level=LEVELS.get(level))
+            'datalogger': dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT)}.csv')), level=LEVELS.get(level))
         }
     else:
         loggers = {
             calologger: dnutils.newlogger(dnutils.logs.console, level=LEVELS.get(level)),
             calojsonlogger: dnutils.newlogger(dnutils.logs.console, level=LEVELS.get(level)),
-            calofileloggerr: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT)))), level=LEVELS.get(level)),
-            calofileloggerv: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT)))), level=LEVELS.get(level)),
-            'datalogger': dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT)}-MOVE.csv')), level=LEVELS.get(level))
+            calofileloggerr: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))), level=LEVELS.get(level)),
+            calofileloggerv: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))), level=LEVELS.get(level)),
+            'datalogger': dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, f'{logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME))}.csv')), level=LEVELS.get(level))
         }
     dnutils.loggers(loggers)

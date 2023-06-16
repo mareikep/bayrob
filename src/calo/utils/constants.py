@@ -21,7 +21,7 @@ calologger = f'/calo'
 calojsonlogger = f'/calo/json'
 calofileloggerr = f'/calo/file/res'
 calofileloggerv = f'/calo/file/verbose'
-connectionlogger = '/calo/connection'
+connectionlogger = f'/calo/connection'
 
 resultlog = f'{projectnameUP.__doc__}_res-{{}}.log'
 logs = f'{projectnameUP.__doc__}_log-{{}}.log'
@@ -31,6 +31,8 @@ logs = f'{projectnameUP.__doc__}_log-{{}}.log'
 #################
 TMPFILESTRFMT = 'TMP_%Y%m%d_%H-%M-%S'
 FILESTRFMT = "%Y-%m-%d_%H:%M"
+FILESTRFMT_NOTIME = "%Y-%m-%d"
+FILESTRFMT_SEC = "%Y-%m-%d_%H:%M:%S"
 
 
 #######
@@ -65,7 +67,7 @@ yellow = '#ffff4c80'
 orange = '#ffbe4980'
 red = '#FF4A4980'
 
-plotcolormap = 'cividis'  # or viridis
+plotcolormap = 'tab20b'  # or viridis
 plotstyle = 'seaborn-deep'
 avalailable_colormaps = [
     'Accent', 'Accent_r', 'Blues', 'Blues_r', 'BrBG', 'BrBG_r', 'BuGn', 'BuGn_r', 'BuPu',
