@@ -517,7 +517,7 @@ def recent_example(
     '''Return the name of the folder most recently created (assuming the folders are
     named in the given pattern, which is used for training robot action data)'''
     cdate = datetime.now()
-    pattern = pattern or r'\d{4}-\d{2}-\d{2}_\d{2}:\d{2}'
+    pattern = pattern or r'^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$'
 
     files = []
     for x in Path(p).iterdir():
