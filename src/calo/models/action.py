@@ -1,32 +1,30 @@
 import math
-import jpt
+from typing import List, Dict, Tuple, Any
 
 import dnutils
+import jpt
 import numpy as np
 import pandas as pd
 from dnutils import ifnone
-from jpt.variables import LabelAssignment
+from jpt.distributions import Gaussian
 from matplotlib import pyplot as plt
 from numpy.random import randint, choice
-from typing import List, Dict, Tuple, Any
-
-from jpt.distributions import Gaussian
 
 datalogger = dnutils.getlogger('datalogger')
 
 
 class Move:
     # uncertainty for degrees and distance
-    DEG_U = 5
-    DIST_U = 0.05
+    DEG_U = .05
+    DIST_U = .05
 
     # desired distance moved in one step
     STEPSIZE = 1
 
     def __init__(
             self,
-            degu: float = 5,
-            distu: float = 0.05
+            degu: float = .05,
+            distu: float = .05
     ):
         Move.DEG_U = degu
         Move.DIST_U = distu
@@ -58,7 +56,7 @@ class Move:
             agent,
             deg=45
     ) -> None:
-        g = Gaussian(deg, abs(Move.DEG_U * deg / 180))
+        g = Gaussian(deg, Move.DEG_U * 180)
         agent.dir = Move.rotate(agent.dirx, agent.diry, g.sample(1))
 
     @staticmethod
@@ -124,19 +122,21 @@ class Move:
             save: str = None,
             show: bool = False
     ) -> None:
-        """Plots a heatmap representing the
+        """Plots a heatmap representing the overall `coverage` of the jpt for the given variables, i.e. the joint
+        probability of these variables: P(qvarx, qvary [| evidence ]). Helps to identify areas not well represented
+        by the tree.
 
-        :param jpt_: The
-        :param qvarx:
-        :param qvary:
-        :param evidence:
-        :param title:
-        :param conf:
-        :param limx:
-        :param limy:
-        :param limz:
-        :param save:
-        :param show:
+        :param jpt_: The (conditional) tree to plot the overall coverage for
+        :param qvarx: The first of two joint variables to show the coverage for
+        :param qvary: The second of two joint variable to show the coverage for
+        :param evidence: The evidence for the conditional probability represented (if present)
+        :param title: The plot title
+        :param conf:  A confidence value. Values below this threshold are set to 0. (= equal color for lowest value in plot)
+        :param limx: The limits for the x-variable; determined from pdf intervals of jpt priors if not given
+        :param limy: The limits for the y-variable; determined from pdf intervals of jpt priors if not given
+        :param limz: The limits for the z-variable; determined from pdf intervals of jpt priors if not given
+        :param save: The location where the plot is saved (if given)
+        :param show: Whether the plot is shown
         :return: None
         """
         from jpt.base.utils import format_path
@@ -171,8 +171,8 @@ class Move:
 
         # init plot
         fig, ax = plt.subplots(num=1, clear=True)
-        fig.patch.set_facecolor('#4b006e')  # set bg color around the plot area (royal purple)
-        ax.set_facecolor('#35063e')  # set bg color of plot area (dark purple)
+        fig.patch.set_facecolor('#D6E7F8')  # set bg color around the plot area (royal purple)
+        ax.set_facecolor('#B1FF49')  # set bg color of plot area (dark purple)
         cmap = 'BuPu'  # viridis, Blues, PuBu, 0rRd, BuPu
 
         # generate heatmap
