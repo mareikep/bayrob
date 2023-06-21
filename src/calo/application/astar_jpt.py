@@ -1,19 +1,21 @@
 import datetime
 import math
+import math
 import os
 from pathlib import Path
 from typing import List, Dict, Union, Any
 
 import dnutils
+import pyximport
 from calo.core.astar import AStar, Node
 from calo.logs.logs import init_loggers
 from calo.models.action import Move
 from calo.utils import locs
-from calo.utils.constants import FILESTRFMT_SEC, calologger, plotcolormap
-from calo.utils.utils import pnt2line_alt, recent_example
+from calo.utils.constants import calologger, plotcolormap, FILESTRFMT_SEC
+from calo.utils.utils import pnt2line_alt, recent_example, angledeg
 from jpt.trees import JPT
 
-import pyximport; pyximport.install()
+pyximport.install()
 from jpt.base.intervals import ContinuousSet
 
 
@@ -41,9 +43,9 @@ class State:
         return self.posx == other.posx and self.posy == other.posy
 
     def __str__(self):
-        return f'State<pos: ({round(self.posx, 2) if not isinstance(self.posx, ContinuousSet) else str(self.posx)}/' \
-               f'{round(self.posy) if not isinstance(self.posy, ContinuousSet) else str(self.posy)});' \
-               f'{f" dir: ({round(self.dirx, 2)}/{round(self.diry, 2)})" if self.dirx is not None and self.diry is not None else ""}>'
+        return f'State<pos: ({str(self.posx) if isinstance(self.posx, ContinuousSet) else round(self.posx, 2)}/' \
+               f'{str(self.posy) if isinstance(self.posy, ContinuousSet) else round(self.posy) });' \
+               f'{f" dir: ({str(self.dirx)}/{str(self.diry)})" if isinstance(self.dirx, ContinuousSet) and isinstance(self.diry, ContinuousSet) else f" dir: ({round(self.dirx, 2)}/{round(self.diry, 2)})" if self.dirx is not None and self.diry is not None else ""}>'
 
     def __repr__(self):
         return str(self)
@@ -83,6 +85,8 @@ class SubAStar(AStar):
     ) -> float:
         # Euclidean distance from current position to goal node
         cost = 0.
+        gx = self.goalstate.posx
+        gy = self.goalstate.posy
         if isinstance(self.goalstate.posx, ContinuousSet) and isinstance(self.goalstate.posy, ContinuousSet):
             # assuming the goal area is a rectangle, calculate the minimum distance between the current position (= point)
             # to the nearest edge of the rectangle
@@ -90,6 +94,8 @@ class SubAStar(AStar):
             xu = self.goalstate.posx.upper
             yl = self.goalstate.posy.lower
             yu = self.goalstate.posy.upper
+            gx = xl + (xu-xl)/2
+            gy = yl + (yu-yl)/2
 
             cost += min([d for d, _ in [
                 pnt2line_alt([state.posx, state.posy], [xl, yl], [xl, yu]),
@@ -109,9 +115,9 @@ class SubAStar(AStar):
 
         # difference in orientation (current dir to dir to goal node)
         # vec to goal node:
-        # dx = self.goalstate.posx - state.posx
-        # dy = self.goalstate.posy - state.posy
-        # cost += angledeg([state.dirx, state.diry], [dx, dy])
+        dx = gx - state.posx
+        dy = gy - state.posy
+        cost += angledeg([state.dirx, state.diry], [dx, dy])
 
         return cost
 
@@ -136,21 +142,24 @@ class SubAStar(AStar):
             [
                 tn,
                 tree.conditional_jpt(
-                    evidence=tree.bind({k: v for k, v in evidence.items() if k in tree.varnames}),
+                    evidence=tree.bind(
+                        {k: v for k, v in evidence.items() if k in tree.varnames},
+                        allow_singular_values=False
+                    ),
                     fail_on_unsatisfiability=False)
             ] for tn, tree in self.models.items()
         ]
 
         # for debugging, TODO: remove!
-        if condtrees:
-            for i, jpt_ in condtrees:
-                jpt_.plot(
-                    title=i,
-                    plotvars=jpt_.variables,
-                    leaffill='#CCDAFF',
-                    nodefill='#768ABE',
-                    alphabet=True
-                    )
+        # for i, jpt_ in condtrees:
+        #     if jpt_ is None: continue
+        #     jpt_.plot(
+        #         title=i,
+        #         plotvars=jpt_.variables,
+        #         leaffill='#CCDAFF',
+        #         nodefill='#768ABE',
+        #         alphabet=True
+        #         )
         #         if i == 'MOVEFORWARD.tree' and jpt_:
         #             Move.plot(
         #                 jpt_=jpt_,
@@ -180,15 +189,15 @@ class SubAStar(AStar):
             pos_x = node.state.posx
             pos_y = node.state.posy
             if 'x_out' in succ.value and 'y_out' in succ.value:
-                pos_x = succ.value['x_out'].expectation()
-                pos_y = succ.value['y_out'].expectation()
+                pos_x += succ.value['x_out'].expectation()
+                pos_y += succ.value['y_out'].expectation()
 
             # update direction
             dir_x = node.state.dirx
             dir_y = node.state.diry
             if 'xdir_out' in succ.value and 'ydir_out' in succ.value:
-                dir_x = succ.value['xdir_out'].expectation()
-                dir_y = succ.value['ydir_out'].expectation()
+                dir_x += succ.value['xdir_out'].expectation()
+                dir_y += succ.value['ydir_out'].expectation()
 
             state = State(
                 posx=pos_x,
@@ -315,22 +324,21 @@ if __name__ == "__main__":
     init_loggers(level='debug')
     recent = recent_example(os.path.join(locs.examples, 'robotaction'))
 
-    logger.debug('Loading trees...')
+    logger.debug(f'Loading trees from {recent}...')
     models = dict(
         [
             (
                 treefile.name,
                 JPT.load(str(treefile))
             )
-            for p in [recent_example(os.path.join(locs.examples, 'robotaction'))]
+            for p in [recent]
             for treefile in Path(p).rglob('*.tree')
         ]
     )
 
-    jpt_ = models['MOVEFORWARD.tree']
-
     logger.debug('...done! Plotting initial distribution...')
 
+    jpt_ = models['MOVEFORWARD.tree']
     # Move.plot(
     #     jpt_=jpt_,
     #     qvarx=jpt_.varnames['x_out'],
@@ -341,7 +349,7 @@ if __name__ == "__main__":
     #     limx=(-100, 100),
     #     limy=(-100, 100),
     #     # limz=(0, 0.001),
-    #     save=os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT_SEC)}.png'),
+    #     # save=os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT_SEC)}.png'),
     #     show=True
     # )
 
@@ -349,8 +357,10 @@ if __name__ == "__main__":
 
     tolerance = .1
 
-    initx, inity, initdirx, initdiry = [-72.0337547702897, -71.8206700251736, -0.414975684428278,	0.909832501800899]
+    initx, inity, initdirx, initdiry = [-75, 75, 1, 0]
+    # initx, inity, initdirx, initdiry = [-72.0337547702897, -71.8206700251736, -0.414975684428278,	0.909832501800899]
     # initx, inity, initdirx, initdiry = [.0, .0, -1., .0]
+
     initstate = State(
         posx=initx,
         posy=inity,
@@ -358,14 +368,14 @@ if __name__ == "__main__":
         diry=initdiry,
     )
     # initstate = State(
-    #     posx=ContinuousSet(initx - abs(tolerance * initx), initx + abs(tolerance * initx)),
-    #     posy=ContinuousSet(inity - abs(tolerance * inity), inity + abs(tolerance * inity)),
-    #     dirx=ContinuousSet(initdirx - abs(tolerance * initdirx), initdirx + abs(tolerance * initdirx)),
-    #     diry=ContinuousSet(initdiry - abs(tolerance * initdiry), initdiry + abs(tolerance * initdiry))
+    #     posx=ContinuousSet(initx, initx),
+    #     posy=ContinuousSet(inity, inity),
+    #     dirx=ContinuousSet(initdirx, initdirx),
+    #     diry=ContinuousSet(initdiry, initdiry)
     # )
 
-
-    goalx, goaly = [-75.301941580268, -58.9992353237625]
+    goalx, goaly = [-75, 66]
+    # goalx, goaly = [-75.301941580268, -58.9992353237625]
     # goalx, goaly = [-76.2808983901234, -51.5095777048669]  # [4.5, -2.5]
 
     goalstate = State(
