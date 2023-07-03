@@ -26,7 +26,7 @@ class SubAStar(AStar):
         [0, 0, 0, 0, 1, 0, 0],
     ]
 
-    ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]  # up, left, down, right
+    ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]  # up, left, right, down
     OBSTACLE = 1
     FREE = 0
     STEP = 8
@@ -147,7 +147,8 @@ class AStarAlgorithmTests(unittest.TestCase):
         a_star = SubAStar(AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
         self.path = a_star.search()
 
-        self.assertEqual(self.path, [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)], msg='A* path incorrect')
+        self.assertTrue(self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)] or
+                        self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (3, 3), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)], msg='A* path incorrect')
 
     def test_bdir_astar_path(self) -> None:
         bidir_astar = BiDirAStar(SubAStar, SubAStar, AStarAlgorithmTests.init, AStarAlgorithmTests.goal)

@@ -338,6 +338,8 @@ def dotproduct(
         v1,
         v2
 ):
+
+    # |v1| × |v2| × cos(θ); θ = angle between v1 and v2
     return sum((a*b) for a, b in zip(v1, v2))
 
 
@@ -396,7 +398,7 @@ def add(
     return [(a+b) for a, b in zip(v1, v2)]
 
 
-def pnt2line(
+def pnt2line_(
         pnt: Union[List, Tuple],
         start: Union[List, Tuple],
         end: Union[List, Tuple]
@@ -408,39 +410,38 @@ def pnt2line(
 
     1  Convert the line segment to a vector ('line_vec').
     2  Create a vector connecting start to pnt ('pnt_vec').
-    3  Find the length of the line vector ('line_len').
-    4  Convert line_vec to a unit vector ('line_unitvec').
-    5  Scale pnt_vec by line_len ('pnt_vec_scaled').
-    6  Get the dot product of line_unitvec and pnt_vec_scaled ('t').
-    7  Ensure t is in the range 0 to 1.
-    8  Use t to get the nearest location on the line to the end
-       of vector pnt_vec_scaled ('nearest').
-    9  Calculate the distance from nearest to pnt_vec_scaled.
-    10 Translate nearest back to the start/end line.
-    Malcolm Kesson 16 Dec 2012
+    3  Get the dot product of pnt_vec and line_vec ('dot').
+    4  Find the squared length of the line vector ('line_len').
+    5  If the line segment has length 0, terminate otherwise determine the projection distance from start/end, i.e.
+       the fraction of the line segment that pnt is closest to ('t').
+    6  If t < 0, the nearest point would be on the extension of the line segment closest to start, if t > 1, the nearest
+       point would be on the extension of the line segment closest to end, otherwise the nearest point lies on the line
+       segment ('nearest').
+    7  Calculate the distance from pnt to the nearest point on the line segment ('dist')
 
     :param pnt: Union(List, Tuple)
     :param start:  Union(List, Tuple)
     :param end:  Union(List, Tuple)
     :return: Tuple
     """
-
-    # if pnt == start or pnt == end:
-    #     return 0, pnt
-
     line_vec = vector(start, end)
     pnt_vec = vector(start, pnt)
-    line_len = length(line_vec)
-    line_unitvec = unit(line_vec)
-    pnt_vec_scaled = scale(pnt_vec, 1.0/line_len)
-    t = dotproduct(line_unitvec, pnt_vec_scaled)
-    if t < 0.0:
-        t = 0.0
-    elif t > 1.0:
-        t = 1.0
-    nearest = scale(line_vec, t)
-    dist = distance(nearest, pnt_vec)
-    nearest = add(nearest, start)
+    dot = dotproduct(line_vec, pnt_vec)
+    line_len = dotproduct(line_vec, line_vec)
+
+    if line_len != 0:
+        t = dot/line_len
+    else:
+        raise Exception('Cannot determine nearest point and distance to 0-length line segment')
+
+    if t <= 0:
+        nearest = start
+    elif t >= 1:
+        nearest = end
+    else:
+        nearest = add(start, scale(line_vec, t))
+
+    dist = distance(nearest, pnt)
     return dist, nearest
 
 
@@ -476,35 +477,24 @@ def visualize_jpt_outer_limits(
     plt.show()
 
 
-def visualize_jpt(
-        models: Dict[str, jpt.trees.JPT],
-        conf: float = None,
-        evidence=None,
-        title=None
-):
-    from calo.models.action import Move
-
-    for i, (tn, t) in enumerate(models.items()):
-
-        Move.plot(
-            jpt_=t,
-            qvarx='x_out',
-            qvary='y_out',
-            evidence=evidence,
-            title=title,
-            conf=conf,
-        )
-
-
-def pnt2line_alt(
+def pnt2line(
         pnt: Union[List, Tuple],
         start: Union[List, Tuple],
         end: Union[List, Tuple]
 ) -> Tuple[float, List]:
+    """Given a line with coordinates 'start' and 'end' and the
+    coordinates of a point 'pnt' the proc returns the shortest
+    distance from pnt to the line and the coordinates of the
+    nearest point on the line.
+
+    :param pnt: The coordinates of the point or origin
+    :param start:  The coordinates of the start of the line
+    :param end:  The coordinates of the end of the line
+    :return: the distance to the nearest point on the line and its coordinates
+    """
     from mathutils.geometry import intersect_point_line
 
     pnt_intersect, _ = intersect_point_line(pnt, start, end)
-
     d = distance(pnt, pnt_intersect)
 
     return d, list(pnt_intersect)
@@ -517,7 +507,7 @@ def recent_example(
     '''Return the name of the folder most recently created (assuming the folders are
     named in the given pattern, which is used for training robot action data)'''
     cdate = datetime.now()
-    pattern = pattern or r'^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$'
+    pattern = pattern or r'\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$'
 
     files = []
     for x in Path(p).iterdir():

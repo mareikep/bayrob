@@ -61,7 +61,7 @@ def gendata(
                     ]
                 c+=1
 
-    df_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'xdir_out', 'ydir_out', 'angle'])
+    df_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     for i, (y, x) in enumerate(ACTIONS):
         for j, d in enumerate(DIRACTIONS):
             deg = np.radians(d)
@@ -69,16 +69,16 @@ def gendata(
             df_turn.loc[i + j*len(ACTIONS)] = [
                 x,  # xdir_in
                 y,  # ydir_in
+                d,  # angle
                 int(newdir[0]),  # xdir_out (delta)
-                int(newdir[1]),  # ydir_out (delta)
-                d  # angle
+                int(newdir[1])  # ydir_out (delta)
             ]
     df_move.to_csv(os.path.join(dt, 'gridagent-move.csv'), index=False)
     df_turn.to_csv(os.path.join(dt, 'gridagent-turn.csv'), index=False)
     return df_move, df_turn
 
 
-def learn(d, dt, title):
+def learn_move(d, dt):
     vars = infer_from_dataframe(d)
 
     jpt = JPT(
@@ -90,13 +90,40 @@ def learn(d, dt, title):
     jpt.learn(d)
     jpt.postprocess_leaves()
 
-    logger.debug(f'...done! saving to file {os.path.join(dt, f"gridagent-{title}.tree")}')
+    logger.debug(f'...done! saving to file {os.path.join(dt, f"gridagent-MOVE.tree")}')
 
-    jpt.save(os.path.join(dt, f'gridagent-{title}.tree'))
+    jpt.save(os.path.join(dt, f'gridagent-MOVE.tree'))
     jpt.plot(
-        title=f'Gridagent-{title}',
+        title=f'Gridagent-MOVE',
         plotvars=list(jpt.variables),
-        filename=f'gridagent-{title}',
+        filename=f'gridagent-MOVE',
+        directory=dt,
+        leaffill='#CCDAFF',
+        nodefill='#768ABE',
+        alphabet=True,
+        view=True
+    )
+
+
+def learn_turn(d, dt):
+    vars = infer_from_dataframe(d)
+
+    jpt = JPT(
+        variables=vars,
+        targets=vars[3:],
+        min_samples_leaf=1
+    )
+
+    jpt.learn(d, keep_samples=True)
+    # jpt.postprocess_leaves()
+
+    logger.debug(f'...done! saving to file {os.path.join(dt, f"gridagent-TURN.tree")}')
+
+    jpt.save(os.path.join(dt, f'gridagent-TURN.tree'))
+    jpt.plot(
+        title=f'Gridagent-TURN',
+        plotvars=list(jpt.variables),
+        filename=f'gridagent-TURN',
         directory=dt,
         leaffill='#CCDAFF',
         nodefill='#768ABE',
@@ -114,5 +141,5 @@ if __name__ == "__main__":
     logger.debug(f'running gridagent data generation with data in {DT}')
 
     df_move, df_turn = gendata(7, DT)
-    learn(df_move, DT, "MOVE")
-    learn(df_turn, DT, "TURN")
+    # learn_move(df_move, DT)
+    learn_turn(df_turn, DT)

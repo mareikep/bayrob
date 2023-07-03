@@ -18,18 +18,15 @@ class Node:
             g: float,
             h: float,
             parent: 'Node' = None,
-            tree: str = None,  # TODO: remove! --> only for debugging
-            leaf: Any = None  # TODO: remove! --> only for debugging
     ):
         self.g = g
         self.h = h
         self.state = state
         self.parent = parent
-        self.tree = tree  # TODO: remove! --> only for debugging
-        self.leaf = leaf  # TODO: remove! --> only for debugging
 
     @property
     def f(self) -> float:
+        print(self.g, self.h)
         return self.g + self.h
 
     def __lt__(
@@ -42,10 +39,9 @@ class Node:
         current_node = self
         path = ""
         while current_node is not None:
-            if current_node.parent is not None:
-                path = f"-{current_node.tree}({current_node.leaf.idx})" + path
+            path = f" {repr(current_node.state)}{' ->' if path else ''}{path}"
             current_node = current_node.parent
-        return "H" + path
+        return f"<Node{path}>"
 
 
 class AStar:
@@ -55,26 +51,54 @@ class AStar:
             self,
             initstate: Any,
             goalstate: Any,
-            **kwargs):
-        """
-
-        """
+            state_similarity: float = .9,
+            goal_confidence: float = .01,
+            **kwargs
+    ):
         self.initstate = initstate
         self.goalstate = goalstate
+        self._state_similarity = state_similarity
+        self._goal_confidence = goal_confidence
         self.__dict__.update(kwargs)
 
         self.open = []
         self.closed = []
 
         self.reached = False
+        self.init()
 
-    def h(
-            self,
-            state: Any
-    ) -> float:
+    def __str__(self):
+        return f'<A* init: {self.initstate}; goal: {self.goalstate}>'
+
+    def __repr__(self):
+        return str(self)
+
+    def init(self):
         raise NotImplementedError
 
-    def g(
+    @property
+    def state_similarity(self) -> float:
+        return self._state_similarity
+
+    @state_similarity.setter
+    def state_similarity(
+            self,
+            s: float
+    ) -> None:
+        self._state_similarity = s
+
+    @property
+    def goal_confidence(self) -> float:
+        return self._goal_confidence
+
+    @goal_confidence.setter
+    def goal_confidence(
+            self,
+            c: float
+    ) -> None:
+        self._goal_confidence = c
+
+    def h(
             self,
             state: Any
     ) -> float:
@@ -114,12 +138,11 @@ class AStar:
     def search(self) -> Any:
         logger.debug(f'Searching path from {self.initstate} to {self.goalstate}')
 
-        init = Node(state=self.initstate, g=0., h=self.h(self.initstate), parent=None)
-        heapq.heappush(self.open, (init.f, init))
+        init = self.open[0]
 
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
-
+            self.plot(self.retrace_path(cur_node))
             if self.isgoal(cur_node):
                 self.reached = True
 
@@ -128,24 +151,17 @@ class AStar:
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
 
+                print(f'Num open {len(self.open)}, num closed {len(self.closed)}; total: {len(self.open) + len(self.closed)}')
                 return self.retrace_path(cur_node)
 
             heapq.heappush(self.closed, (cf, cur_node))
             successors = self.generate_successors(cur_node)
 
             for c in successors:
-                if c in self.closed:
+                if any([c.state.similarity(s.state) > self.state_similarity for _, s in self.closed]):
                     continue
 
-                if c not in self.open:
-                    heapq.heappush(self.open, (c.f, c))
-                else:
-                    cf_, c_ = heapq.heappop(self.open)
-
-                    if c.g < c_.g:
-                        heapq.heappush(self.open, (c.f, c))
-                    else:
-                        heapq.heappush(self.open, (cf_, c_))
+                heapq.heappush(self.open, (c.f, c))
 
         if not self.reached:
             logger.warning(f'Could not find a path from {self.initstate} to {self.goalstate}')
@@ -162,16 +178,20 @@ class BiDirAStar:
 
     def __init__(
             self,
-            fastar: type,
-            bastar: type,
+            f_astar: type,
+            b_astar: type,
             initstate: Any,
             goalstate: Any,
+            state_similarity: float = .9,
+            goal_confidence: float = .01,
             **kwargs
     ):
         self.initstate = initstate
         self.goalstate = goalstate
-        self.f_astar = fastar(initstate, goalstate, **kwargs)
-        self.b_astar = bastar(goalstate, initstate, **kwargs)
+        self.f_astar = f_astar(initstate, goalstate, **kwargs)
+        self.b_astar = b_astar(initstate, goalstate, **kwargs)
+        self._state_similarity = state_similarity
+        self._goal_confidence = goal_confidence
         self.reached = False
 
     def retrace_path(
@@ -195,15 +215,18 @@ class BiDirAStar:
     ) -> bool:
 
         # if current position of each fnode and bnode is identical
-        if bnode.state.posx == fnode.state.posx and bnode.state.posy == fnode.state.posy:
+        if bnode.state.similarity(fnode.state) > self.state_similarity:
+            # bnode.state.posx == fnode.state.posx and bnode.state.posy == fnode.state.posy:
             return True
 
         # ...or current position of forward node has reached goal state
-        if fnode.state.posx == self.f_astar.goalstate.posx and fnode.state.posy == self.f_astar.goalstate.posy:
+        if fnode.state.similarity(self.f_astar.goalstate) > self.state_similarity:
+            # if fnode.state.posx == self.f_astar.goalstate.posx and fnode.state.posy == self.f_astar.goalstate.posy:
             return True
 
         # ...or current position of backward node has reached goal state
-        if bnode.state.posx == self.b_astar.goalstate.posx and bnode.state.posy == self.b_astar.goalstate.posy:
+        if bnode.state.similarity(self.b_astar.goalstate) > self.state_similarity:
+            # if bnode.state.posx == self.b_astar.goalstate.posx and bnode.state.posy == self.b_astar.goalstate.posy:
             return True
 
         return False
