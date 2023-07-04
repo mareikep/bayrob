@@ -22,3 +22,4 @@ Image
 appdirs
 owlready2
 pracmln
+jpt
