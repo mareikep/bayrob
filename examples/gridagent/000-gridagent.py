@@ -73,8 +73,8 @@ def gendata(
                 int(newdir[0]),  # xdir_out (delta)
                 int(newdir[1])  # ydir_out (delta)
             ]
-    df_move.to_csv(os.path.join(dt, 'gridagent-move.csv'), index=False)
-    df_turn.to_csv(os.path.join(dt, 'gridagent-turn.csv'), index=False)
+    df_move.to_csv(os.path.join(dt, '000-gridagent-move.csv'), index=False)
+    df_turn.to_csv(os.path.join(dt, '000-gridagent-turn.csv'), index=False)
     return df_move, df_turn
 
 
@@ -90,13 +90,13 @@ def learn_move(d, dt):
     jpt.learn(d)
     jpt.postprocess_leaves()
 
-    logger.debug(f'...done! saving to file {os.path.join(dt, f"gridagent-MOVE.tree")}')
+    logger.debug(f'...done! saving to file {os.path.join(dt, f"000-gridagent-MOVE.tree")}')
 
-    jpt.save(os.path.join(dt, f'gridagent-MOVE.tree'))
+    jpt.save(os.path.join(dt, f'000-gridagent-MOVE.tree'))
     jpt.plot(
         title=f'Gridagent-MOVE',
         plotvars=list(jpt.variables),
-        filename=f'gridagent-MOVE',
+        filename=f'000-gridagent-MOVE',
         directory=dt,
         leaffill='#CCDAFF',
         nodefill='#768ABE',
@@ -117,13 +117,13 @@ def learn_turn(d, dt):
     jpt.learn(d, keep_samples=True)
     # jpt.postprocess_leaves()
 
-    logger.debug(f'...done! saving to file {os.path.join(dt, f"gridagent-TURN.tree")}')
+    logger.debug(f'...done! saving to file {os.path.join(dt, f"000-gridagent-TURN.tree")}')
 
-    jpt.save(os.path.join(dt, f'gridagent-TURN.tree'))
+    jpt.save(os.path.join(dt, f'000-gridagent-TURN.tree'))
     jpt.plot(
         title=f'Gridagent-TURN',
         plotvars=list(jpt.variables),
-        filename=f'gridagent-TURN',
+        filename=f'000-gridagent-TURN',
         directory=dt,
         leaffill='#CCDAFF',
         nodefill='#768ABE',
@@ -141,5 +141,5 @@ if __name__ == "__main__":
     logger.debug(f'running gridagent data generation with data in {DT}')
 
     df_move, df_turn = gendata(7, DT)
-    # learn_move(df_move, DT)
+    learn_move(df_move, DT)
     learn_turn(df_turn, DT)
