@@ -323,4 +323,4 @@ class AStarGridworldJPTTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        print(SubAStar.strworld(None))
+        print(GridWorld.strworld(None))

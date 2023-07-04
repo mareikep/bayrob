@@ -1,3 +1,4 @@
+import datetime
 import heapq
 import math
 import os
@@ -15,7 +16,7 @@ from calo.core.astar import AStar, Node, BiDirAStar
 from calo.logs.logs import init_loggers
 from calo.models.action import Move
 from calo.utils import locs
-from calo.utils.constants import calologger, plotcolormap
+from calo.utils.constants import calologger, plotcolormap, FILESTRFMT_SEC
 from calo.utils.utils import pnt2line, recent_example, angledeg
 from dnutils import ifnone
 from jpt.distributions import Numeric, Gaussian
@@ -356,28 +357,27 @@ class SubAStar(AStar):
         # for debugging, TODO: remove!
         # for i, jpt_ in condtrees:
         #     if jpt_ is None: continue
-        #     jpt_.plot(
-        #         title=i,
-        #         plotvars=jpt_.variables,
-        #         leaffill='#CCDAFF',
-        #         nodefill='#768ABE',
-        #         alphabet=True
-        #         )
-        #         if i == 'MOVEFORWARD.tree' and jpt_:
-        #             Move.plot(
-        #                 jpt_=jpt_,
-        #                 qvarx=jpt_.varnames['x_out'],
-        #                 qvary=jpt_.varnames['y_out'],
-        #                 evidence={jpt_.varnames[k]: v for k, v in evidence.items()},
-        #                 title=f'{i} (conditional)',
-        #                 # conf=.0003,
-        #                 limx=(-150, 150),
-        #                 limy=(-150, 150),
-        #                 # limz=(0, 0.001),
-        #                 save=os.path.join(locs.logs, f'{i}_cond-{datetime.datetime.now().strftime(FILESTRFMT_SEC)}.png'),
-        #                 show=False,
-        #                 alphabet=True
-        #             )
+            # jpt_.plot(
+            #     title=i,
+            #     plotvars=jpt_.variables,
+            #     leaffill='#CCDAFF',
+            #     nodefill='#768ABE',
+            #     alphabet=True
+            # )
+            # if i == 'MOVEFORWARD.tree' and jpt_:
+            #     Move.plot(
+            #         jpt_=jpt_,
+            #         qvarx=jpt_.varnames['x_out'],
+            #         qvary=jpt_.varnames['y_out'],
+            #         evidence={jpt_.varnames[k]: v for k, v in evidence.items()},
+            #         title=f'{i} (conditional)',
+            #         # conf=.0003,
+            #         limx=(-150, 150),
+            #         limy=(-150, 150),
+            #         # limz=(0, 0.001),
+            #         save=os.path.join(locs.logs, f'{i}_cond-{datetime.datetime.now().strftime(FILESTRFMT_SEC)}.png'),
+            #         show=False
+            #     )
 
         return [(leaf, treename, tree) for treename, tree in condtrees if tree is not None for _, leaf in tree.leaves.items()]
 
@@ -683,15 +683,6 @@ class SubAStar_BW(SubAStar):
                     parent=node
                 )
             )
-
-            # node.parent = Node(
-            #     state=state,
-            #     g=node.g + self.stepcost(state),
-            #     h=self.h(state),
-            #     parent=None
-            # )
-            #
-            # predecessors.append(node.parent)
 
         return predecessors
 

@@ -26,7 +26,6 @@ class Node:
 
     @property
     def f(self) -> float:
-        print(self.g, self.h)
         return self.g + self.h
 
     def __lt__(
@@ -142,7 +141,7 @@ class AStar:
 
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
-            self.plot(self.retrace_path(cur_node))
+
             if self.isgoal(cur_node):
                 self.reached = True
 
@@ -151,7 +150,6 @@ class AStar:
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
 
-                print(f'Num open {len(self.open)}, num closed {len(self.closed)}; total: {len(self.open) + len(self.closed)}')
                 return self.retrace_path(cur_node)
 
             heapq.heappush(self.closed, (cf, cur_node))
@@ -194,6 +192,28 @@ class BiDirAStar:
         self._goal_confidence = goal_confidence
         self.reached = False
 
+    @property
+    def state_similarity(self) -> float:
+        return self._state_similarity
+
+    @state_similarity.setter
+    def state_similarity(
+            self,
+            s: float
+    ) -> None:
+        self._state_similarity = s
+
+    @property
+    def goal_confidence(self) -> float:
+        return self._goal_confidence
+
+    @goal_confidence.setter
+    def goal_confidence(
+            self,
+            c: float
+    ) -> None:
+        self._goal_confidence = c
+
     def retrace_path(
             self,
             fnode: Node,
@@ -215,18 +235,15 @@ class BiDirAStar:
     ) -> bool:
 
         # if current position of each fnode and bnode is identical
-        if bnode.state.similarity(fnode.state) > self.state_similarity:
-            # bnode.state.posx == fnode.state.posx and bnode.state.posy == fnode.state.posy:
+        if bnode.state.similarity(fnode.state) >= self.state_similarity:
             return True
 
         # ...or current position of forward node has reached goal state
-        if fnode.state.similarity(self.f_astar.goalstate) > self.state_similarity:
-            # if fnode.state.posx == self.f_astar.goalstate.posx and fnode.state.posy == self.f_astar.goalstate.posy:
+        if fnode.state.similarity(self.f_astar.goalstate) >= self.state_similarity:
             return True
 
         # ...or current position of backward node has reached goal state
-        if bnode.state.similarity(self.b_astar.goalstate) > self.state_similarity:
-            # if bnode.state.posx == self.b_astar.goalstate.posx and bnode.state.posy == self.b_astar.goalstate.posy:
+        if bnode.state.similarity(self.b_astar.goalstate) >= self.state_similarity:
             return True
 
         return False

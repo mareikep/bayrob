@@ -1,21 +1,12 @@
+import heapq
 import math
 import unittest
-
-from calo.core.astar import AStar, Node, BiDirAStar
 from typing import List, Any
 
-
-class State:
-    def __init__(
-            self,
-            posx: float,  # column
-            posy: float  # row
-    ):
-        self.posx = posx
-        self.posy = posy
+from calo.core.astar import AStar, Node, BiDirAStar
 
 
-class SubAStar(AStar):
+class GridWorld:
     GRID = [
         [0, 0, 0, 0, 0, 0, 0],
         [0, 1, 0, 0, 0, 0, 0],  # 0 are free path whereas 1's are obstacles
@@ -43,28 +34,101 @@ class SubAStar(AStar):
         None: '\u2666'  # diamond
     }
 
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def strworld(
+            grid,
+            legend=True
+    ):
+        lgnd = f'\n\n{GridWorld.REP[GridWorld.FREE]} Free cell\n' \
+               f'{GridWorld.REP[GridWorld.OBSTACLE]} Obstacle\n' \
+               f'{GridWorld.REP[None]} Goal\n' \
+               f'{" ".join([GridWorld.REP[x] for x in GridWorld.ACTIONS])} Action executed\n'
+        if grid is None:
+            return lgnd
+
+        world = '\n' + '\n'.join(
+            [' '.join([GridWorld.REP[grid[row][col]] for col in range(len(grid[row]))]) for row in range(len(grid))])
+        return world + (lgnd if legend else '\n')
+
+
+class State:
+    def __init__(
+            self,
+            posx: float,  # column
+            posy: float  # row
+    ):
+        self.posx = posx
+        self.posy = posy
+
+    def __eq__(self, other):
+        return self.posx == other.posx and self.posy == other.posy
+
+    def similarity(self,
+                   other: 'State'
+    ) -> float:
+        return 1 if self == other else 0
+
+    def __str__(self) -> str:
+        return f'<State pos: ({str(self.posx)}/{str(self.posy)})>'
+
+    def __repr__(self):
+        return str(self)
+
+
+class Goal:
+    def __init__(
+            self,
+            posx: int,
+            posy: int
+    ):
+        self.posx = posx
+        self.posy = posy
+
+    def __str__(self) -> str:
+        return f'<State pos: ({str(self.posx)}/{str(self.posy)})>'
+
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class SubAStar(AStar):
+
     def __init__(
             self,
             initstate: State,
             goalstate: State,  # might be belief state later
+            state_similarity: float = 1,
+            goal_confidence: float = 1,
     ):
-        super().__init__(initstate, goalstate)
+        super().__init__(
+            initstate,
+            goalstate,
+            state_similarity=state_similarity,
+            goal_confidence=goal_confidence
+        )
+
+    def init(self):
+        init = Node(state=self.initstate, g=0., h=self.h(self.initstate), parent=None)
+        heapq.heappush(self.open, (init.f, init))
 
     def generate_successors(
             self,
             node
     ) -> List[Node]:
         successors = []
-        for action in SubAStar.ACTIONS:
+        for action in GridWorld.ACTIONS:
             pos_x = node.state.posx + action[1]
             pos_y = node.state.posy + action[0]
 
             # check if agent stays within grid lines
-            if not (0 <= pos_x <= len(SubAStar.GRID[0]) - 1 and 0 <= pos_y <= len(SubAStar.GRID) - 1):
+            if not (0 <= pos_x <= len(GridWorld.GRID[0]) - 1 and 0 <= pos_y <= len(GridWorld.GRID) - 1):
                 continue
 
             # check for collision
-            if SubAStar.GRID[pos_y][pos_x] != SubAStar.FREE:
+            if GridWorld.GRID[pos_y][pos_x] != GridWorld.FREE:
                 continue
 
             state = State(
@@ -83,20 +147,20 @@ class SubAStar(AStar):
 
         return successors
 
-    @staticmethod
-    def strworld(
-            grid,
-            legend=True
+    def plot(
+            self,
+            path
     ):
-        lgnd = f'\n\n{SubAStar.REP[SubAStar.FREE]} Free cell\n' \
-               f'{SubAStar.REP[SubAStar.OBSTACLE]} Obstacle\n' \
-               f'{SubAStar.REP[None]} Goal\n' \
-               f'{" ".join([SubAStar.REP[x] for x in SubAStar.ACTIONS])} Action executed\n'
-        if grid is None:
-            return lgnd
+        print(f'FOUND GOAL!')
+        path = self.retrace_path(path)
 
-        world = '\n' + '\n'.join([' '.join([SubAStar.REP[grid[row][col]] for col in range(len(grid[row]))]) for row in range(len(grid))])
-        return world + (lgnd if legend else '\n')
+        # generate mapping from path step (=position) to action executed from this position
+        actions = {k: v for k, v in zip(path, [(b[0] - a[0], b[1] - a[1]) for a, b in list(zip(path, path[1:]))])}
+
+        # draw path steps into grid (use action symbols)
+        res = [[GridWorld.GRID[y][x] if (y, x) not in path else actions.get((y, x), None) for x in
+                range(len(GridWorld.GRID))] for y in range(len(GridWorld.GRID[0]))]
+        print(GridWorld.strworld(res, legend=False))
 
     def isgoal(
             self,
@@ -126,6 +190,23 @@ class SubAStar(AStar):
         return path
 
 
+class SubAStar_BW(SubAStar):
+
+    def __init__(
+            self,
+            initstate: State,
+            goalstate: State,  # might be belief state later
+            state_similarity: float = 1,
+            goal_confidence: float = 1,
+    ):
+        super().__init__(
+            goalstate,
+            initstate,
+            state_similarity=state_similarity,
+            goal_confidence=goal_confidence
+        )
+
+
 class AStarAlgorithmTests(unittest.TestCase):
 
     @classmethod
@@ -137,21 +218,24 @@ class AStarAlgorithmTests(unittest.TestCase):
         )
 
         cls.goal = State(
-            posx=len(SubAStar.GRID[0]) - 1,
-            posy=len(SubAStar.GRID) - 1,
+            posx=len(GridWorld.GRID[0]) - 1,
+            posy=len(GridWorld.GRID) - 1,
         )
 
-        print(SubAStar.strworld(SubAStar.GRID, legend=False))
+        print(GridWorld.strworld(GridWorld.GRID, legend=False))
 
     def test_astar_path(self) -> None:
-        a_star = SubAStar(AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
+        a_star = SubAStar(
+            AStarAlgorithmTests.init,
+            AStarAlgorithmTests.goal
+        )
         self.path = a_star.search()
 
         self.assertTrue(self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)] or
                         self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (3, 3), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)], msg='A* path incorrect')
 
     def test_bdir_astar_path(self) -> None:
-        bidir_astar = BiDirAStar(SubAStar, SubAStar, AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
+        bidir_astar = BiDirAStar(SubAStar, SubAStar_BW, AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
         self.path = bidir_astar.search()
 
         self.assertTrue(self.path == [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (2, 3), (3, 3), (4, 3), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)] or
@@ -159,13 +243,15 @@ class AStarAlgorithmTests(unittest.TestCase):
                         msg='Bi-directional A* path incorrect')
 
     def tearDown(self) -> None:
+        print(f'Plotting result for {self.__str__}')
+
         # generate mapping from path step (=position) to action executed from this position
         actions = {k: v for k, v in zip(self.path, [(b[0] - a[0], b[1] - a[1]) for a, b in list(zip(self.path, self.path[1:]))])}
 
         # draw path steps into grid (use action symbols)
-        res = [[SubAStar.GRID[y][x] if (y, x) not in self.path else actions.get((y, x), None) for x in range(len(SubAStar.GRID))] for y in range(len(SubAStar.GRID[0]))]
-        print(SubAStar.strworld(res, legend=False))
+        res = [[GridWorld.GRID[y][x] if (y, x) not in self.path else actions.get((y, x), None) for x in range(len(GridWorld.GRID))] for y in range(len(GridWorld.GRID[0]))]
+        print(GridWorld.strworld(res, legend=False))
 
     @classmethod
     def tearDownClass(cls) -> None:
-        print(SubAStar.strworld(None))
+        print(GridWorld.strworld(None))
