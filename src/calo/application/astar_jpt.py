@@ -18,7 +18,7 @@ from calo.models.action import Move
 from calo.utils import locs
 from calo.utils.constants import calologger, plotcolormap, FILESTRFMT_SEC
 from calo.utils.utils import pnt2line, recent_example, angledeg
-from dnutils import ifnone
+from dnutils import ifnone, first
 from jpt.distributions import Numeric, Gaussian
 from jpt.trees import JPT
 from jpt.variables import Variable
@@ -100,48 +100,6 @@ class State:
                 Numeric.jaccard_similarity(self.diry, other.diry),
             ]
         )
-
-    def smoothplot(
-            self,
-            lim: Tuple = None,
-    ):
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        from scipy import interpolate
-
-        from scipy import ndimage
-        self.posx.plot(view=True)
-
-        x = np.linspace(lim[0], lim[1], int(lim[1]-lim[0]))
-        y = list(self.posx.sample(int(lim[1]-lim[0])))
-
-        x_sm = np.array(x)
-        y_sm = np.array(y)
-
-        # resample to lots more points - needed for the smoothed curves
-        x_smooth = np.linspace(x_sm.min(), x_sm.max(), 200)
-
-        # spline - always goes through all the data points x/y
-        tck = interpolate.splrep(x, y)
-        y_spline = interpolate.splev(x, tck)
-        # y_spline = interpolate.spline(x, y, x_smooth)
-
-        spl = interpolate.UnivariateSpline(x, y)
-
-        sigma = 2
-        x_g1d = ndimage.gaussian_filter1d(x_sm, sigma)
-        y_g1d = ndimage.gaussian_filter1d(y_sm, sigma)
-
-        fig, ax = plt.subplots(figsize=(10, 10))
-        ax.legend(loc='center left', bbox_to_anchor=(1.05, 0.5), frameon=False)
-
-        plt.plot(x_sm, y_sm, 'green', linewidth=1)
-        # plt.plot(x_smooth, y_spline, 'red', linewidth=1)
-        plt.plot(x_smooth, spl(x_smooth), 'yellow', linewidth=1)
-        plt.plot(x_g1d, y_g1d, 'magenta', linewidth=1)
-
-        plt.show()
 
     def plot(
             self,
@@ -284,47 +242,6 @@ class SubAStar(AStar):
 
         return 1 - p
 
-    def h_(
-            self,
-            state
-    ) -> float:
-        # Euclidean distance from current position to goal node
-        cost = 0.
-
-        # assuming the goal area is a rectangle, calculate the minimum distance between the current position (= point)
-        # to the nearest edge of the rectangle
-        xl = self.goalstate.posx.lower
-        xu = self.goalstate.posx.upper
-        yl = self.goalstate.posy.lower
-        yu = self.goalstate.posy.upper
-        gx = xl + (xu-xl)/2
-        gy = yl + (yu-yl)/2
-
-        posx = state.posx.expectation()
-        posy = state.posy.expectation()
-        dirx = state.dirx.expectation()
-        diry = state.diry.expectation()
-
-        # Euclidean distance from current position to nearest point of goal area
-        cost += min([d for d, _ in [
-            pnt2line([posx, posy], [xl, yl], [xl, yu]),
-            pnt2line([posx, posy], [xl, yl], [xl, yu]),
-            pnt2line([posx, posy], [xl, yu], [xu, yu]),
-            pnt2line([posx, posy], [xu, yl], [xu, yu])
-        ]])
-
-        # if no directions are given, return costs at this point
-        if any([x is None for x in [state.dirx, state.diry]]):
-            return cost
-
-        # # difference in orientation (current dir to dir to goal node)
-        # # vec to goal node:
-        # dx = gx - posx
-        # dy = gy - posy
-        # cost += angledeg([posx, posy], [dx, dy])
-
-        return cost
-
     def generate_steps(
             self,
             node
@@ -396,19 +313,18 @@ class SubAStar(AStar):
 
             # generate new position distribution by shifting position delta distributions by expectation of position
             # belief state
-
-            if 'x_out' in succ.value:
+            if 'x_out' in succ.distributions:
                 posx = Numeric().set(QuantileDistribution.from_cdf(succ.value['x_out'].cdf.xshift(-posx.expectation())))
 
-            if 'y_out' in succ.value:
+            if 'y_out' in succ.distributions:
                 posy = Numeric().set(QuantileDistribution.from_cdf(succ.value['y_out'].cdf.xshift(-posy.expectation())))
 
             # generate new orientation distribution by shifting orientation delta distributions by expectation of
             # orientation belief state
-            if 'xdir_out' in succ.value:
+            if 'xdir_out' in succ.distributions:
                 dirx = Numeric().set(QuantileDistribution.from_cdf(succ.value['xdir_out'].cdf.xshift(-dirx.expectation())))
 
-            if 'ydir_out' in succ.value:
+            if 'ydir_out' in succ.distributions:
                 diry = Numeric().set(QuantileDistribution.from_cdf(succ.value['ydir_out'].cdf.xshift(-diry.expectation())))
 
             # initialize new belief state for potential successor
@@ -522,7 +438,7 @@ class SubAStar(AStar):
         plt.show()
 
 
-class SubAStar_BW(SubAStar):
+class SubAStarBW(SubAStar):
 
     def __init__(
             self,
@@ -542,26 +458,79 @@ class SubAStar_BW(SubAStar):
         )
 
     def init(self):
-        for tn, t in self.models.items():
-            for lidx, l in t.leaves.items():
-                if 'x_in' not in l.distributions or 'y_in' not in l.distributions or 'xdir_in' not in l.distributions or 'ydir_in' not in l.distributions: continue
-                s = State(
-                    posx=Numeric().set(QuantileDistribution.from_cdf(l.distributions['x_in'].cdf.xshift(-l.distributions['x_out'].expectation()))),
-                    posy=Numeric().set(QuantileDistribution.from_cdf(l.distributions['y_in'].cdf.xshift(-l.distributions['y_out'].expectation()))),
-                    dirx=Numeric().set(QuantileDistribution.from_cdf(l.distributions['xdir_in'].cdf.xshift(-l.distributions['xdir_in'].expectation()))),
-                    diry=Numeric().set(QuantileDistribution.from_cdf(l.distributions['ydir_in'].cdf.xshift(-l.distributions['ydir_in'].expectation()))),
-                    ctree=t,
-                    leaf=l,
-                    tn=tn
-                )
-                n = Node(state=s, g=0., h=self.h(s), parent=None)
-                heapq.heappush(self.open, (n.f, n))
+        # generate all the leaves that match the goal specification and push to open all nodes representing
+        # 'predecessor' states from their preconditions
+        n = Node(state=self.goalstate, g=0., h=0, parent=None)
+        for l, tn, t in self.generate_steps(n):
+            s = State(
+                posx=Numeric().set(QuantileDistribution.from_cdf(l.distributions['x_in'].cdf.xshift(-l.distributions['x_out'].expectation()))),
+                posy=Numeric().set(QuantileDistribution.from_cdf(l.distributions['y_in'].cdf.xshift(-l.distributions['y_out'].expectation()))),
+                dirx=l.distributions['xdir_in'],  # in init, the candidate leaves can only be from MOVEFORWARD tree, which has no xdir_out distribution
+                diry=l.distributions['ydir_in'],  # in init, the candidate leaves can only be from MOVEFORWARD tree, which has no ydir_out distribution
+                ctree=t,
+                leaf=l,
+                tn=tn
+            )
+            # TODO: is the goal node the parent of the predecessors?
+            n_ = Node(state=s, g=0., h=self.h(s), parent=None)
+            if n_.h < self.goal_confidence:
+                heapq.heappush(self.open, (n_.f, n_))
+
+    def isgoal(
+            self,
+            node: Node
+    ) -> bool:
+        # true, if current belief state is sufficiently similar to init state and ancestor (i.e. first element in parent
+        # chain) matches goal specification
+        a = SubAStarBW.get_ancestor(node)
+        return node.state.posx.p(self.initstate.posx.mpe()[1]) * node.state.posy.p(self.initstate.posy.mpe()[1]) >= self.state_similarity and \
+            a.state.posx.p(self.goalstate.posx) * a.state.posy.p(self.goalstate.posy) >= self.goal_confidence
+
+    def h(
+            self,
+            state: State
+    ) -> float:
+        # for backwards direction, the heuristic measures the probability, that the current state is the initstate
+        p = 1
+        if not any([x is None for x in [state.posx, state.posy]]):
+            p *= state.posx.p(self.initstate.posx.mpe()[1]) * state.posy.p(self.initstate.posy.mpe()[1])
+        # if not any([x is None for x in [state.dirx, state.diry]]):
+        #     p *= state.dirx.p(self.initstate.dirx.mpe()[1]) * state.diry.p(self.initstate.diry.mpe()[1])
+        return 1-p
+
+    def stepcost(
+            self,
+            state
+    ) -> float:
+        # distance (Euclidean) travelled so far (from center of goal area to current position)
+        cost = 0.
+        gx = (self.goalstate.posx.upper - self.goalstate.posx.lower) / 2
+        gy = (self.goalstate.posy.upper - self.goalstate.posy.lower) / 2
+
+        dx = gx - state.posx.expectation()
+        dy = gy - state.posy.expectation()
+        cost += math.sqrt(dx ** 2 + dy ** 2)
+
+        if 'angle' in state.leaf.value:
+            cost += abs(state.leaf.value['angle'].expectation())
+
+        return cost
+
+
+    @staticmethod
+    def get_ancestor(
+            node
+    ):
+        current_node = node
+        while current_node.parent is not None:
+            current_node = current_node.parent
+        return current_node
 
     def reverse(
             self,
             t: jpt.trees.JPT,
             query: Dict,
-            confidence: float = 0.05
+            confidence: float = .0
     ) -> Tuple:
         """
         Determines the leaf nodes that match query best and returns them along with their respective confidence.
@@ -598,17 +567,15 @@ class SubAStar_BW(SubAStar):
         for k, l in t.leaves.items():
             conf = defaultdict(float)
             for v, dist in l.distributions.items():
-                if v.numeric:
-                    ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name.replace('_out', '_in')].cdf.xshift(-l.distributions[v].expectation())))
+                if v.name in query and v.name in l.distributions and v.name.replace('_in', '_out') in l.distributions:
+                    ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.xshift(-l.distributions[v.name.replace('_in', '_out')].expectation())))
                     newv = ndist.p(query_[v])
                 else:
                     newv = dist.p(query_[v])
                 conf[v] = newv
             confs[l.idx] = conf
 
-        # yield from [(cf, t.leaves[lidx]) for lidx, cf in confs.items() if all(c >= confidence for c in cf.values())]
-        yield from [(cf, t.leaves[lidx]) for lidx, cf in confs.items()]
-
+        yield from [(cf, t.leaves[lidx]) for lidx, cf in confs.items() if all(c >= confidence for c in cf.values())]
 
     def generate_steps(
             self,
@@ -616,12 +583,24 @@ class SubAStar_BW(SubAStar):
     ) -> List[Any]:
         """
         """
-        query = {
-            'x_in': node.state.posx.mpe()[1],
-            'y_in': node.state.posy.mpe()[1],
-            'xdir_in': node.state.dirx.mpe()[1],
-            'ydir_in': node.state.diry.mpe()[1]
-        }
+        if isinstance(node.state, Goal):
+            query = {
+                'x_in': node.state.posx,
+                'y_in': node.state.posy
+            }
+        else:
+            query = {}
+            if 'x_in' in node.state.leaf.path:
+                query['x_in'] = node.state.leaf.distributions['x_in'].mpe()[1]
+
+            if 'y_in' in node.state.leaf.path:
+                query['y_in'] = node.state.leaf.distributions['y_in'].mpe()[1]
+
+            if 'xdir_in' in node.state.leaf.path:
+                query['xdir_in'] = node.state.leaf.distributions['xdir_in'].mpe()[1]
+
+            if 'ydir_in' in node.state.leaf.path:
+                query['ydir_in'] = node.state.leaf.distributions['ydir_in'].mpe()[1]
 
         return [
             (leaf, treename, tree) for treename, tree in self.models.items() for _, leaf in self.reverse(
@@ -632,7 +611,7 @@ class SubAStar_BW(SubAStar):
                     },
                     allow_singular_values=False
                 ),
-                confidence=.15  # self.goal_confidence?
+                confidence=.0  # self.goal_confidence?
             )
         ]
 
@@ -650,21 +629,21 @@ class SubAStar_BW(SubAStar):
             dirx = node.state.dirx
             diry = node.state.diry
 
-            # generate new position distribution by shifting position delta distributions by sample of
-            if 'x_in' in pred.path:
-                posx = pred.distributions['x_in']
+            # update new position distributions to reflect the actual (absolute) position after execution
+            if 'x_in' in pred.distributions and 'x_out' in pred.distributions:
+                posx = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['x_in'].cdf.xshift(-pred.distributions['x_out'].expectation())))
 
-            if 'y_in' in pred.path:
-                posy = pred.distributions['y_in']
+            if 'y_in' in pred.distributions and 'y_out' in pred.distributions:
+                posy = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['y_in'].cdf.xshift(-pred.distributions['y_out'].expectation())))
 
-            # generate new orientation distribution by shifting distributions by orientation delta of path
-            if 'xdir_in' in pred.path:
-                dirx = pred.distributions['xdir_in']
+            # update new orientation distributions to reflect the actual (absolute) direction after execution
+            if 'xdir_in' in pred.distributions and 'xdir_out' in pred.distributions:
+                dirx = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['xdir_in'].cdf.xshift(-pred.distributions['xdir_out'].expectation())))
 
-            if 'ydir_in' in pred.path:
-                diry = pred.distributions['ydir_in']
+            if 'ydir_in' in pred.distributions and 'ydir_out' in pred.distributions:
+                diry = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['ydir_in'].cdf.xshift(-pred.distributions['ydir_out'].expectation())))
 
-            # initialize new belief state for potential successor
+            # initialize new belief state for potential predecessor
             state = State(
                 posx=posx,
                 posy=posy,
@@ -762,7 +741,7 @@ if __name__ == "__main__":
     #     models=models
     # )
 
-    a_star = SubAStar_BW(
+    a_star = SubAStarBW(
         initstate=initstate,
         goalstate=goalstate,
         models=models
