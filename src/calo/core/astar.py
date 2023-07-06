@@ -137,8 +137,6 @@ class AStar:
     def search(self) -> Any:
         logger.debug(f'Searching path from {self.initstate} to {self.goalstate}')
 
-        init = self.open[0]
-
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
 
@@ -163,7 +161,7 @@ class AStar:
 
         if not self.reached:
             logger.warning(f'Could not find a path from {self.initstate} to {self.goalstate}')
-            return [init]
+            return []
 
     def plot(
             self,

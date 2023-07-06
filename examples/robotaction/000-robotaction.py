@@ -17,16 +17,6 @@ from jpt import infer_from_dataframe, JPT
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
-# params
-RUNS = 1000
-NUMACTIONS = 100
-FACTOR = 0.001
-COLLIDED = True  # use collided (symbolic) variable
-SEMI = False
-USEDELTAS = True
-USE_RECENT = False
-SHOWPLOTS = False
-
 
 def robot_pos_random(dt):
     logger.debug('Generating random robot data...')
@@ -223,6 +213,7 @@ def data_curation(dt, usedeltas=False):
 
     for i in range(RUNS):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-MOVEFORWARD.csv'), 'r') as f:
+            logger.debug(f"Reading {os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-MOVEFORWARD.csv')}...")
             d = pd.read_csv(f, delimiter=',', header=0)
             for idx, row in d.iterrows():
                 if idx == d.index.max(): break
@@ -250,9 +241,10 @@ def data_curation(dt, usedeltas=False):
     data_moveforward.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
 
     logger.debug('...done! curating robot TURN data...')
-    data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'xdir_out', 'ydir_out', 'angle'])
+    data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     for i in range(RUNS):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-TURN.csv'), 'r') as f:
+            logger.debug(f"Reading {os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-TURN.csv')}...")
             d = pd.read_csv(f, delimiter=',', header=0)
             for idx, row in d.iterrows():
                 if idx == d.index.max(): continue
@@ -260,9 +252,9 @@ def data_curation(dt, usedeltas=False):
                 data_turn.loc[idx + i * RUNS] = [
                     row['xdir'],
                     row['ydir'],
+                    row['angle'],
                     d.iloc[idx + 1]['xdir']-row['xdir'] if usedeltas else d.iloc[idx + 1]['xdir'],
-                    d.iloc[idx + 1]['ydir']-row['ydir'] if usedeltas else d.iloc[idx + 1]['ydir'],
-                    row['angle']
+                    d.iloc[idx + 1]['ydir']-row['ydir'] if usedeltas else d.iloc[idx + 1]['ydir']
                 ]
 
     data_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
@@ -309,7 +301,7 @@ def data_curation_semi(dt):
     data_moveforward.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
 
     logger.debug('...done! curating semi robot TURN data...')
-    data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'xdir_out', 'ydir_out', 'angle'])
+    data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     for i in range(RUNS):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-TURN.csv'), 'r') as f:
             d = pd.read_csv(f, delimiter=',', header=0)
@@ -319,9 +311,9 @@ def data_curation_semi(dt):
                 data_turn.loc[idx + i * RUNS] = [
                     row['xdir'],
                     row['ydir'],
+                    row['angle'],
                     d.iloc[idx + 1]['xdir'],
-                    d.iloc[idx + 1]['ydir'],
-                    row['angle']
+                    d.iloc[idx + 1]['ydir']
                 ]
 
     data_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
@@ -342,7 +334,7 @@ def learn_jpt_moveforward(dt):
     jpt_mf = JPT(
         variables=movevars,
         targets=movevars[4:],
-        # min_impurity_improvement=FACTOR,
+        min_impurity_improvement=FACTOR,
         min_samples_leaf=FACTOR,
         max_depth=5
     )
@@ -370,8 +362,8 @@ def learn_jpt_turn(dt):
 
     jpt_t = JPT(
         variables=turnvars,
-        targets=turnvars[2:4],
-        # min_impurity_improvement=FACTOR,
+        targets=turnvars[3:],
+        min_impurity_improvement=FACTOR,
         min_samples_leaf=FACTOR,
         max_depth=5
     )
@@ -415,6 +407,17 @@ def plot_jpt_turn(dt):
         view=SHOWPLOTS
     )
 
+# params
+RUNS = 1000
+NUMACTIONS = 100
+FACTOR = 0.0001
+COLLIDED = True  # use collided (symbolic) variable
+SEMI = False
+USEDELTAS = True
+USE_RECENT = True
+SHOWPLOTS = False
+LEARNONLY = False
+
 
 if __name__ == '__main__':
     init_loggers(level='debug')
@@ -432,12 +435,13 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(locs.examples, 'robotaction', DT, 'plots'))
         os.mkdir(os.path.join(locs.examples, 'robotaction', DT, 'data'))
 
-    if SEMI:
-        robot_pos_semi_random(DT)
-        data_curation_semi(DT)
-    else:
-        robot_pos_random(DT)
-        data_curation(DT, usedeltas=USEDELTAS)
+    if not LEARNONLY:
+        if SEMI:
+            robot_pos_semi_random(DT)
+            data_curation_semi(DT)
+        else:
+            # robot_pos_random(DT)
+            data_curation(DT, usedeltas=USEDELTAS)
 
     learn_jpt_moveforward(DT)
     learn_jpt_turn(DT)

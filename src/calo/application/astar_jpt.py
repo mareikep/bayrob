@@ -94,10 +94,10 @@ class State:
     ) -> float:
         return min(
             [
-                Numeric.jaccard_similarity(self.posx, other.posx),
-                Numeric.jaccard_similarity(self.posy, other.posy),
-                Numeric.jaccard_similarity(self.dirx, other.dirx),
-                Numeric.jaccard_similarity(self.diry, other.diry),
+                type(self.posx).jaccard_similarity(self.posx, other.posx),
+                type(self.posy).jaccard_similarity(self.posy, other.posy),
+                type(self.dirx).jaccard_similarity(self.dirx, other.dirx),
+                type(self.diry).jaccard_similarity(self.diry, other.diry),
             ]
         )
 
@@ -460,21 +460,22 @@ class SubAStarBW(SubAStar):
     def init(self):
         # generate all the leaves that match the goal specification and push to open all nodes representing
         # 'predecessor' states from their preconditions
-        n = Node(state=self.goalstate, g=0., h=0, parent=None)
-        for l, tn, t in self.generate_steps(n):
-            s = State(
-                posx=Numeric().set(QuantileDistribution.from_cdf(l.distributions['x_in'].cdf.xshift(-l.distributions['x_out'].expectation()))),
-                posy=Numeric().set(QuantileDistribution.from_cdf(l.distributions['y_in'].cdf.xshift(-l.distributions['y_out'].expectation()))),
-                dirx=l.distributions['xdir_in'],  # in init, the candidate leaves can only be from MOVEFORWARD tree, which has no xdir_out distribution
-                diry=l.distributions['ydir_in'],  # in init, the candidate leaves can only be from MOVEFORWARD tree, which has no ydir_out distribution
-                ctree=t,
-                leaf=l,
-                tn=tn
-            )
-            # TODO: is the goal node the parent of the predecessors?
-            n_ = Node(state=s, g=0., h=self.h(s), parent=None)
-            if n_.h < self.goal_confidence:
-                heapq.heappush(self.open, (n_.f, n_))
+        for tn, t in self.models.items():
+            for lidx, l in t.leaves.items():
+                if 'x_in' not in l.distributions or 'x_out' not in l.distributions or not 'y_in' in l.distributions or not 'y_out' in l.distributions: continue
+                s_ = State(
+                    posx=Numeric().set(QuantileDistribution.from_cdf(l.distributions['x_in'].cdf.xshift(-l.distributions['x_out'].expectation()))),
+                    posy=Numeric().set(QuantileDistribution.from_cdf(l.distributions['y_in'].cdf.xshift(-l.distributions['y_out'].expectation()))),
+                    dirx=l.distributions['xdir_in'],  # in init, the candidate leaves can only be from MOVEFORWARD tree, which has no xdir_out distribution
+                    diry=l.distributions['ydir_in'],  # in init, the candidate leaves can only be from MOVEFORWARD tree, which has no ydir_out distribution
+                    ctree=t,
+                    leaf=l,
+                    tn=tn
+                )
+                # TODO: is the goal node the parent of the predecessors?
+                if s_.posx.p(self.goalstate.posx) * s_.posy.p(self.goalstate.posy) >= self.goal_confidence:
+                    n_ = Node(state=s_, g=0., h=self.h(s_), parent=None)
+                    heapq.heappush(self.open, (n_.f, n_))
 
     def isgoal(
             self,
@@ -684,7 +685,7 @@ if __name__ == "__main__":
 
     logger.debug('...done! Plotting initial distribution...')
 
-    jpt_ = models['MOVEFORWARD.tree']
+    jpt_ = models['000-MOVEFORWARD.tree']
     # Move.plot(
     #     jpt_=jpt_,
     #     qvarx=jpt_.varnames['x_out'],
@@ -709,7 +710,7 @@ if __name__ == "__main__":
     dirx = ContinuousSet(initdirx - abs(tolerance * initdirx), initdirx + abs(tolerance * initdirx))
     diry = ContinuousSet(initdiry - abs(tolerance * initdiry), initdiry + abs(tolerance * initdiry))
 
-    posteriors = models['MOVEFORWARD.tree'].posterior(
+    posteriors = models['000-MOVEFORWARD.tree'].posterior(
         evidence={
             'x_in': posx,
             'y_in': posy,
