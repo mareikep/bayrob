@@ -16,7 +16,7 @@ from pandas import DataFrame
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
-DIRACTIONS = [-90, 0, 90]
+DIRACTIONS = {-90: -1, 0: 0, 90: 1}
 ACTIONS_ = ["up", "left", "down", "right"]
 OBSTACLES = [
     (1, 1),
@@ -69,9 +69,9 @@ def gendata(
             df_turn.loc[i + j*len(ACTIONS)] = [
                 x,  # xdir_in
                 y,  # ydir_in
-                d,  # angle
-                int(newdir[0]),  # xdir_out (delta)
-                int(newdir[1])  # ydir_out (delta)
+                DIRACTIONS[d],  # angle
+                int(newdir[0] - x),  # xdir_out (delta)
+                int(newdir[1] - y)  # ydir_out (delta)
             ]
     df_move.to_csv(os.path.join(dt, '000-gridagent-move.csv'), index=False)
     df_turn.to_csv(os.path.join(dt, '000-gridagent-turn.csv'), index=False)
