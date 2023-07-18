@@ -301,10 +301,10 @@ class BiDirAStar:
 
             for astar in [self.f_astar, self.b_astar]:
                 for c in successors[astar]:
-                    if c in astar.closed:
+                    if (c.f, c) in astar.closed:
                         continue
 
-                    if c not in astar.open:
+                    if (c.f, c) not in astar.open:
                         heapq.heappush(astar.open, (c.f, c))
                     else:
                         # retrieve the best current path
