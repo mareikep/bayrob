@@ -4,7 +4,7 @@ from pathlib import Path
 
 from jpt.base.intervals import ContinuousSet
 
-from calo.application.astar_jpt import State, Goal, SubAStar, SubAStar_BW
+from calo.core.astar_jpt import State, Goal, SubAStar, SubAStarBW
 from calo.core.astar import BiDirAStar
 from calo.utils import locs
 from calo.utils.utils import recent_example
@@ -49,7 +49,7 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
         dirx = ContinuousSet(start[2] - abs(tolerance * start[2]), start[2] + abs(tolerance * start[2]))
         diry = ContinuousSet(start[3] - abs(tolerance * start[3]), start[3] + abs(tolerance * start[3]))
 
-        posteriors = CALOAStarAlgorithmTests.models['MOVEFORWARD.tree'].posterior(
+        posteriors = CALOAStarAlgorithmTests.models['000-MOVEFORWARD.tree'].posterior(
             evidence={
                 'x_in': posx,
                 'y_in': posy,
@@ -85,7 +85,7 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
             []
         )
 
-    @data(((0, 0, 0, 1), (-10, -10)))
+    @data(((-75, 75, 0, -1), (-75, 66)))
     @unpack
     def test_calobwastar(self, start, goal) -> None:
         # one data set consists of a tuple
@@ -99,7 +99,7 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
         dirx = ContinuousSet(start[2] - abs(tolerance * start[2]), start[2] + abs(tolerance * start[2]))
         diry = ContinuousSet(start[3] - abs(tolerance * start[3]), start[3] + abs(tolerance * start[3]))
 
-        posteriors = CALOAStarAlgorithmTests.models['MOVEFORWARD.tree'].posterior(
+        posteriors = CALOAStarAlgorithmTests.models['000-MOVEFORWARD.tree'].posterior(
             evidence={
                 'x_in': posx,
                 'y_in': posy,
@@ -120,7 +120,7 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
             posy=ContinuousSet(goal[1] - abs(tolerance * goal[1]), goal[1] + abs(tolerance * goal[1]))
         )
 
-        self.a_star = SubAStar_BW(
+        self.a_star = SubAStarBW(
             initstate=initstate,
             goalstate=goalstate,
             models=CALOAStarAlgorithmTests.models,
@@ -150,7 +150,7 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
         dirx = ContinuousSet(start[2] - abs(tolerance * start[2]), start[2] + abs(tolerance * start[2]))
         diry = ContinuousSet(start[3] - abs(tolerance * start[3]), start[3] + abs(tolerance * start[3]))
 
-        posteriors = CALOAStarAlgorithmTests.models['MOVEFORWARD.tree'].posterior(
+        posteriors = CALOAStarAlgorithmTests.models['000-MOVEFORWARD.tree'].posterior(
             evidence={
                 'x_in': posx,
                 'y_in': posy,
@@ -173,7 +173,7 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
 
         self.a_star = BiDirAStar(
             f_astar=SubAStar,
-            b_astar=SubAStar_BW,
+            b_astar=SubAStarBW,
             initstate=initstate,
             goalstate=goalstate,
             models=CALOAStarAlgorithmTests.models,
