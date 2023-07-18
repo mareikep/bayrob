@@ -34,13 +34,29 @@ class Node:
     ) -> bool:
         return self.f < other.f
 
-    def __repr__(self):  # TODO: remove! --> only for debugging
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self.state == other.state and self.parent == other.parent
+
+    def __str__(self) -> str:  # TODO: remove! --> only for debugging
         current_node = self
         path = ""
         while current_node is not None:
-            path = f" {repr(current_node.state)}{' ->' if path else ''}{path}"
+            path = f" {str(current_node.state)}{' ==>' if path else ''}{path}"
             current_node = current_node.parent
         return f"<Node{path}>"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __len__(self) -> int:
+        cnt = 1
+        cn = self
+        while cn is not None:
+            cnt += 1
+            cn = cn.parent
+        return cnt
 
 
 class AStar:
@@ -55,7 +71,7 @@ class AStar:
             **kwargs
     ):
         self.initstate = initstate
-        self.goalstate = goalstate
+        self.goal = goalstate
         self._state_similarity = state_similarity
         self._goal_confidence = goal_confidence
         self.__dict__.update(kwargs)
@@ -67,7 +83,7 @@ class AStar:
         self.init()
 
     def __str__(self):
-        return f'<A* init: {self.initstate}; goal: {self.goalstate}>'
+        return f'A* [init: {self.initstate} | goal specification: {self.goal} ]'
 
     def __repr__(self):
         return str(self)
@@ -135,12 +151,13 @@ class AStar:
         return path
 
     def search(self) -> Any:
-        logger.debug(f'Searching path from {self.initstate} to {self.goalstate}')
+        logger.debug(f'Searching path from {self.initstate} to {self.goal}')
 
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
 
             if self.isgoal(cur_node):
+                logger.info(f'EEEEEEEEEEEEEEEEEK!!!! FOUND IT! :) \n{cur_node}')
                 self.reached = True
 
                 try:
@@ -154,13 +171,16 @@ class AStar:
             successors = self.generate_successors(cur_node)
 
             for c in successors:
-                if any([c.state.similarity(s.state) > self.state_similarity for _, s in self.closed]):
+                if (c.f, c) in self.closed:
+                    continue
+
+                if (c.f, c) in self.open:
                     continue
 
                 heapq.heappush(self.open, (c.f, c))
 
         if not self.reached:
-            logger.warning(f'Could not find a path from {self.initstate} to {self.goalstate}')
+            logger.warning(f'Could not find a path from {self.initstate} to {self.goal}')
             return []
 
     def plot(
@@ -237,11 +257,11 @@ class BiDirAStar:
             return True
 
         # ...or current position of forward node has reached goal state
-        if fnode.state.similarity(self.f_astar.goalstate) >= self.state_similarity:
+        if fnode.state.similarity(self.f_astar.goal) >= self.state_similarity:
             return True
 
         # ...or current position of backward node has reached goal state
-        if bnode.state.similarity(self.b_astar.goalstate) >= self.state_similarity:
+        if bnode.state.similarity(self.b_astar.goal) >= self.state_similarity:
             return True
 
         return False
@@ -271,8 +291,8 @@ class BiDirAStar:
             heapq.heappush(self.f_astar.closed, (cur_fnode.f, cur_fnode))
             heapq.heappush(self.b_astar.closed, (cur_bnode.f, cur_bnode))
 
-            self.f_astar.goalstate = cur_bnode.state  # TODO: check!
-            self.b_astar.goalstate = cur_fnode.state  # TODO: check!
+            self.f_astar.goal = cur_bnode.state  # TODO: check!
+            self.b_astar.goal = cur_fnode.state  # TODO: check!
 
             successors = {
                 self.f_astar: self.f_astar.generate_successors(cur_fnode),
