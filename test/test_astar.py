@@ -166,15 +166,15 @@ class SubAStar(AStar):
             self,
             node
     ) -> bool:
-        return node.state.posx == self.goalstate.posx and node.state.posy == self.goalstate.posy
+        return node.state.posx == self.goal.posx and node.state.posy == self.goal.posy
 
     def h(
             self,
             state
     ) -> float:
         # Euclidean distance
-        dx = state.posx - self.goalstate.posx
-        dy = state.posy - self.goalstate.posy
+        dx = state.posx - self.goal.posx
+        dy = state.posy - self.goal.posy
         return math.sqrt(dx ** 2 + dy ** 2)
 
     def retrace_path(
@@ -234,6 +234,15 @@ class AStarAlgorithmTests(unittest.TestCase):
         self.assertTrue(self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)] or
                         self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (3, 3), (3, 4), (4, 4), (5, 4), (5, 5), (5, 6), (6, 6)], msg='A* path incorrect')
 
+    def test_bw_astar_path(self) -> None:
+        a_star = SubAStar_BW(
+            AStarAlgorithmTests.init,
+            AStarAlgorithmTests.goal
+        )
+        self.path = a_star.search()
+
+        self.assertTrue(self.path == [(6, 6), (5, 6), (4, 6), (4, 5), (3, 5), (2, 5), (1, 5), (1, 4), (1, 3), (1, 2), (0, 2), (0, 1), (0, 0)], msg='A* path incorrect')
+
     def test_bdir_astar_path(self) -> None:
         bidir_astar = BiDirAStar(SubAStar, SubAStar_BW, AStarAlgorithmTests.init, AStarAlgorithmTests.goal)
         self.path = bidir_astar.search()
@@ -243,7 +252,7 @@ class AStarAlgorithmTests(unittest.TestCase):
                         msg='Bi-directional A* path incorrect')
 
     def tearDown(self) -> None:
-        print(f'Plotting result for {self.__str__}')
+        print(f'Plotting result for {self.__str__()}')
 
         # generate mapping from path step (=position) to action executed from this position
         actions = {k: v for k, v in zip(self.path, [(b[0] - a[0], b[1] - a[1]) for a, b in list(zip(self.path, self.path[1:]))])}
@@ -251,6 +260,7 @@ class AStarAlgorithmTests(unittest.TestCase):
         # draw path steps into grid (use action symbols)
         res = [[GridWorld.GRID[y][x] if (y, x) not in self.path else actions.get((y, x), None) for x in range(len(GridWorld.GRID))] for y in range(len(GridWorld.GRID[0]))]
         print(GridWorld.strworld(res, legend=False))
+        print('=======================================================================================================')
 
     @classmethod
     def tearDownClass(cls) -> None:
