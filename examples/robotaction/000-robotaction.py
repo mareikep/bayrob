@@ -440,7 +440,7 @@ if __name__ == '__main__':
             robot_pos_semi_random(DT)
             data_curation_semi(DT)
         else:
-            # robot_pos_random(DT)
+            robot_pos_random(DT)
             data_curation(DT, usedeltas=USEDELTAS)
 
     learn_jpt_moveforward(DT)
