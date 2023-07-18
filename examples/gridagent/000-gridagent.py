@@ -20,14 +20,14 @@ DIRACTIONS = {-90: -1, 0: 0, 90: 1}
 ACTIONS_ = ["up", "left", "down", "right"]
 OBSTACLES = [
     (1, 1),
+    (3, 2),
+    (4, 0),
     (4, 2),
-    (5, 0),
-    (5, 2),
     (6, 4),
 ]
 
 
-def gendata(
+def gendata_move(
         s: int,
         dt: str
 
@@ -38,29 +38,34 @@ def gendata(
     for y in range(s):
         for x in range(s):
             for i, (y_, x_) in enumerate(ACTIONS):
+
+                # if current position is obstacle skip
+                if (y, x) in OBSTACLES:
+                    continue
+
                 # if action would move agent into wall or obstacle, do not update position
-                if not 0 <= x + x_ < s or not 0 <= y + y_ < s or (y + y_, x + x_) in OBSTACLES:
-                    df_move.loc[c] = [
-                        x_,  # xdir_in
-                        y_,  # ydir_in
-                        x,  # x_in
-                        y,  # y_in
-                        0,  # x_out (delta)
-                        0,  # y_out (delta)
-                        True  # collided
-                    ]
-                else:
-                    df_move.loc[c] = [
-                        x_,  # xdir_in
-                        y_,  # ydir_in
-                        x,  # x_in
-                        y,  # y_in
-                        x_,  # x_out (delta)
-                        y_,  # y_out (delta)
-                        False  # collided
-                    ]
+                collided = not 0 <= x + x_ < s or not 0 <= y + y_ < s or (y + y_, x + x_) in OBSTACLES
+                df_move.loc[c] = [
+                    x_,  # xdir_in
+                    y_,  # ydir_in
+                    x,  # x_in
+                    y,  # y_in
+                    0 if collided else x_,  # x_out (delta)
+                    0 if collided else y_,  # y_out (delta)
+                    collided  # collided
+                ]
                 c+=1
 
+    df_move.to_csv(os.path.join(dt, '000-gridagent-move.csv'), index=False)
+
+    return df_move
+
+
+def gendata_turn(
+        s: int,
+        dt: str
+
+) -> Tuple[DataFrame, DataFrame]:
     df_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     for i, (y, x) in enumerate(ACTIONS):
         for j, d in enumerate(DIRACTIONS):
@@ -70,12 +75,24 @@ def gendata(
                 x,  # xdir_in
                 y,  # ydir_in
                 DIRACTIONS[d],  # angle
-                int(newdir[0] - x),  # xdir_out (delta)
-                int(newdir[1] - y)  # ydir_out (delta)
+                int(newdir[0]) - x,  # xdir_out (delta)
+                int(newdir[1]) - y  # ydir_out (delta)
             ]
-    df_move.to_csv(os.path.join(dt, '000-gridagent-move.csv'), index=False)
+
     df_turn.to_csv(os.path.join(dt, '000-gridagent-turn.csv'), index=False)
-    return df_move, df_turn
+
+    return df_turn
+
+
+def loaddata(
+        d: str,
+        dt: str
+
+) -> Tuple[DataFrame, DataFrame]:
+    with open(os.path.join(dt, f'000-gridagent-{d}.csv'), 'r') as f:
+        df = pd.read_csv(f, delimiter=',', header=0)
+
+    return df
 
 
 def learn_move(d, dt):
@@ -90,13 +107,13 @@ def learn_move(d, dt):
     jpt.learn(d)
     jpt.postprocess_leaves()
 
-    logger.debug(f'...done! saving to file {os.path.join(dt, f"000-gridagent-MOVE.tree")}')
+    logger.debug(f'...done! saving to file {os.path.join(dt, f"000-gridagent-move.tree")}')
 
-    jpt.save(os.path.join(dt, f'000-gridagent-MOVE.tree'))
+    jpt.save(os.path.join(dt, f'000-gridagent-move.tree'))
     jpt.plot(
-        title=f'Gridagent-MOVE',
+        title=f'Gridagent-move',
         plotvars=list(jpt.variables),
-        filename=f'000-gridagent-MOVE',
+        filename=f'000-gridagent-move',
         directory=dt,
         leaffill='#CCDAFF',
         nodefill='#768ABE',
@@ -117,13 +134,13 @@ def learn_turn(d, dt):
     jpt.learn(d, keep_samples=True)
     # jpt.postprocess_leaves()
 
-    logger.debug(f'...done! saving to file {os.path.join(dt, f"000-gridagent-TURN.tree")}')
+    logger.debug(f'...done! saving to file {os.path.join(dt, f"000-gridagent-turn.tree")}')
 
-    jpt.save(os.path.join(dt, f'000-gridagent-TURN.tree'))
+    jpt.save(os.path.join(dt, f'000-gridagent-turn.tree'))
     jpt.plot(
-        title=f'Gridagent-TURN',
+        title=f'Gridagent-turn',
         plotvars=list(jpt.variables),
-        filename=f'000-gridagent-TURN',
+        filename=f'000-gridagent-turn',
         directory=dt,
         leaffill='#CCDAFF',
         nodefill='#768ABE',
@@ -140,6 +157,10 @@ if __name__ == "__main__":
 
     logger.debug(f'running gridagent data generation with data in {DT}')
 
-    df_move, df_turn = gendata(7, DT)
+    # df_move = loaddata("move", DT)
+    df_move = gendata_move(7, DT)
     learn_move(df_move, DT)
+
+    # df_turn = loaddata("turn", DT)
+    df_turn = gendata_turn(7, DT)
     learn_turn(df_turn, DT)
