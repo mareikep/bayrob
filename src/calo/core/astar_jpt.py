@@ -1,11 +1,7 @@
 import heapq
-import heapq
-import math
 import operator
-import os
 from collections import defaultdict
 from functools import reduce
-from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
 import dnutils
@@ -15,16 +11,12 @@ from jpt.distributions.quantile.quantiles import QuantileDistribution
 
 import jpt
 from calo.core.astar import AStar, Node
-from calo.logs.logs import init_loggers
-from calo.utils import locs
-from calo.utils.constants import calologger, plotcolormap
-from calo.utils.utils import recent_example
+from calo.utils.constants import calologger
 from jpt.distributions import Numeric
-from jpt.trees import JPT
 from jpt.variables import Variable
 
 pyximport.install()
-from jpt.base.intervals import ContinuousSet, R
+from jpt.base.intervals import R
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -56,6 +48,7 @@ class State(dict):
         )
 
     def __str__(self) -> str:
+        print([type(t) for t in self.keys()], [k for k in self.keys()])
         return f'State< ({", ".join([f"{var}: {str(first(self[var].mpe()[1]))}" for var in self.keys()])}) >'
 
     def __repr__(self):
@@ -388,99 +381,3 @@ class SubAStarBW(SubAStar):
             )
 
         return predecessors
-
-
-if __name__ == "__main__":
-    init_loggers(level='debug')
-    recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-
-    logger.debug(f'Loading trees from {recent}...')
-    models = dict(
-        [
-            (
-                treefile.name,
-                JPT.load(str(treefile))
-            )
-            for p in [recent]
-            for treefile in Path(p).rglob('*.tree')
-        ]
-    )
-
-    logger.debug('...done! Plotting initial distribution...')
-
-    jpt_ = models['000-MOVEFORWARD.tree']
-    # Move.plot(
-    #     jpt_=jpt_,
-    #     qvarx=jpt_.varnames['x_out'],
-    #     qvary=jpt_.varnames['y_out'],
-    #     evidence=None,
-    #     title=r'Init',
-    #     # conf=.0003,
-    #     limx=(-100, 100),
-    #     limy=(-100, 100),
-    #     # limz=(0, 0.001),
-    #     # save=os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT_SEC)}.png'),
-    #     show=True
-    # )
-
-    logger.debug('...done! Initializing start and goal states...')
-
-    tolerance = .1
-
-    initx, inity, initdirx, initdiry = [-75, 75, 0, -1]
-    posx = ContinuousSet(initx - abs(tolerance * initx), initx + abs(tolerance * initx))
-    posy = ContinuousSet(inity - abs(tolerance * inity), inity + abs(tolerance * inity))
-    dirx = ContinuousSet(initdirx - abs(tolerance * initdirx), initdirx + abs(tolerance * initdirx))
-    diry = ContinuousSet(initdiry - abs(tolerance * initdiry), initdiry + abs(tolerance * initdiry))
-
-    posteriors = models['000-MOVEFORWARD.tree'].posterior(
-        evidence={
-            'x_in': posx,
-            'y_in': posy,
-            'xdir_in': dirx,
-            'ydir_in': diry
-        }
-    )
-
-    initstate = State(
-        posx=posteriors['x_in'],
-        posy=posteriors['y_in'],
-        dirx=posteriors['xdir_in'],
-        diry=posteriors['ydir_in'],
-    )
-
-    # initstate.plot(show=True)
-
-    goalx, goaly = [-75, 66]
-    goalstate = Goal(
-        posx=ContinuousSet(goalx - abs(tolerance * goalx), goalx + abs(tolerance * goalx)),
-        posy=ContinuousSet(goaly - abs(tolerance * goaly), goaly + abs(tolerance * goaly))
-    )
-
-    logger.debug('...done! Initializing A* Algorithm...')
-
-    # a_star = SubAStar(
-    #     initstate=initstate,
-    #     goal=goal,
-    #     models=models
-    # )
-
-    a_star = SubAStarBW(
-        initstate=initstate,
-        goalstate=goalstate,
-        models=models
-    )
-
-    # a_star = BiDirAStar(
-    #     SubAStar,
-    #     SubAStar_BW,
-    #     initstate,
-    #     goal,
-    #     state_similarity=.9,
-    #     goal_confidence=.01,
-    #     models=models
-    # )
-    logger.debug('...done! Starting search...')
-
-    path = a_star.search()
-    logger.debug('...done!', path)
