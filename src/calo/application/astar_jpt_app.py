@@ -45,8 +45,8 @@ class State_(State):
         :return: None
         """
         # generate datapoints
-        x = self.posx.pdf.boundaries()
-        y = self.posy.pdf.boundaries()
+        x = self['x_out'].pdf.boundaries()
+        y = self['y_out'].pdf.boundaries()
 
         # determine limits
         xmin = ifnone(limx, min(x) - 15, lambda l: l[0])
@@ -57,7 +57,7 @@ class State_(State):
         X, Y = np.meshgrid(x, y)
         Z = np.array(
             [
-                self.posx.pdf(x) * self.posy.pdf(y)
+                self['x_out'].pdf(x) * self['y_out'].pdf(y)
                 for x, y, in zip(X.ravel(), Y.ravel())
             ]).reshape(X.shape)
 
@@ -278,22 +278,159 @@ class SubAStarBW_(SubAStarBW):
         #     p *= self.initstate['xdir_in'].p(state['xdir_in']) * self.initstate['ydir_in'].p(state['xdir_in'])
         # return 1 - p
 
+        # FIXME: use multinomial distribution instead of set for gridworld to eliminate case differentiation
         # manhattan distance
         c = 0.
         if 'x_out' in state:
-            c += abs(first(state['x_out']) - self.initstate['x_in'].expectation())
+            x = first(state['x_out']) if isinstance(state['x_out'], set) else state['x_out'].lower + (state['x_out'].upper-state['x_out'].lower)/2
+            c += abs(x - self.initstate['x_in'].expectation())
         if 'y_out' in state:
-            c += abs(first(state['y_out']) - self.initstate['y_in'].expectation())
+            y = first(state['y_out']) if isinstance(state['y_out'], set) else state['y_out'].lower + (state['y_out'].upper-state['y_out'].lower)/2
+            c += abs(y - self.initstate['y_in'].expectation())
         return c
 
     def retrace_path(
             self,
             node
     ) -> Any:
-        return reversed(super().retrace_path(node))
+        return list(reversed(super().retrace_path(node)))
 
     def plot(
             self,
-            node
+            node: Node
     ) -> None:
-        pass
+        """Plot path found by A* so far for given `node`.
+        """
+        from matplotlib import pyplot as plt
+        from matplotlib.cm import get_cmap
+        from matplotlib import patches
+        import pandas as pd
+
+        p = self.retrace_path(node)
+
+        # generate data points
+        d = [
+            (
+                s['x_out'].lower,
+                s['y_out'].lower,
+                s['x_out'].upper,
+                s['y_out'].upper,
+                s.get('xdir_out'),
+                s.get('ydir_out'),
+                f'{i}-Leaf#{s.get("leaf").idx if "idx" in s else "ROOT"} '
+                f'({s.get("x_out", None)},{s.get("y_out", None)}): '
+                f'({s.get("xdir_out")},{s.get("ydir_out")})'
+            ) for i, s in enumerate(p) if s != self.goal and s != self.initstate  # FIXME equality?
+        ]
+        # df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
+        df = pd.DataFrame(data=d, columns=['XL', 'YL', 'XU', 'YU', 'DX', 'DY', 'L'])
+
+        cmap = get_cmap(plotcolormap)  # Dark2
+        colors = cmap.colors
+        fig, ax = plt.subplots(num=1, clear=True)
+
+        # plot start position and orientation
+        ax.scatter(
+            self.initstate['x_in'].expectation(),
+            self.initstate['y_in'].expectation(),
+            marker='*',
+            label='Init',
+            color='green'
+        )
+        if 'xdir_in' in self.initstate and 'ydir_in' in self.initstate:
+            ax.quiver(
+                self.initstate['x_in'].expectation(),
+                self.initstate['y_in'].expectation(),
+                self.initstate['xdir_in'].expectation(),
+                self.initstate['ydir_in'].expectation(),
+                color='green',
+                width=0.001
+            )
+
+        # plot goal position/area
+        ax.add_patch(
+            patches.Rectangle(
+                (
+                    self.goal["x_out"].lower,
+                    self.goal["y_out"].lower
+                ),
+                self.goal["x_out"].upper - self.goal["x_out"].lower,
+                self.goal["y_out"].upper - self.goal["y_out"].lower,
+                linewidth=1,
+                color='green',
+                alpha=.3
+            )
+        )
+        ax.annotate(
+            'Goal',
+            (
+                self.goal["x_out"].lower + (self.goal["x_out"].upper - self.goal["x_out"].lower)/2,
+                self.goal["y_out"].lower + (self.goal["y_out"].upper - self.goal["y_out"].lower)/2
+            )
+        )
+
+        # annotate first and last position of agent in found path so far (excluding init/goal)
+        if not df.empty:
+            ax.annotate('First', (df['XL'][0], df['YL'][0]))
+            ax.annotate('Last', (df['XU'].iloc[-1], df['YU'].iloc[-1]))
+
+        # scatter single steps as rectangles with a point and direction arrow in the center
+        for index, row in df.iterrows():
+            ax.add_patch(
+                patches.Rectangle(
+                    (
+                        row['XL'],
+                        row['YL']
+                    ),
+                    abs(row['XU'] - row['XL']),
+                    abs(row['YU'] - row['YL']),
+                    linewidth=1,
+                    color=colors[index],
+                    alpha=.2
+                )
+            )
+            ax.scatter(
+                row['XL'] + (row['XU'] - row['XL'])/2,
+                row['YL'] + (row['YU'] - row['YL'])/2,
+                marker='*',
+                label=row['L'],
+                color=colors[index]
+            )
+            if row['DX'] is not None and row['DY'] is not None:
+                dx = np.array([row['DX'].lower, row['DX'].upper])
+                dy = np.array([row['DY'].lower, row['DY'].upper])
+                xmin = np.nanmin(dx[dx != -np.inf])
+                xmax = np.nanmax(dx[dx != np.inf])
+                ymin = np.nanmin(dy[dy != -np.inf])
+                ymax = np.nanmax(dy[dy != np.inf])
+
+                ax.quiver(
+                    row['XL'] + (row['XU'] - row['XL']) / 2,
+                    row['YL'] + (row['YU'] - row['YL']) / 2,
+                    xmin,
+                    ymax,
+                    color=colors[index],
+                    width=0.001
+                )
+                ax.quiver(
+                    row['XL'] + (row['XU'] - row['XL']) / 2,
+                    row['YL'] + (row['YU'] - row['YL']) / 2,
+                    xmax,
+                    ymin,
+                    color=colors[index],
+                    width=0.001
+                )
+
+        # set figure/window/plot properties
+        ax.set_xlabel(r'$x$')
+        ax.set_ylabel(r'$y$')
+        fig.suptitle(str(node))
+        plt.grid()
+        plt.legend()
+        plt.savefig(
+            os.path.join(
+                locs.logs,
+                f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-path.png'
+            )
+        )
+        plt.show()
