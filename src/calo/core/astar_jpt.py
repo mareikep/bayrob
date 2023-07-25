@@ -7,12 +7,11 @@ from typing import List, Dict, Any, Tuple
 
 import dnutils
 import pyximport
-from dnutils import first
 from jpt.distributions.quantile.quantiles import QuantileDistribution
 
 import jpt
 from calo.core.astar import AStar, Node
-from calo.utils.constants import calologger, cs, nl, cst
+from calo.utils.constants import calologger, nl, cst
 from jpt.distributions import Numeric, Distribution
 from jpt.variables import Variable
 

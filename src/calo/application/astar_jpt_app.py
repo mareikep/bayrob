@@ -1,15 +1,15 @@
 import os
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict
 
 import numpy as np
 from dnutils import ifnone, first
+from jpt.base.intervals import ContinuousSet
 from matplotlib import pyplot as plt
 
 from calo.core.astar_jpt import State, SubAStar, Goal, SubAStarBW
 from calo.utils import locs
 from calo.utils.constants import plotcolormap
 from calo.utils.utils import recent_example
-from jpt.base.intervals import ContinuousSet
 from jpt.trees import Node
 
 

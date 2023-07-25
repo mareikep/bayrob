@@ -334,8 +334,8 @@ def learn_jpt_moveforward(dt):
     jpt_mf = JPT(
         variables=movevars,
         targets=movevars[4:],
-        min_impurity_improvement=FACTOR,
-        min_samples_leaf=FACTOR,
+        min_impurity_improvement=IMP_IMP,
+        min_samples_leaf=SMPL_LEAF,
         max_depth=5
     )
 
@@ -363,8 +363,8 @@ def learn_jpt_turn(dt):
     jpt_t = JPT(
         variables=turnvars,
         targets=turnvars[3:],
-        min_impurity_improvement=FACTOR,
-        min_samples_leaf=FACTOR,
+        min_impurity_improvement=IMP_IMP,
+        min_samples_leaf=SMPL_LEAF,
         max_depth=5
     )
 
@@ -408,15 +408,16 @@ def plot_jpt_turn(dt):
     )
 
 # params
-RUNS = 1000
+RUNS = 500
 NUMACTIONS = 100
-FACTOR = 0.0001
+IMP_IMP = 0
+SMPL_LEAF = 1
 COLLIDED = True  # use collided (symbolic) variable
-SEMI = False
+SEMI = False  # semi = True: randomly select position and move around in circles, semi = False: generate paths
 USEDELTAS = True
 USE_RECENT = True
 SHOWPLOTS = False
-LEARNONLY = False
+LEARNONLY = True
 
 
 if __name__ == '__main__':
@@ -425,6 +426,7 @@ if __name__ == '__main__':
     # use most recently created dataset or create from scratch
     if USE_RECENT:
         DT = recent_example(os.path.join(locs.examples, 'robotaction'))
+        DT = os.path.join(locs.examples, 'robotaction', '2023-07-03_23:35')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
 
