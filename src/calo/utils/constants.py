@@ -5,6 +5,12 @@ import csv
 from _csv import QUOTE_MINIMAL, register_dialect
 import xlwt
 
+############
+# PRINTING #
+############
+cs = ',\n'
+nl = '\n'
+cst = '\n\t'
 
 ###########
 # PROJECT #
