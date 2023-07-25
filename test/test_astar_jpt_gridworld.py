@@ -1,7 +1,8 @@
 import os
 import unittest
 
-from calo.application.astar_jpt_app import SubAStarBW_, State_
+from calo.application.astar_jpt_app import SubAStarBW_, State_, SubAStar_
+from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal
 from calo.utils import locs
 from jpt import JPT
@@ -79,43 +80,102 @@ class AStarGridworldJPTTests(unittest.TestCase):
             }
         )
 
-        cls.initstate = State_(
-            x_in=posteriors['x_in'],
-            y_in=posteriors['y_in'],
-            xdir_in=posteriors['xdir_in'],
-            ydir_in=posteriors['ydir_in']
+        cls.initstate = State_()
+        cls.initstate.update(
+            {
+                'x_in': posteriors['x_in'],
+                'y_in': posteriors['y_in'],
+                'xdir_in': posteriors['xdir_in'],
+                'ydir_in': posteriors['ydir_in']
+            }
         )
 
-        cls.goal = Goal(
-            x_out={6},
-            y_out={6}
+        cls.goal = Goal()
+        cls.goal.update(
+            {
+                'x_in': {6},
+                'y_in': {6}
+            }
         )
 
         print(GridWorld.strworld(GridWorld.GRID, legend=False))
 
-    def test_astar_path(self) -> None:
+    def test_astar_fw_path(self) -> None:
+        self.a_star = SubAStar_(
+            AStarGridworldJPTTests.initstate,
+            AStarGridworldJPTTests.goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+
+        # generate mapping from path step (=position) to action executed from this position
+        self.actions = {}
+        for p in self.path:
+            self.actions[
+                (
+                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
+                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
+                )
+            ] = (
+                (
+                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
+                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
+                ) if 'ydir_in' in p and 'xdir_in' in p else None
+            )
+
+    def test_astar_bw_path(self) -> None:
         self.a_star = SubAStarBW_(
             AStarGridworldJPTTests.initstate,
             AStarGridworldJPTTests.goal,
             models=self.models
         )
-        self.path = self.a_star.search()
+        self.path = list(self.a_star.search())
+        self.path.reverse()
 
-        # self.assertTrue(
-        #     self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4), (4, 4), (5, 4), (5, 5),
-        #                   (5, 6), (6, 6)] or
-        #     self.path == [(0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 3), (3, 3), (3, 4), (4, 4), (5, 4), (5, 5),
-        #                   (5, 6), (6, 6)], msg='A* path incorrect')
+        # generate mapping from path step (=position) to action executed from this position
+        self.actions = {}
+        for p in self.path:
+            self.actions[
+                (
+                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
+                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
+                )
+            ] = (
+                (
+                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
+                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
+                ) if 'ydir_in' in p and 'xdir_in' in p else None
+            )
+
+    def test_astar_bdir_path(self) -> None:
+        self.a_star = BiDirAStar(
+            SubAStar_,
+            SubAStarBW_,
+            AStarGridworldJPTTests.initstate,
+            AStarGridworldJPTTests.goal,
+            models=self.models
+        )
+
+        self.path = list(self.a_star.search())
+
+        # generate mapping from path step (=position) to action executed from this position
+        self.actions = {}
+        for p in self.path:
+            self.actions[
+                (
+                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
+                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
+                )
+            ] = (
+                (
+                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
+                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
+                ) if 'ydir_in' in p and 'xdir_in' in p else None
+            )
 
     def tearDown(self) -> None:
-        # generate mapping from path step (=position) to action executed from this position
-        path = list(self.path)
-        actions = {
-            (first(p['y_out']), first(p['x_out'])): (first(p['ydir_out']), first(p['xdir_out']))
-            if 'ydir_out' in p and 'xdir_out' in p else None for p in path}
-
         # draw path steps into grid (use action symbols)
-        res = [[GridWorld.GRID[y][x] if (y, x) not in actions else actions.get((y, x), None) for x in
+        res = [[GridWorld.GRID[y][x] if (y, x) not in self.actions else self.actions.get((y, x), None) for x in
                 range(len(GridWorld.GRID))] for y in range(len(GridWorld.GRID[0]))]
         print(GridWorld.strworld(res, legend=False))
 

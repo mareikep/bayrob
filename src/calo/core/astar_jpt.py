@@ -1,11 +1,8 @@
 import heapq
 import heapq
-import math
 import operator
-import os
 from collections import defaultdict
 from functools import reduce
-from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
 import dnutils
@@ -15,51 +12,73 @@ from jpt.distributions.quantile.quantiles import QuantileDistribution
 
 import jpt
 from calo.core.astar import AStar, Node
-from calo.logs.logs import init_loggers
-from calo.utils import locs
-from calo.utils.constants import calologger, plotcolormap
-from calo.utils.utils import recent_example
-from jpt.distributions import Numeric
-from jpt.trees import JPT
+from calo.utils.constants import calologger, cs, nl, cst
+from jpt.distributions import Numeric, Distribution
 from jpt.variables import Variable
 
 pyximport.install()
-from jpt.base.intervals import ContinuousSet, R
+from jpt.base.intervals import R, ContinuousSet
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
 class Goal(dict):
 
-    # def __str__(self) -> str:
-    #     return f'Goal< ({", ".join([f"{var}: {str(self[var])}" for var in self.keys()])}) >'
+    def __init__(self):
+        self.leaf = None
+        self.tree = None
+
+    def similarity(
+            self,
+            other: 'Goal'
+    ) -> float:
+        if not isinstance(other, Goal): return False
+
+        if set(self.keys()) != set(other.keys()):
+            raise ValueError('Variable sets do not match.')
+
+        return min(
+            [
+                1 if self[vn] == other[vn] else 0 for vn, val in self.items()
+            ]
+        )
+
     def __str__(self) -> str:
-        return f'Goal< ({", ".join([f"{var}: {str(self[var])}" for var in self.keys() if var not in ["tree", "leaf"]])}) ' \
-               f'[{self.get("tree", "")}({self.get("leaf", "")})] >'
+        return f'Goal[{cst}{cst.join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else self[var])}" for var in self.keys()])}{nl}]'
 
     def __repr__(self) -> str:
-        return str(self)
+        return f'Goal[{", ".join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else self[var])}" for var in self.keys()])}]'
 
 
 class State(dict):
+
+    def __init__(self):
+        self.leaf = None
+        self.tree = None
+        super().__init__()
 
     def similarity(
             self,
             other: 'State'
     ) -> float:
+        if not isinstance(other, State): return False
+
         if set(self.keys()) != set(other.keys()):
             raise ValueError('Variable sets do not match.')
+
         return min(
             [
-                type(self[var]).jaccard_similarity(var[var], other[var]) for var in self.items()
+                type(self[vn]).jaccard_similarity(val, other[vn]) for vn, val in self.items()
             ]
         )
 
     def __str__(self) -> str:
-        return f'State< ({", ".join([f"{var}: {str(first(self[var].mpe()[1]))}" for var in self.keys()])}) >'
+        return f'State({cst}{cst.join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else str(self[var]))}" for var in self.keys()])}{nl})' + \
+            f'[{self.tree}({self.leaf})]'
 
-    def __repr__(self):
-        return str(self)
+    def __repr__(self) -> str:
+        return f'State[{", ".join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else str(self[var]))}" for var in self.keys()])}]' + \
+            f'[{self.tree}({self.leaf})]'
 
 
 class SubAStar(AStar):
@@ -67,22 +86,43 @@ class SubAStar(AStar):
     def __init__(
             self,
             initstate: State,
-            goalstate: Goal,
+            goal: Goal,
             models: Dict,
             state_similarity: float = .9,
             goal_confidence: float = 1
     ):
         self.models = models
+        self.state_t = type(initstate)
+        self.goal_t = type(goal)
         super().__init__(
             initstate,
-            goalstate,
+            goal,
             state_similarity=state_similarity,
             goal_confidence=goal_confidence
         )
 
     def init(self):
-        init = Node(state=self.initstate, g=0., h=self.h(self.initstate), parent=None)
-        heapq.heappush(self.open, (init.f, init))
+        n_ = Node(
+            state=self.initstate,
+            g=0.,
+            h=self.h(self.initstate),
+            parent=None
+        )
+
+        heapq.heappush(self.open, (n_.f, n_))
+
+    def isgoal(
+            self,
+            node: Node
+    ) -> bool:
+        # true, if current belief state is sufficiently similar to goal
+        # return node.state.posx.p(self.goal.posx) * node.state.posy.p(self.goal.posy) >= self.goal_confidence
+
+        # if not all required fields of the initstate are contained in the state of the current node, it does not match
+        if not set([k.replace('_out', '_in') for k in self.goal.keys()]).issubset(set(node.state.keys())): return False
+
+        # otherwise, return the probability that the current state matches the initial state
+        return reduce(operator.mul, [node.state[var.replace('_out', '_in')].p(self.goal[var]) if isinstance(node.state, Distribution) else 1 if node.state[var.replace('_out', '_in')].mpe()[1] == self.goal[var] else 0 for var in self.goal]) >= self.goal_confidence
 
     def generate_steps(
             self,
@@ -98,12 +138,6 @@ class SubAStar(AStar):
         evidence = {
             var: node.state[var].mpe()[1] for var in node.state.keys()
         }
-        # evidence = {
-        #     'x_in': node.state.posx.mpe()[1],
-        #     'y_in': node.state.posy.mpe()[1],
-        #     'xdir_in': node.state.dirx.mpe()[1],
-        #     'ydir_in': node.state.diry.mpe()[1]
-        # }
 
         condtrees = [
             [
@@ -126,48 +160,45 @@ class SubAStar(AStar):
         successors = []
         for succ, tn, t in self.generate_steps(node):
 
-            # initialize new belief state for potential successor
-            state = State(
-                tree=tn,
-                leaf=succ.idx,
-            )
+            # copy previous state
+            s_ = self.state_t()
+            s_.update({k: v for k, v in node.state.items()})
 
-            for d in succ.distributions:
+            # update tree and leaf that represent this step
+            s_.tree = tn
+            s_.leaf = succ.idx
+
+            # update belief state of potential predecessor
+            for vn, d in succ.distributions.items():
                 # generate new distribution by shifting position delta distributions by expectation of position
                 # belief state
-                state[d] = Numeric().set(QuantileDistribution.from_cdf(succ[d].cdf.xshift(-node.state[d].expectation())))
-
-            # if 'x_out' in succ.distributions:
-            #     posx = Numeric().set(QuantileDistribution.from_cdf(succ.value['x_out'].cdf.xshift(-posx.expectation())))
-            #
-            # if 'y_out' in succ.distributions:
-            #     posy = Numeric().set(QuantileDistribution.from_cdf(succ.value['y_out'].cdf.xshift(-posy.expectation())))
-            #
-            # # generate new orientation distribution by shifting orientation delta distributions by expectation of
-            # # orientation belief state
-            # if 'xdir_out' in succ.distributions:
-            #     dirx = Numeric().set(QuantileDistribution.from_cdf(succ.value['xdir_out'].cdf.xshift(-dirx.expectation())))
-            #
-            # if 'ydir_out' in succ.distributions:
-            #     diry = Numeric().set(QuantileDistribution.from_cdf(succ.value['ydir_out'].cdf.xshift(-diry.expectation())))
+                if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in succ.distributions:
+                    if type(d) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
+                        if vn.name in s_:
+                            # if the _in variable is already contained in the state, update it by shifting it by the delta
+                            # from the leaf distribution
+                            s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(s_[vn.name].cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
+                        else:
+                            # else save the result of the _in from the leaf distribution shifted by its delta (_out)
+                            s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(d.cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
+                    else:
+                        if vn.name in s_:
+                            # if the _in variable is already contained in the state, update it by adding the delta
+                            # from the leaf distribution
+                            s_[vn.name] += succ.distributions[vn.name.replace('_in', '_out')]
+                        else:
+                            # else save the result of the _in from the leaf distribution shifted by its delta (_out)
+                            s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
 
             successors.append(
                 Node(
-                    state=state,
-                    g=node.g + self.stepcost(state),
-                    h=self.h(state),
+                    state=s_,
+                    g=node.g + self.stepcost(s_),
+                    h=self.h(s_),
                     parent=node
                 )
             )
         return successors
-
-    def isgoal(
-            self,
-            node: Node
-    ) -> bool:
-        # true, if current belief state is sufficiently similar to goal
-        # return node.state.posx.p(self.goal.posx) * node.state.posy.p(self.goal.posy) >= self.goal_confidence
-        return reduce(operator.mul, [node.state[var].p(self.goal[var]) for var in self.goal]) >= self.goal_confidence
 
 
 class SubAStarBW(SubAStar):
@@ -175,15 +206,14 @@ class SubAStarBW(SubAStar):
     def __init__(
             self,
             initstate: State,  # would be the goal state of forward-search
-            goalstate: Goal,  # init state in forward-search
+            goal: Goal,  # init state in forward-search
             models: Dict,
             state_similarity: float = .9,
             goal_confidence: float = 1
     ):
-
         super().__init__(
             initstate,
-            goalstate,
+            goal,
             models=models,
             state_similarity=state_similarity,
             goal_confidence=goal_confidence
@@ -201,40 +231,29 @@ class SubAStarBW(SubAStar):
 
         heapq.heappush(self.open, (n_.f, n_))
 
-        # for tn, t in self.models.items():
-        #     for lidx, l in t.leaves.items():
-        #         s_ = State(
-        #             tree=tn,
-        #             leaf=lidx
-        #         )
-        #         for var in self.goal.keys:
-        #             if var not in l.distributions or var.replace('_out', '_in') not in l.distributions: continue
-        #             s_[var] = l.distributions[var.replace('_out', '_in')] + l.distributions[var]
-        #
-        #         # if s_.posx.p(self.goal.posx) * s_.posy.p(self.goal.posy) >= self.goal_confidence:
-        #         if s_.similarity(self.goal) >= self.goal_confidence:
-        #             n_ = Node(state=s_, g=0., h=self.h(s_), parent=None)
-        #             heapq.heappush(self.open, (n_.f, n_))
-
     def isgoal(
             self,
             node: Node
     ) -> bool:
         # true, if current belief state is sufficiently similar to init state and ancestor (i.e. first element in parent
         # chain) matches goal specification
-        # a = SubAStarBW.get_ancestor(node)
-        # return node.state.posx.p(self.initstate.posx.mpe()[1]) * node.state.posy.p(self.initstate.posy.mpe()[1]) >= self.state_similarity and \
-        #     a.state.posx.p(self.goal.posx) * a.state.posy.p(self.goal.posy) >= self.goal_confidence
-        if not set(self.initstate.keys()).issubset(set([x.replace('_out', '_in') for x in node.state.keys()])): return False
-        return reduce(operator.mul, [self.initstate[var].p(node.state[var.replace('_in', '_out')]) for var in self.initstate]) >= self.goal_confidence
-            # and a.state.similarity(self.goal) >= self.state_similarity
+        # a = SubAStarBW.get_ancestor(node)  # TODO: this should be
+
+        # if not all required fields of the initstate are contained in the state of the current node, it does not match
+        if not set(self.initstate.keys()).issubset(set(node.state.keys())): return False
+        # if not set(self.goal.keys()).issubset(set(a.state.keys())): return False
+
+        # otherwise, return the probability that the current state matches the initial state TODO: greater equal state similarity??
+        return reduce(operator.mul, [self.initstate[var].p(node.state[var].mpe()[1]) for var in self.initstate]) >= self.state_similarity #\
+            # and reduce(operator.mul, [a.state[var].p(self.goal[var]) for var in self.goal]) >= self.goal_confidence
+
 
     @staticmethod
     def get_ancestor(
             node
     ):
         current_node = node
-        while current_node.parent is not None:
+        while current_node.parent is not None and not isinstance(current_node.parent.state, Goal):
             current_node = current_node.parent
         return current_node
 
@@ -257,9 +276,16 @@ class SubAStarBW(SubAStar):
         if set([v.name if isinstance(v, Variable) else v for v in query.keys()]).isdisjoint(set(t.varnames)):
             return []
 
+        q_ = t.bind(
+            {
+                k: v for k, v in query.items() if k in t.varnames
+            },
+            allow_singular_values=False
+        )
+
         # Transform into internal values/intervals (symbolic values to their indices)
         query_ = t._preprocess_query(
-            query,
+            q_,
             skip_unknown_variables=True
         )
 
@@ -279,8 +305,11 @@ class SubAStarBW(SubAStar):
         for k, l in t.leaves.items():
             conf = defaultdict(float)
             for v, dist in l.distributions.items():
-                if v.name in query and v.name in l.distributions and v.name.replace('_out', '_in') in l.distributions:
-                    if type(l.distributions[v.name]) == Numeric:
+                # assuming, that the _out variables are deltas but querying for _out means querying for the result of
+                # adding the delta to the _in variable (i.e. the actual outcome of performing the action represented
+                # by the leaf)
+                if v.name in query and v.name in l.distributions and v.name.replace('_out', '_in') in l.distributions and v.name != v.name.replace('_out', '_in'):
+                    if type(l.distributions[v.name]) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
                         ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.xshift(-l.distributions[v.name.replace('_out', '_in')].expectation())))
                     else:
                         ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
@@ -288,6 +317,13 @@ class SubAStarBW(SubAStar):
                 else:
                     newv = dist.p(query_[v])
                 conf[v] = newv
+
+                if v.name.replace('_in', '_out') in query and not v.name.replace('_in', '_out') in l.distributions:
+                    # if the leaf contains a queried variable, that only exists as an _in variable but not as an
+                    # _out variable, it is considered to be left unchanched by the action represented by the leaf.
+                    # Therefore, the distribution of the input variable is taken as basis for calculating the
+                    # probability
+                    conf[v.name.replace('_in', '_out')] = dist.p(query[v.name.replace('_in', '_out')])
             confs[l.idx] = conf
 
         yield from [(cf, t.leaves[lidx]) for lidx, cf in confs.items() if all(c >= confidence for c in cf.values())]
@@ -298,33 +334,16 @@ class SubAStarBW(SubAStar):
     ) -> List[Any]:
         """
         """
-        # else:
-        #     query = {}
-        #     if 'x_in' in node.state.leaf.path:
-        #         query['x_in'] = node.state.leaf.distributions['x_in'].mpe()[1]
-        #
-        #     if 'y_in' in node.state.leaf.path:
-        #         query['y_in'] = node.state.leaf.distributions['y_in'].mpe()[1]
-        #
-        #     if 'xdir_in' in node.state.leaf.path:
-        #         query['xdir_in'] = node.state.leaf.distributions['xdir_in'].mpe()[1]
-        #
-        #     if 'ydir_in' in node.state.leaf.path:
-        #         query['ydir_in'] = node.state.leaf.distributions['ydir_in'].mpe()[1]
 
+        # ascertain in generate_successors, that node.state only contains _out variables
         query = {
-            var: node.state[var] for var in node.state.keys()
+            var.replace('_in', '_out'): node.state[var] if isinstance(node.state[var], (set, ContinuousSet)) else node.state[var].mpe()[1] for var in node.state.keys()
         }
 
         steps = [
             (leaf, treename, tree) for treename, tree in self.models.items() for _, leaf in self.reverse(
                 t=tree,
-                query=tree.bind(
-                    {
-                        k: v for k, v in query.items() if k in tree.varnames
-                    },
-                    allow_singular_values=False
-                ),
+                query=query,
                 confidence=.1  # FIXME: self.goal_confidence?
             )
         ]
@@ -339,44 +358,19 @@ class SubAStarBW(SubAStar):
         predecessors = []
         for pred, tn, t in self.generate_steps(node):
 
-            # get distributions representing current belief state
-            # posx = node.state.posx
-            # posy = node.state.posy
-            # dirx = node.state.dirx
-            # diry = node.state.diry
-
-            # # update new position distributions to reflect the actual (absolute) position after execution
-            # if 'x_in' in pred.distributions and 'x_out' in pred.distributions:
-            #     posx = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['x_in'].cdf.xshift(-pred.distributions['x_out'].expectation())))
-            #
-            # if 'y_in' in pred.distributions and 'y_out' in pred.distributions:
-            #     posy = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['y_in'].cdf.xshift(-pred.distributions['y_out'].expectation())))
-            #
-            # # update new orientation distributions to reflect the actual (absolute) direction after execution
-            # if 'xdir_in' in pred.distributions and 'xdir_out' in pred.distributions:
-            #     dirx = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['xdir_in'].cdf.xshift(-pred.distributions['xdir_out'].expectation())))
-            #
-            # if 'ydir_in' in pred.distributions and 'ydir_out' in pred.distributions:
-            #     diry = Numeric().set(QuantileDistribution.from_cdf(pred.distributions['ydir_in'].cdf.xshift(-pred.distributions['ydir_out'].expectation())))
-            #
-            # # initialize new belief state for potential predecessor
-            # s_ = State(
-            #     posx=posx,
-            #     posy=posy,
-            #     ctree=t,
-            #     leaf=pred,
-            #     dirx=dirx,
-            #     diry=diry,
-            #     tn=tn
-            # )
-
-            s_ = node.state.__class__()
+            # copy previous state
+            # s_ = self.goal_t()
+            s_ = self.state_t()
             s_.update({k: v for k, v in node.state.items()})
-            s_['tree'] = tn
-            s_['leaf'] = pred.idx
 
-            # initialize new belief state for potential predecessor
-            s_.update({var.name.replace('_in', '_out'): pred.distributions[var].value2label(pred.path[var]) for var in pred.path})
+            # update tree and leaf that represent this step
+            s_.tree = tn
+            s_.leaf = pred.idx
+
+            # update belief state of potential predecessor
+            for v, d in pred.distributions.items():
+                if v.name.endswith('_in'):
+                    s_[v.name] = d
 
             predecessors.append(
                 Node(
@@ -388,99 +382,3 @@ class SubAStarBW(SubAStar):
             )
 
         return predecessors
-
-
-if __name__ == "__main__":
-    init_loggers(level='debug')
-    recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-
-    logger.debug(f'Loading trees from {recent}...')
-    models = dict(
-        [
-            (
-                treefile.name,
-                JPT.load(str(treefile))
-            )
-            for p in [recent]
-            for treefile in Path(p).rglob('*.tree')
-        ]
-    )
-
-    logger.debug('...done! Plotting initial distribution...')
-
-    jpt_ = models['000-MOVEFORWARD.tree']
-    # Move.plot(
-    #     jpt_=jpt_,
-    #     qvarx=jpt_.varnames['x_out'],
-    #     qvary=jpt_.varnames['y_out'],
-    #     evidence=None,
-    #     title=r'Init',
-    #     # conf=.0003,
-    #     limx=(-100, 100),
-    #     limy=(-100, 100),
-    #     # limz=(0, 0.001),
-    #     # save=os.path.join(locs.logs, f'{datetime.datetime.now().strftime(FILESTRFMT_SEC)}.png'),
-    #     show=True
-    # )
-
-    logger.debug('...done! Initializing start and goal states...')
-
-    tolerance = .1
-
-    initx, inity, initdirx, initdiry = [-75, 75, 0, -1]
-    posx = ContinuousSet(initx - abs(tolerance * initx), initx + abs(tolerance * initx))
-    posy = ContinuousSet(inity - abs(tolerance * inity), inity + abs(tolerance * inity))
-    dirx = ContinuousSet(initdirx - abs(tolerance * initdirx), initdirx + abs(tolerance * initdirx))
-    diry = ContinuousSet(initdiry - abs(tolerance * initdiry), initdiry + abs(tolerance * initdiry))
-
-    posteriors = models['000-MOVEFORWARD.tree'].posterior(
-        evidence={
-            'x_in': posx,
-            'y_in': posy,
-            'xdir_in': dirx,
-            'ydir_in': diry
-        }
-    )
-
-    initstate = State(
-        posx=posteriors['x_in'],
-        posy=posteriors['y_in'],
-        dirx=posteriors['xdir_in'],
-        diry=posteriors['ydir_in'],
-    )
-
-    # initstate.plot(show=True)
-
-    goalx, goaly = [-75, 66]
-    goalstate = Goal(
-        posx=ContinuousSet(goalx - abs(tolerance * goalx), goalx + abs(tolerance * goalx)),
-        posy=ContinuousSet(goaly - abs(tolerance * goaly), goaly + abs(tolerance * goaly))
-    )
-
-    logger.debug('...done! Initializing A* Algorithm...')
-
-    # a_star = SubAStar(
-    #     initstate=initstate,
-    #     goal=goal,
-    #     models=models
-    # )
-
-    a_star = SubAStarBW(
-        initstate=initstate,
-        goalstate=goalstate,
-        models=models
-    )
-
-    # a_star = BiDirAStar(
-    #     SubAStar,
-    #     SubAStar_BW,
-    #     initstate,
-    #     goal,
-    #     state_similarity=.9,
-    #     goal_confidence=.01,
-    #     models=models
-    # )
-    logger.debug('...done! Starting search...')
-
-    path = a_star.search()
-    logger.debug('...done!', path)

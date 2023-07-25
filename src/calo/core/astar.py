@@ -3,7 +3,7 @@ from typing import List, Any
 
 import dnutils
 
-from calo.utils.constants import calologger
+from calo.utils.constants import calologger, cs
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -43,12 +43,17 @@ class Node:
         current_node = self
         path = ""
         while current_node is not None:
-            path = f" {str(current_node.state)}{' ==>' if path else ''}{path}"
+            path = f" {repr(current_node.state)}{' ==>' if path else ''}{path}"
             current_node = current_node.parent
         return f"<Node{path}>"
 
     def __repr__(self) -> str:
-        return str(self)
+        plen = 0
+        current_node = self
+        while current_node is not None:
+            plen += 1
+            current_node = current_node.parent
+        return f"<Node ({plen}): {repr(self.state)}>"
 
     def __len__(self) -> int:
         cnt = 1
@@ -157,13 +162,16 @@ class AStar:
             cf, cur_node = heapq.heappop(self.open)
 
             if self.isgoal(cur_node):
-                logger.info(f'EEEEEEEEEEEEEEEEEK!!!! FOUND IT! :) \n{cur_node}')
+                logger.info(f'Found path from {self.initstate} to {self.goal}:\n'
+                            f'{cs.join([str(p) for p in self.retrace_path(cur_node)])}')
                 self.reached = True
 
                 try:
                     self.plot(cur_node)
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
+                except:
+                    logger.error('Could not plot result for unknown reasons. Skipping...')
 
                 return self.retrace_path(cur_node)
 
@@ -197,15 +205,17 @@ class BiDirAStar:
             f_astar: type,
             b_astar: type,
             initstate: Any,
-            goalstate: Any,
+            goal: Any,
             state_similarity: float = .9,
             goal_confidence: float = .01,
             **kwargs
     ):
+        self.state_t = type(initstate)
+        self.goal_t = type(goal)
         self.initstate = initstate
-        self.goalstate = goalstate
-        self.f_astar = f_astar(initstate, goalstate, **kwargs)
-        self.b_astar = b_astar(initstate, goalstate, **kwargs)
+        self.goal = goal
+        self.f_astar = f_astar(initstate, goal, **kwargs)
+        self.b_astar = b_astar(initstate, goal, **kwargs)
         self._state_similarity = state_similarity
         self._goal_confidence = goal_confidence
         self.reached = False
@@ -257,20 +267,23 @@ class BiDirAStar:
             return True
 
         # ...or current position of forward node has reached goal state
-        if fnode.state.similarity(self.f_astar.goal) >= self.state_similarity:
+        if self.b_astar.isgoal(bnode):
             return True
 
         # ...or current position of backward node has reached goal state
-        if bnode.state.similarity(self.b_astar.goal) >= self.state_similarity:
+        if self.f_astar.isgoal(fnode):
             return True
 
         return False
 
     def search(self) -> Any:
-        init = Node(state=self.f_astar.initstate, g=0., h=self.f_astar.h(self.f_astar.initstate), parent=None)
-        goal = Node(state=self.b_astar.initstate, g=0., h=self.b_astar.h(self.b_astar.initstate), parent=None)
-        heapq.heappush(self.f_astar.open, (init.f, init))
-        heapq.heappush(self.b_astar.open, (goal.f, goal))
+        if self.f_astar.open == []:
+            init = Node(state=self.f_astar.initstate, g=0., h=self.f_astar.h(self.f_astar.initstate), parent=None)
+            heapq.heappush(self.f_astar.open, (init.f, init))
+
+        if self.b_astar.open == []:
+            goal = Node(state=self.b_astar.goal, g=0., h=self.b_astar.h(self.b_astar.goal), parent=None)
+            heapq.heappush(self.b_astar.open, (goal.f, goal))
 
         while self.f_astar.open or self.b_astar.open:
             _, cur_fnode = heapq.heappop(self.f_astar.open)
@@ -282,9 +295,17 @@ class BiDirAStar:
 
                 try:
                     self.f_astar.plot(cur_fnode)
+                except NotImplementedError:
+                    logger.info('Could not plot result. Function not implemented.')
+                except:
+                    logger.error('Could not plot result for unknown reasons. Skipping...')
+
+                try:
                     self.b_astar.plot(cur_bnode)
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
+                except:
+                    logger.error('Could not plot result for unknown reasons. Skipping...')
 
                 return self.retrace_path(cur_fnode, cur_bnode)
 
@@ -316,5 +337,5 @@ class BiDirAStar:
                             heapq.heappush(astar.open, (c_.f, c_))
 
         if not self.reached:
-            logger.warning(f'Could not find a path from {self.initstate} to {self.goalstate}')
+            logger.warning(f'Could not find a path from {self.initstate} to {self.goal}')
             return [init]
