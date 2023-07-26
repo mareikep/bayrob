@@ -1,4 +1,5 @@
 import heapq
+import traceback
 from typing import List, Any
 
 import dnutils
@@ -157,10 +158,11 @@ class AStar:
 
     def search(self) -> Any:
         logger.debug(f'Searching path from {self.initstate} to {self.goal}')
-
+        plotme = False
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
-
+            if plotme:
+                self.plot(cur_node)
             if self.isgoal(cur_node):
                 logger.info(f'Found path from {self.initstate} to {self.goal}:\n'
                             f'{cs.join([str(p) for p in self.retrace_path(cur_node)])}')
@@ -171,7 +173,7 @@ class AStar:
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
                 except:
-                    logger.error('Could not plot result for unknown reasons. Skipping...')
+                    traceback.print_exc()
 
                 return self.retrace_path(cur_node)
 

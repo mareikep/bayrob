@@ -1,6 +1,7 @@
 import os
 import unittest
 
+# from calo.application.astar_jpt_app_gridworld import SubAStarBW_, State_, SubAStar_
 from calo.application.astar_jpt_app import SubAStarBW_, State_, SubAStar_
 from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal

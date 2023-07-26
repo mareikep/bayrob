@@ -10,6 +10,7 @@ from calo.core.astar_jpt import State, SubAStar, Goal, SubAStarBW
 from calo.utils import locs
 from calo.utils.constants import plotcolormap
 from calo.utils.utils import recent_example
+from jpt.distributions import Numeric, Integer
 from jpt.trees import Node
 
 
@@ -41,8 +42,8 @@ class State_(State):
         :return: None
         """
         # generate datapoints
-        x = self['x_out'].pdf.boundaries()
-        y = self['y_out'].pdf.boundaries()
+        x = self['x_in'].pdf.boundaries()
+        y = self['y_in'].pdf.boundaries()
 
         # determine limits
         xmin = ifnone(limx, min(x) - 15, lambda l: l[0])
@@ -53,7 +54,7 @@ class State_(State):
         X, Y = np.meshgrid(x, y)
         Z = np.array(
             [
-                self.posx.pdf(x) * self.posy.pdf(y)
+                self['x_in'].pdf(x) * self['y_in'].pdf(y)
                 for x, y, in zip(X.ravel(), Y.ravel())
             ]).reshape(X.shape)
 
@@ -139,20 +140,32 @@ class SubAStar_(SubAStar):
         #
         # return 1 - p
 
+        def getv(v, cmp=None):
+            if isinstance(v, set):
+                return first(v)
+            if isinstance(v, Numeric):
+                return v.expectation()
+            if isinstance(v, Integer):
+                return min(list(v.mpe()[1]))
+            if isinstance(v, ContinuousSet):
+                a = [i for i in [v.lower, v.upper] if not np.isinf(i)]
+                if cmp is None:
+                    return min(a)
+                d = {abs(x - cmp): x for x in a}
+                return d[min(d.keys())]
+
         # manhattan distance
         c = 0.
         if 'x_in' in state:
-            if isinstance(state['x_in'], set):
-                vx = min(list(state['x_in']))
-            else:
-                vx = min(list(state['x_in'].mpe()[1]))
-            c += abs(vx - first(self.goal['x_in']))
+            vx = getv(state['x_in'])
+            gx = getv(self.goal['x_in'], cmp=vx)
+            c += abs(vx - gx)
+
         if 'y_in' in state:
-            if isinstance(state['y_in'], set):
-                vy = min(list(state['y_in']))
-            else:
-                vy = min(list(state['y_in'].mpe()[1]))
-            c += abs(vy - first(self.goal['y_in']))
+            vy = getv(state['y_in'])
+            gy = getv(self.goal['y_in'], cmp=vy)
+            c += abs(vy - gy)
+
         return c
 
     def plot(
@@ -376,31 +389,118 @@ class SubAStarBW_(SubAStarBW):
         # if 'xdir_in' in state and 'ydir_in' in state:
         #     p *= self.initstate['xdir_in'].p(state['xdir_in']) * self.initstate['ydir_in'].p(state['xdir_in'])
         # return 1 - p
+        def getv(v, cmp=None):
+            if isinstance(v, set):
+                return first(v)
+            if isinstance(v, Numeric):
+                return v.expectation()
+            if isinstance(v, Integer):
+                return min(list(v.mpe()[1]))
+            if isinstance(v, ContinuousSet):
+                return v.lower + (v.upper - v.lower)/2
 
         # manhattan distance
         c = 0.
         if 'x_in' in state:
-            if isinstance(state['x_in'], set):
-                vx = min(list(state['x_in']))
-            else:
-                vx = min(list(state['x_in'].mpe()[1]))
-            c += abs(vx - self.initstate['x_in'].expectation())
-        if 'y_in' in state:
-            if isinstance(state['y_in'], set):
-                vy = min(list(state['y_in']))
-            else:
-                vy = min(list(state['y_in'].mpe()[1]))
-            c += abs(vy - self.initstate['y_in'].expectation())
-        return c
+            vx = getv(state['x_in'])
+            gx = getv(self.initstate['x_in'], cmp=vx)
+            c += abs(vx - gx)
 
-    # def retrace_path(
-    #         self,
-    #         node
-    # ) -> Any:
-    #     return list(reversed(super().retrace_path(node)))
+        if 'y_in' in state:
+            vy = getv(state['y_in'])
+            gy = getv(self.initstate['y_in'], cmp=vy)
+            c += abs(vy - gy)
+        return c
 
     def plot(
             self,
-            node
+            node: Node
     ) -> None:
-        pass
+        """ONLY FOR GRIDWORLD DATA
+        """
+        from matplotlib import pyplot as plt
+        from matplotlib import colormaps
+        from matplotlib import patches
+        import pandas as pd
+
+        p = self.retrace_path(node)
+        cmap = colormaps[plotcolormap]
+        colors = cmap.colors
+        fig, ax = plt.subplots(num=1, clear=True)
+
+        # generate data points
+        d = [
+            (
+                s['x_in'].expectation(),
+                s['y_in'].expectation(),
+                s['xdir_in'].expectation(),
+                s['ydir_in'].expectation(),
+                f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
+                f'({s["x_in"].expectation():.2f},{s["y_in"].expectation():.2f}): '
+                f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
+            ) if not isinstance(s, Goal) else (
+                first(s['x_in']) if isinstance(s['x_in'], set) else s['x_in'].lower + abs(s['x_in'].upper - s['x_in'].lower)/2,
+                first(s['y_in']) if isinstance(s['y_in'], set) else s['y_in'].lower + abs(s['y_in'].upper - s['y_in'].lower)/2,
+                0,
+                0,
+                f"Goal"
+            ) for i, s in enumerate(p)
+        ]
+        df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
+
+        # print direction arrows
+        ax.quiver(
+            df['X'],
+            df['Y'],
+            df['DX'],
+            df['DY'],
+            color=colors,
+            width=0.001
+        )
+
+        gxl = self.goal['x_in'].lower if isinstance(self.goal['x_in'], ContinuousSet) else first(self.goal['x_in'])
+        gxu = self.goal['x_in'].upper if isinstance(self.goal['x_in'], ContinuousSet) else first(self.goal['x_in'])
+        gyl = self.goal['y_in'].lower if isinstance(self.goal['y_in'], ContinuousSet) else first(self.goal['y_in'])
+        gyu = self.goal['y_in'].upper if isinstance(self.goal['y_in'], ContinuousSet) else first(self.goal['y_in'])
+
+        # print goal position/area
+        ax.add_patch(patches.Rectangle(
+            (
+                gxl,
+                gyl
+            ),
+            gxu - gxl,
+            gyu - gyl,
+            linewidth=1,
+            color='green',
+            alpha=.2)
+        )
+
+        # annotate start and final position of agent as well as goal area
+        ax.annotate('Start', (df['X'][0], df['Y'][0]))
+        ax.annotate('End', (df['X'].iloc[-1], df['Y'].iloc[-1]))
+        ax.annotate('Goal', (gxl, gyl))
+
+        # scatter single steps
+        for index, row in df.iterrows():
+            ax.scatter(
+                row['X'],
+                row['Y'],
+                marker='*',
+                label=row['L'],
+                color=colors[index]
+            )
+
+        # set figure/window/plot properties
+        ax.set_xlabel(r'$x$')
+        ax.set_ylabel(r'$y$')
+        fig.suptitle(str(node))
+        plt.grid()
+        plt.legend()
+        plt.savefig(
+            os.path.join(
+                locs.logs,
+                f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-path.png'
+            )
+        )
+        plt.show()

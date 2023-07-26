@@ -243,7 +243,7 @@ class SubAStarBW(SubAStar):
         # if not set(self.goal.keys()).issubset(set(a.state.keys())): return False
 
         # otherwise, return the probability that the current state matches the initial state TODO: greater equal state similarity??
-        return reduce(operator.mul, [self.initstate[var].p(node.state[var].mpe()[1]) for var in self.initstate]) >= self.state_similarity #\
+        return reduce(operator.mul, [self.initstate[var].p(node.state[var].mpe()[1] if isinstance(node.state[var], set) else node.state[var]) for var in self.initstate]) >= self.state_similarity #\
             # and reduce(operator.mul, [a.state[var].p(self.goal[var]) for var in self.goal]) >= self.goal_confidence
 
 
@@ -310,6 +310,9 @@ class SubAStarBW(SubAStar):
                 if v.name in query and v.name in l.distributions and v.name.replace('_out', '_in') in l.distributions and v.name != v.name.replace('_out', '_in'):
                     if type(l.distributions[v.name]) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
                         ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.xshift(-l.distributions[v.name.replace('_out', '_in')].expectation())))
+                        ndist2 = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name.replace('_out', '_in')].cdf.xshift(-l.distributions[v.name].expectation())))
+                        if ndist.p(query_[v]) != ndist2.p(query_[v]):
+                            print('STOP')
                     else:
                         ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
                     newv = ndist.p(query_[v])

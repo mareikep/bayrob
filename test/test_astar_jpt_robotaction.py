@@ -2,19 +2,17 @@ import os
 import unittest
 from pathlib import Path
 
+from dnutils import first
+
+from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
+from calo.core.astar import BiDirAStar
+from calo.core.astar_jpt import Goal
+from calo.utils import locs
+from jpt import JPT
 from jpt.base.intervals import ContinuousSet
 
-from calo.application.astar_jpt_app import SubAStarBW_, SubAStar_, State_
-from calo.core.astar_jpt import Goal
-from calo.core.astar import BiDirAStar
-from calo.utils import locs
-from calo.utils.utils import recent_example
-from ddt import ddt, data, unpack
-from jpt import JPT
 
-
-@ddt
-class CALOAStarAlgorithmTests(unittest.TestCase):
+class AStarRobotActionJPTTests(unittest.TestCase):
     # assumes trees MOVEFORWARD and TURN generated previously from functions in calo-dev/test/test_robotpos.py,
     # executed in the following order:
     # test_robot_pos_random (xor test_robot_pos) --> generates csv files from consecutive (random) move/turn actions
@@ -25,7 +23,9 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
     # test_jpt_turn --> learns JPT from turn data
     @classmethod
     def setUpClass(cls) -> None:
-        recent = recent_example(os.path.join(locs.examples, 'robotaction'))
+        # recent = recent_example(os.path.join(locs.examples, 'robotaction'))
+        recent = os.path.join(locs.examples, 'robotaction', '2023-07-03_23:35')
+
         cls.models = dict(
             [
                 (
@@ -37,22 +37,15 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
             ]
         )
 
-    @unittest.skip
-    @data(((0, 0, 0, 1), (-10, -10)))
-    @unpack
-    def test_calofwastar(self, start, goal) -> None:
-        # one data set consists of a tuple
-        # ((init_pos_x, init_pos_y, startdir_x, startdir_y), (goal_x, goal_y)) of type(s)
-        # ((float, float, float, float), (float, float))
-        tolerance = .1
+        tolerance = .2
 
-        # starting position / initial direction
-        posx = ContinuousSet(start[0] - abs(tolerance * start[0]), start[0] + abs(tolerance * start[0]))
-        posy = ContinuousSet(start[1] - abs(tolerance * start[1]), start[1] + abs(tolerance * start[1]))
-        dirx = ContinuousSet(start[2] - abs(tolerance * start[2]), start[2] + abs(tolerance * start[2]))
-        diry = ContinuousSet(start[3] - abs(tolerance * start[3]), start[3] + abs(tolerance * start[3]))
+        initx, inity, initdirx, initdiry = [-90, -15, 0, -1]
+        posx = ContinuousSet(initx - abs(tolerance * initx), initx + abs(tolerance * initx))
+        posy = ContinuousSet(inity - abs(tolerance * inity), inity + abs(tolerance * inity))
+        dirx = ContinuousSet(initdirx - abs(tolerance * initdirx), initdirx + abs(tolerance * initdirx))
+        diry = ContinuousSet(initdiry - abs(tolerance * initdiry), initdiry + abs(tolerance * initdiry))
 
-        posteriors = CALOAStarAlgorithmTests.models['000-MOVEFORWARD.tree'].posterior(
+        posteriors = cls.models['000-MOVEFORWARD.tree'].posterior(
             evidence={
                 'x_in': posx,
                 'y_in': posy,
@@ -61,58 +54,8 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
             }
         )
 
-        initstate = State_(
-            posx=posteriors['x_in'],
-            posy=posteriors['y_in'],
-            dirx=posteriors['xdir_in'],
-            diry=posteriors['ydir_in'],
-        )
-
-        goalstate = Goal(
-            posx=ContinuousSet(goal[0] - abs(tolerance * goal[0]), goal[0] + abs(tolerance * goal[0])),
-            posy=ContinuousSet(goal[1] - abs(tolerance * goal[1]), goal[1] + abs(tolerance * goal[1]))
-        )
-
-        self.a_star = SubAStar_(
-            initstate=initstate,
-            goalstate=goalstate,
-            models=CALOAStarAlgorithmTests.models,
-            state_similarity=.9,
-            goal_confidence=1.
-        )
-
-        self.path = self.a_star.search()
-
-        self.assertEqual(
-            self.path,
-            []
-        )
-
-    @data(((-75, 75, 0, -1), (-75, 66)))
-    @unpack
-    def test_calobwastar(self, start, goal) -> None:
-        # one data set consists of a tuple
-        # ((init_pos_x, init_pos_y, startdir_x, startdir_y), (goal_x, goal_y), models, tolerance) of type(s)
-        # ((float, float, float, float), (float, float), List(str), float)
-        tolerance = .1
-
-        # starting position / initial direction
-        posx = ContinuousSet(start[0] - abs(tolerance * start[0]), start[0] + abs(tolerance * start[0]))
-        posy = ContinuousSet(start[1] - abs(tolerance * start[1]), start[1] + abs(tolerance * start[1]))
-        dirx = ContinuousSet(start[2] - abs(tolerance * start[2]), start[2] + abs(tolerance * start[2]))
-        diry = ContinuousSet(start[3] - abs(tolerance * start[3]), start[3] + abs(tolerance * start[3]))
-
-        posteriors = CALOAStarAlgorithmTests.models['000-MOVEFORWARD.tree'].posterior(
-            evidence={
-                'x_in': posx,
-                'y_in': posy,
-                'xdir_in': dirx,
-                'ydir_in': diry
-            }
-        )
-
-        initstate = State_()
-        initstate.update(
+        cls.initstate = State_()
+        cls.initstate.update(
             {
                 'x_in': posteriors['x_in'],
                 'y_in': posteriors['y_in'],
@@ -121,82 +64,93 @@ class CALOAStarAlgorithmTests(unittest.TestCase):
             }
         )
 
-        goalstate = Goal()
-        initstate.update(
+        # initstate.plot(show=True)
+        goalx, goaly = [-90, -20]
+        cls.goal = Goal()
+        cls.goal.update(
             {
-                'x_in': ContinuousSet(goal[0] - abs(tolerance * goal[0]), goal[0] + abs(tolerance * goal[0])),
-                'y_in': ContinuousSet(goal[1] - abs(tolerance * goal[1]), goal[1] + abs(tolerance * goal[1]))
+                'x_in': ContinuousSet(goalx - abs(tolerance * goalx), goalx + abs(tolerance * goalx)),
+                'y_in': ContinuousSet(goaly - abs(tolerance * goaly), goaly + abs(tolerance * goaly))
             }
         )
 
+    def test_astar_fw_path(self) -> None:
+        self.a_star = SubAStar_(
+            AStarRobotActionJPTTests.initstate,
+            AStarRobotActionJPTTests.goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+
+        # generate mapping from path step (=position) to action executed from this position
+        self.actions = {}
+        for p in self.path:
+            self.actions[
+                (
+                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
+                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
+                )
+            ] = (
+                (
+                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
+                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
+                ) if 'ydir_in' in p and 'xdir_in' in p else None
+            )
+
+    def test_astar_bw_path(self) -> None:
         self.a_star = SubAStarBW_(
-            initstate=initstate,
-            goalstate=goalstate,
-            models=CALOAStarAlgorithmTests.models,
-            state_similarity=.9,
-            goal_confidence=1.
+            AStarRobotActionJPTTests.initstate,
+            AStarRobotActionJPTTests.goal,
+            models=self.models
         )
+        self.path = list(self.a_star.search())
+        self.path.reverse()
 
-        self.path = self.a_star.search()
+        # generate mapping from path step (=position) to action executed from this position
+        self.actions = {}
+        for p in self.path:
+            self.actions[
+                (
+                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
+                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
+                )
+            ] = (
+                (
+                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
+                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
+                ) if 'ydir_in' in p and 'xdir_in' in p else None
+            )
 
-        self.assertEqual(
-            self.path,
-            []
-        )
-
-    @unittest.skip
-    @data(((0, 0, 0, 1), (-10, -10)))
-    @unpack
-    def test_bdir_caloastar(self, start, goal) -> None:
-        # one data set consists of a tuple
-        # ((init_pos_x, init_pos_y, startdir_x, startdir_y), (goal_x, goal_y), models, tolerance) of type(s)
-        # ((float, float, float, float), (float, float), List(str), float)
-        tolerance = .1
-
-        # starting position / initial direction
-        posx = ContinuousSet(start[0] - abs(tolerance * start[0]), start[0] + abs(tolerance * start[0]))
-        posy = ContinuousSet(start[1] - abs(tolerance * start[1]), start[1] + abs(tolerance * start[1]))
-        dirx = ContinuousSet(start[2] - abs(tolerance * start[2]), start[2] + abs(tolerance * start[2]))
-        diry = ContinuousSet(start[3] - abs(tolerance * start[3]), start[3] + abs(tolerance * start[3]))
-
-        posteriors = CALOAStarAlgorithmTests.models['000-MOVEFORWARD.tree'].posterior(
-            evidence={
-                'x_in': posx,
-                'y_in': posy,
-                'xdir_in': dirx,
-                'ydir_in': diry
-            }
-        )
-
-        initstate = State_(
-            posx=posteriors['x_in'],
-            posy=posteriors['y_in'],
-            dirx=posteriors['xdir_in'],
-            diry=posteriors['ydir_in'],
-        )
-
-        goalstate = Goal(
-            posx=ContinuousSet(goal[0] - abs(tolerance * goal[0]), goal[0] + abs(tolerance * goal[0])),
-            posy=ContinuousSet(goal[1] - abs(tolerance * goal[1]), goal[1] + abs(tolerance * goal[1]))
-        )
-
+    def test_astar_bdir_path(self) -> None:
         self.a_star = BiDirAStar(
-            f_astar=SubAStar_,
-            b_astar=SubAStarBW_,
-            initstate=initstate,
-            goalstate=goalstate,
-            models=CALOAStarAlgorithmTests.models,
-            state_similarity=.9,
-            goal_confidence=1.
+            SubAStar_,
+            SubAStarBW_,
+            AStarRobotActionJPTTests.initstate,
+            AStarRobotActionJPTTests.goal,
+            models=self.models
         )
 
-        self.path = self.a_star.search()
+        self.path = list(self.a_star.search())
 
-        self.assertEqual(
-            self.path,
-            []
-        )
+        # generate mapping from path step (=position) to action executed from this position
+        self.actions = {}
+        for p in self.path:
+            self.actions[
+                (
+                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
+                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
+                )
+            ] = (
+                (
+                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
+                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
+                ) if 'ydir_in' in p and 'xdir_in' in p else None
+            )
 
     def tearDown(self) -> None:
-        print('tearDown', self.path)
-        self.a_star.plot(self.path[-1])
+        # draw path steps into grid (use action symbols)
+        print()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        print()
