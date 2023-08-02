@@ -12,7 +12,7 @@ from jpt.distributions.quantile.quantiles import QuantileDistribution
 import jpt
 from calo.core.astar import AStar, Node
 from calo.utils.constants import calologger, nl, cst
-from jpt.distributions import Numeric, Distribution
+from jpt.distributions import Numeric, Distribution, Integer
 from jpt.variables import Variable
 
 pyximport.install()
@@ -243,7 +243,7 @@ class SubAStarBW(SubAStar):
         # if not set(self.goal.keys()).issubset(set(a.state.keys())): return False
 
         # otherwise, return the probability that the current state matches the initial state TODO: greater equal state similarity??
-        return reduce(operator.mul, [self.initstate[var].p(node.state[var].mpe()[1] if isinstance(node.state[var], set) else node.state[var]) for var in self.initstate]) >= self.state_similarity #\
+        return reduce(operator.mul, [self.initstate[var].p(node.state[var].mpe()[1] if isinstance(node.state[var], Distribution) else node.state[var]) for var in self.initstate]) >= self.state_similarity #\
             # and reduce(operator.mul, [a.state[var].p(self.goal[var]) for var in self.goal]) >= self.goal_confidence
 
 
@@ -307,24 +307,25 @@ class SubAStarBW(SubAStar):
                 # assuming, that the _out variables are deltas but querying for _out means querying for the result of
                 # adding the delta to the _in variable (i.e. the actual outcome of performing the action represented
                 # by the leaf)
-                if v.name in query and v.name in l.distributions and v.name.replace('_out', '_in') in l.distributions and v.name != v.name.replace('_out', '_in'):
+                if v.name != v.name.replace('_out', '_in') and v.name in query and v.name.replace('_out', '_in') in l.distributions:
                     if type(l.distributions[v.name]) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
                         ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.xshift(-l.distributions[v.name.replace('_out', '_in')].expectation())))
-                        ndist2 = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name.replace('_out', '_in')].cdf.xshift(-l.distributions[v.name].expectation())))
-                        if ndist.p(query_[v]) != ndist2.p(query_[v]):
-                            print('STOP')
+                        # ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name.replace('_out', '_in')].cdf.xshift(-l.distributions[v.name].expectation())))
+                        # if ndist.p(query_[v]) != ndist2.p(query_[v]):
+                        #     print('STOP')
                     else:
                         ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
                     newv = ndist.p(query_[v])
                 else:
                     newv = dist.p(query_[v])
-                conf[v] = newv
+                conf[v.name] = newv
 
-                if v.name.replace('_in', '_out') in query and not v.name.replace('_in', '_out') in l.distributions:
+                if v.name != v.name.replace('_in', '_out') and v.name.replace('_in', '_out') in query and not v.name.replace('_in', '_out') in l.distributions:
                     # if the leaf contains a queried variable, that only exists as an _in variable but not as an
-                    # _out variable, it is considered to be left unchanched by the action represented by the leaf.
+                    # _out variable, it is considered to be left unchanged by the action represented by the leaf.
                     # Therefore, the distribution of the input variable is taken as basis for calculating the
                     # probability
+                    print('bla', v)
                     conf[v.name.replace('_in', '_out')] = dist.p(query[v.name.replace('_in', '_out')])
             confs[l.idx] = conf
 
@@ -339,7 +340,9 @@ class SubAStarBW(SubAStar):
 
         # ascertain in generate_successors, that node.state only contains _out variables
         query = {
-            var.replace('_in', '_out'): node.state[var] if isinstance(node.state[var], (set, ContinuousSet)) else node.state[var].mpe()[1] for var in node.state.keys()
+            var.replace('_in', '_out'):
+                node.state[var] if isinstance(node.state[var], (set, ContinuousSet)) else
+                node.state[var].mpe()[1] for var in node.state.keys()
         }
 
         steps = [
