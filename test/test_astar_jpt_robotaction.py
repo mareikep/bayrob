@@ -2,14 +2,18 @@ import os
 import unittest
 from pathlib import Path
 
+import numpy as np
 from dnutils import first
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal
 from calo.utils import locs
+from calo.utils.utils import recent_example
 from jpt import JPT
 from jpt.base.intervals import ContinuousSet
+
+from jpt.distributions import Numeric, Gaussian
 
 
 class AStarRobotActionJPTTests(unittest.TestCase):
@@ -23,8 +27,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
     # test_jpt_turn --> learns JPT from turn data
     @classmethod
     def setUpClass(cls) -> None:
-        # recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-        recent = os.path.join(locs.examples, 'robotaction', '2023-07-03_23:35')
+        recent = recent_example(os.path.join(locs.examples, 'robotaction'))
+        recent = os.path.join(locs.examples, 'robotaction', '2023-08-01_14:57')
 
         cls.models = dict(
             [
@@ -39,33 +43,36 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         tolerance = .2
 
-        initx, inity, initdirx, initdiry = [-90, -15, 0, -1]
-        posx = ContinuousSet(initx - abs(tolerance * initx), initx + abs(tolerance * initx))
-        posy = ContinuousSet(inity - abs(tolerance * inity), inity + abs(tolerance * inity))
-        dirx = ContinuousSet(initdirx - abs(tolerance * initdirx), initdirx + abs(tolerance * initdirx))
-        diry = ContinuousSet(initdiry - abs(tolerance * initdiry), initdiry + abs(tolerance * initdiry))
+        initx, inity, initdirx, initdiry = [-60, 75, 0, -1]
 
-        posteriors = cls.models['000-MOVEFORWARD.tree'].posterior(
-            evidence={
-                'x_in': posx,
-                'y_in': posy,
-                'xdir_in': dirx,
-                'ydir_in': diry
-            }
-        )
+        dx = Gaussian(initx, tolerance).sample(50)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance).sample(50)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance).sample(50)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance).sample(50)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
 
         cls.initstate = State_()
         cls.initstate.update(
             {
-                'x_in': posteriors['x_in'],
-                'y_in': posteriors['y_in'],
-                'xdir_in': posteriors['xdir_in'],
-                'ydir_in': posteriors['ydir_in']
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
             }
         )
 
-        # initstate.plot(show=True)
-        goalx, goaly = [-90, -20]
+        cls.initstate.plot(show=True)
+        goalx, goaly = [-75, 50]
         cls.goal = Goal()
         cls.goal.update(
             {
