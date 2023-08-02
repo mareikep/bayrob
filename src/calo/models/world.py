@@ -49,14 +49,24 @@ class Grid(World):
     def obstacles(self) -> List[List[float]]:
         return self._obstacles
 
+    def collides_obstacle(
+            self,
+            pos: Tuple[float, float]
+    ) -> bool:
+        return any([o[0] <= pos[0] <= o[2] and o[1] <= pos[1] <= o[3] for o in self._obstacles])
+
+    def collides_wall(
+            self,
+            pos: Tuple[float, float]
+    ) -> bool:
+        return not any([self.coords[0] <= pos[0] <= self.coords[2] and self.coords[1] <= pos[1] <= self.coords[3]])
+
     def collides(
             self,
             pos: Tuple[float, float]
     ) -> bool:
         # check obstacle collision AND wall collision
-        hitobstacle = any([o[0] <= pos[0] <= o[2] and o[1] <= pos[1] <= o[3] for o in self._obstacles])
-        ingrid = any([self.coords[0] <= pos[0] <= self.coords[2] and self.coords[1] <= pos[1] <= self.coords[3]])
-        return hitobstacle or not ingrid
+        return self.collides_obstacle(pos) or self.collides_wall(pos)
 
 
 class GridAgent(Agent):
