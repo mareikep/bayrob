@@ -64,7 +64,7 @@ class State(dict):
         if not isinstance(other, State): return False
 
         if set(self.keys()) != set(other.keys()):
-            raise ValueError('Variable sets do not match.')
+            return 0#raise ValueError('Variable sets do not match.')
 
         return min(
             [
@@ -135,8 +135,9 @@ class SubAStar(AStar):
         :type node: SubNode
         """
         # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
+        # TODO: remove else case once ppf exists for Integer
         evidence = {
-            var: ContinuousSet(node.state[var].ppf(.05), node.state[var].ppf(.95)) for var in node.state.keys()
+            var: ContinuousSet(node.state[var].ppf(.05), node.state[var].ppf(.95)) if hasattr(node.state[var], 'ppf') else node.state[var].mpe()[1] for var in node.state.keys()
             # var: node.state[var].mpe()[1]  # for Integer variables
         }
 
@@ -184,7 +185,9 @@ class SubAStar(AStar):
                         s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
 
                     # reduce complexity from adding two distributions
-                    s_[vn.name] = s_[vn.name].approximate(n_segments=10)
+                    # TODO: remove condition once ppf exists for Integer
+                    if hasattr(s_[vn.name], 'approximate'):
+                        s_[vn.name] = s_[vn.name].approximate(n_segments=10)
 
             successors.append(
                 Node(
