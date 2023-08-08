@@ -41,17 +41,19 @@ class Node:
         return self.state == other.state and self.parent == other.parent
 
     def __str__(self) -> str:  # TODO: remove! --> only for debugging
-        current_node = self
+        plen = 1
         path = ""
-        while current_node is not None:
+        current_node = self
+        while current_node.parent is not None:
+            plen += 1
             path = f" {repr(current_node.state)}{' ==>' if path else ''}{path}"
             current_node = current_node.parent
-        return f"<Node{path}>"
+        return f"<NODE ({plen}): {path}>"
 
     def __repr__(self) -> str:
-        plen = 0
+        plen = 1
         current_node = self
-        while current_node is not None:
+        while current_node.parent is not None:
             plen += 1
             current_node = current_node.parent
         return f"<Node ({plen}): {repr(self.state)}>"
