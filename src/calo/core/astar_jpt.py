@@ -174,15 +174,7 @@ class SubAStar(AStar):
                 # generate new distribution by shifting position delta distributions by expectation of position
                 # belief state
                 if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in succ.distributions:
-                    # if type(d) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
-                    #     if vn.name in s_:
-                    #         # if the _in variable is already contained in the state, update it by shifting it by the delta
-                    #         # from the leaf distribution
-                    #         s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(s_[vn.name].cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
-                    #     else:
-                    #         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
-                    #         s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(d.cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
-                    # else:
+
                     if vn.name in s_:
                         # if the _in variable is already contained in the state, update it by adding the delta
                         # from the leaf distribution
@@ -190,6 +182,7 @@ class SubAStar(AStar):
                     else:
                         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
                         s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
+
                     # reduce complexity from adding two distributions
                     s_[vn.name] = s_[vn.name].approximate(n_segments=10)
 
