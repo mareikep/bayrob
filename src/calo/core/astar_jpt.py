@@ -12,6 +12,7 @@ from jpt.distributions.quantile.quantiles import QuantileDistribution
 import jpt
 from calo.core.astar import AStar, Node
 from calo.utils.constants import calologger, nl, cst
+from calo.utils.utils import fmt
 from jpt.distributions import Numeric, Distribution, Integer
 from jpt.variables import Variable
 
@@ -43,10 +44,10 @@ class Goal(dict):
         )
 
     def __str__(self) -> str:
-        return f'Goal[{cst}{cst.join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else self[var])}" for var in self.keys()])}{nl}]'
+        return f'GOAL[{";".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])}]'
 
     def __repr__(self) -> str:
-        return f'Goal[{", ".join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else self[var])}" for var in self.keys()])}]'
+        return f'Goal[{", ".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])}]'
 
 
 class State(dict):
@@ -72,11 +73,11 @@ class State(dict):
         )
 
     def __str__(self) -> str:
-        return f'State({cst}{cst.join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else str(self[var]))}" for var in self.keys()])}{nl})' + \
+        return f'{self.__class__.__name__.upper()}({";".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])})' + \
             f'[{self.tree}({self.leaf})]'
 
     def __repr__(self) -> str:
-        return f'State[{", ".join([f"{var}: {str(self[var].mpe()[1] if isinstance(self[var], Distribution) else str(self[var]))}" for var in self.keys()])}]' + \
+        return f'{self.__class__.__name__}[{", ".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])}]' + \
             f'[{self.tree}({self.leaf})]'
 
 
@@ -114,13 +115,13 @@ class SubAStar(AStar):
             self,
             node: Node
     ) -> bool:
-        # true, if current belief state is sufficiently similar to goal
-        # return node.state.posx.p(self.goal.posx) * node.state.posy.p(self.goal.posy) >= self.goal_confidence
-
-        # if not all required fields of the initstate are contained in the state of the current node, it does not match
+        # if not all required fields of the goal are contained in the state of the current node, it cannot match
+        # the goal specification
         if not set([k.replace('_out', '_in') for k in self.goal.keys()]).issubset(set(node.state.keys())): return False
 
-        # otherwise, return the probability that the current state matches the initial state
+        # otherwise, return whether probability that the current state matches the goal specification is greater or
+        # equal to the user-defined goal-confidence, i.e. return true, if current belief state is sufficiently
+        # similar to goal
         return reduce(operator.mul, [node.state[var.replace('_out', '_in')].p(self.goal[var]) if isinstance(node.state, Distribution) else 1 if node.state[var.replace('_out', '_in')].mpe()[1] == self.goal[var] else 0 for var in self.goal]) >= self.goal_confidence
 
     def generate_steps(
@@ -133,9 +134,10 @@ class SubAStar(AStar):
         :param node: the current node
         :type node: SubNode
         """
-
+        # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
         evidence = {
-            var: node.state[var].mpe()[1] for var in node.state.keys()
+            var: ContinuousSet(node.state[var].ppf(.05), node.state[var].ppf(.95)) for var in node.state.keys()
+            # var: node.state[var].mpe()[1]  # for Integer variables
         }
 
         condtrees = [
@@ -172,22 +174,24 @@ class SubAStar(AStar):
                 # generate new distribution by shifting position delta distributions by expectation of position
                 # belief state
                 if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in succ.distributions:
-                    if type(d) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
-                        if vn.name in s_:
-                            # if the _in variable is already contained in the state, update it by shifting it by the delta
-                            # from the leaf distribution
-                            s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(s_[vn.name].cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
-                        else:
-                            # else save the result of the _in from the leaf distribution shifted by its delta (_out)
-                            s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(d.cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
+                    # if type(d) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
+                    #     if vn.name in s_:
+                    #         # if the _in variable is already contained in the state, update it by shifting it by the delta
+                    #         # from the leaf distribution
+                    #         s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(s_[vn.name].cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
+                    #     else:
+                    #         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
+                    #         s_[vn.name] = Numeric().set(QuantileDistribution.from_cdf(d.cdf.xshift(-succ.distributions[vn.name.replace('_in', '_out')].expectation())))
+                    # else:
+                    if vn.name in s_:
+                        # if the _in variable is already contained in the state, update it by adding the delta
+                        # from the leaf distribution
+                        s_[vn.name] = s_[vn.name] + succ.distributions[vn.name.replace('_in', '_out')]
                     else:
-                        if vn.name in s_:
-                            # if the _in variable is already contained in the state, update it by adding the delta
-                            # from the leaf distribution
-                            s_[vn.name] += succ.distributions[vn.name.replace('_in', '_out')]
-                        else:
-                            # else save the result of the _in from the leaf distribution shifted by its delta (_out)
-                            s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
+                        # else save the result of the _in from the leaf distribution shifted by its delta (_out)
+                        s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
+                    # reduce complexity from adding two distributions
+                    s_[vn.name] = s_[vn.name].approximate(n_segments=10)
 
             successors.append(
                 Node(
@@ -308,13 +312,10 @@ class SubAStarBW(SubAStar):
                 # adding the delta to the _in variable (i.e. the actual outcome of performing the action represented
                 # by the leaf)
                 if v.name != v.name.replace('_out', '_in') and v.name in query and v.name.replace('_out', '_in') in l.distributions:
-                    if type(l.distributions[v.name]) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
-                        ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.xshift(-l.distributions[v.name.replace('_out', '_in')].expectation())))
-                        # ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name.replace('_out', '_in')].cdf.xshift(-l.distributions[v.name].expectation())))
-                        # if ndist.p(query_[v]) != ndist2.p(query_[v]):
-                        #     print('STOP')
-                    else:
-                        ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
+                    # if type(l.distributions[v.name]) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
+                    #     ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.(-l.distributions[v.name.replace('_out', '_in')].expectation())))
+                    # else:
+                    ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
                     newv = ndist.p(query_[v])
                 else:
                     newv = dist.p(query_[v])
@@ -325,7 +326,6 @@ class SubAStarBW(SubAStar):
                     # _out variable, it is considered to be left unchanged by the action represented by the leaf.
                     # Therefore, the distribution of the input variable is taken as basis for calculating the
                     # probability
-                    print('bla', v)
                     conf[v.name.replace('_in', '_out')] = dist.p(query[v.name.replace('_in', '_out')])
             confs[l.idx] = conf
 
@@ -374,8 +374,8 @@ class SubAStarBW(SubAStar):
 
             # update belief state of potential predecessor
             for v, d in pred.distributions.items():
-                if v.name.endswith('_in'):
-                    s_[v.name] = d
+                if v not in t.features: continue  # TODO: take all FEATURE variables, not only _in ones
+                s_[v.name] = d
 
             predecessors.append(
                 Node(
