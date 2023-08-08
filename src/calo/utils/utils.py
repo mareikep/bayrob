@@ -16,6 +16,8 @@ from calo.utils import locs
 from calo.utils.constants import calologger, FILESTRFMT
 from calo.utils.constants import xlsHEADER, xlsNUM, xlsDATE
 from jpt.base.intervals import ContinuousSet
+
+from jpt.distributions import Multinomial, Numeric, Integer, Bool
 from jpt.variables import VariableMap
 from matplotlib import pyplot as plt
 
@@ -516,6 +518,21 @@ def recent_example(
             files.append((a.group(), abs(cdate-datetime.strptime(a.group(), FILESTRFMT))))
 
     return os.path.join(os.path.abspath(p), min([(fd, fn) for fn, fd in files], key=lambda x: x[0])[1])
+
+
+def fmt(val, prec=2):
+    # helper function to format a value for __str__ and __repr__ functions of Node, State, Goal classes
+    if isinstance(val, Numeric):
+        return f"{val.expectation():.{prec}f}"
+    elif isinstance(val, (Integer, Bool, Multinomial)):
+        return f"{val.mpe()[1]}"
+    elif isinstance(val, float):
+        return f"{val:.{prec}f}"
+    elif isinstance(val, ContinuousSet):
+        return f"{val.left}{val.lower:.{prec}f}{val.upper:.{prec}f}{val.right}"
+    else:
+        # cases val is str or int
+        return str(val)
 
 
 if __name__ == '__main__':
