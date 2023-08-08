@@ -1,10 +1,12 @@
 import heapq
 import traceback
+from datetime import datetime
 from typing import List, Any
 
 import dnutils
 
 from calo.utils.constants import calologger, cs
+from calo.utils.utils import dhms
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -73,13 +75,13 @@ class AStar:
     def __init__(
             self,
             initstate: Any,
-            goalstate: Any,
+            goal: Any,
             state_similarity: float = .9,
             goal_confidence: float = .01,
             **kwargs
     ):
         self.initstate = initstate
-        self.goal = goalstate
+        self.goal = goal
         self._state_similarity = state_similarity
         self._goal_confidence = goal_confidence
         self.__dict__.update(kwargs)
@@ -159,15 +161,19 @@ class AStar:
         return path
 
     def search(self) -> Any:
-        logger.debug(f'Searching path from {self.initstate} to {self.goal}')
+        ts = datetime.now()
+        logger.debug(f'{ts.strftime("%Y-%m-%d_%H:%M:%S")} Searching path from {self.initstate} to {self.goal}')
         plotme = False
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
             if plotme:
                 self.plot(cur_node)
             if self.isgoal(cur_node):
-                logger.info(f'Found path from {self.initstate} to {self.goal}:\n'
-                            f'{cs.join([str(p) for p in self.retrace_path(cur_node)])}')
+                tse = datetime.now()
+                d, h, m, s = dhms(tse - ts)
+                logger.info(f'{tse.strftime("%Y-%m-%d_%H:%M:%S")}: Found path from {self.initstate} to {self.goal}:\n'
+                            f'{cs.join([str(p) for p in self.retrace_path(cur_node)])}.\n'
+                            f'Took me only {d} days, {h} hours, {m} minutes and {s} seconds!')
                 self.reached = True
 
                 try:
@@ -192,7 +198,10 @@ class AStar:
                 heapq.heappush(self.open, (c.f, c))
 
         if not self.reached:
-            logger.warning(f'Could not find a path from {self.initstate} to {self.goal}')
+            tse = datetime.now()
+            d, h, m, s = dhms(tse-ts)
+            logger.warning(f'{tse.strftime("%Y-%m-%d_%H:%M:%S")}: Could not find a path from {self.initstate} to {self.goal}. '
+                           f'Took me {d} days, {h} hours, {m} minutes and {s} seconds to figure that out.')
             return []
 
     def plot(
