@@ -535,6 +535,10 @@ def fmt(val, prec=2):
         return str(val)
 
 
+def dhms(td):
+    return td.days, td.seconds // 3600, (td.seconds // 60) % 60, td.seconds % 60
+
+
 if __name__ == '__main__':
     pnt, start, end = [1., 0.], [1., 0.], [3., 4.]
     res1 = pnt2line(pnt, start, end)
