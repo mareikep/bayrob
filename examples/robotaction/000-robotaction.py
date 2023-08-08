@@ -256,7 +256,13 @@ def robot_pos_semi_random(dt):
 
     # plot trajectories and highlight start and end points
     c = np.arange(data_moveforward.shape[0])
-    ax.scatter(data_moveforward['x_in'], data_moveforward['y_in'], marker='+', c=c)
+    ax.scatter(
+        data_moveforward['x_in'],
+        data_moveforward['y_in'],
+        marker='+',
+        c=c,
+        alpha=.005
+    )
 
     # TODO: remove to save storage space and prevent overload of produced images
     plt.savefig(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'{cnt}-MOVE.png'), format="png")
@@ -432,7 +438,7 @@ def learn_jpt_moveforward(dt):
         variables=movevars,
         targets=movevars[4:],
         min_impurity_improvement=None,  # IMP_IMP,
-        min_samples_leaf=SMPL_LEAF
+        min_samples_leaf=.001
     )
 
     jpt_mf.learn(data_moveforward)
@@ -476,6 +482,16 @@ def learn_jpt_turn(dt):
 
 def plot_jpt_moveforward(dt):
     jpt_mf = JPT.load(os.path.join(locs.examples, 'robotaction', dt, f'000-MOVEFORWARD.tree'))
+    logger.debug('plotting MOVEFORWARD tree without distribution plots...')
+    jpt_mf.plot(
+        title='MOVEFORWARD',
+        filename=f'000-MOVEFORWARD-nodist',
+        directory=os.path.join(locs.examples, 'robotaction', dt, 'plots'),
+        leaffill='#CCDAFF',
+        nodefill='#768ABE',
+        alphabet=True,
+        view=SHOWPLOTS
+    )
     logger.debug('plotting MOVEFORWARD tree...')
     jpt_mf.plot(
         title='MOVEFORWARD',
@@ -522,7 +538,7 @@ if __name__ == '__main__':
     # use most recently created dataset or create from scratch
     if USE_RECENT:
         DT = recent_example(os.path.join(locs.examples, 'robotaction'))
-        # DT = os.path.join(locs.examples, 'robotaction', '2023-07-03_23:35')
+        DT = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
 
@@ -542,7 +558,7 @@ if __name__ == '__main__':
             data_curation(DT, usedeltas=USEDELTAS)
 
     learn_jpt_moveforward(DT)
-    # learn_jpt_turn(DT)
+    learn_jpt_turn(DT)
 
     plot_jpt_moveforward(DT)
-    # plot_jpt_turn(DT)
+    plot_jpt_turn(DT)
