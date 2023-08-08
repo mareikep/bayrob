@@ -539,7 +539,7 @@ if __name__ == '__main__':
     # use most recently created dataset or create from scratch
     if USE_RECENT:
         DT = recent_example(os.path.join(locs.examples, 'robotaction'))
-        # DT = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
+        DT = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
 
