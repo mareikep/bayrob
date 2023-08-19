@@ -206,7 +206,8 @@ class AStar:
 
     def plot(
             self,
-            node
+            node,
+            **kwargs
     ) -> None:
         raise NotImplementedError
 
