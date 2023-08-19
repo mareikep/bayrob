@@ -5,6 +5,7 @@ from typing import Tuple, Any, List
 
 import numpy as np
 import pandas as pd
+from calo.utils.plotlib import plot_pos, plot_dir, plot_path
 from dnutils import ifnone, first
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
@@ -373,97 +374,174 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         return ct.leaves.values()
 
-    @staticmethod
-    def plot_path(
-            p: List
-    ) -> None:
-        from matplotlib import pyplot as plt
-        from matplotlib import colormaps
-        import pandas as pd
 
-        cmap = colormaps['tab20b']
-        colors = cmap.colors
-        fig, ax = plt.subplots(num=1, clear=True)
+    # @staticmethod
+    # def plot_path(
+    #         p: List,
+    #         save: str = None,
+    #         multipage: bool = False
+    # ) -> None:
+    #     from matplotlib import pyplot as plt
+    #     from matplotlib import colormaps
+    #     import pandas as pd
+    #
+    #     if save is not None and multipage:
+    #         from matplotlib.backends.backend_pdf import PdfPages
+    #         pdf = PdfPages(
+    #             save,
+    #             metadata={
+    #                 'Creator': 'CALO',
+    #                 'Author': 'mareikep',
+    #                 'Title': 'Path'
+    #             }
+    #         )
+    #
+    #     cmap = colormaps['tab20b']
+    #     colors = cmap.colors
+    #     fig, ax = plt.subplots(num=1, clear=True)
+    #     ax.set_xlabel(r'$x$')
+    #     ax.set_ylabel(r'$y$')
+    #     fig.suptitle(f'SubAStar-FW')
+    #
+    #     # generate data points
+    #     d = [
+    #         (
+    #             s['x_in'].expectation(),
+    #             s['y_in'].expectation(),
+    #             s['xdir_in'].expectation(),
+    #             s['ydir_in'].expectation(),
+    #             f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
+    #             f'({s["x_in"].expectation():.2f},{s["y_in"].expectation():.2f}): '
+    #             f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
+    #             f'PARAM: {param}'
+    #         ) if not isinstance(s, Goal) else (
+    #             first(s['x_in']) if isinstance(s['x_in'], set) else s['x_in'].lower + abs(s['x_in'].upper - s['x_in'].lower)/2,
+    #             first(s['y_in']) if isinstance(s['y_in'], set) else s['y_in'].lower + abs(s['y_in'].upper - s['y_in'].lower)/2,
+    #             0,
+    #             0,
+    #             f"Goal"
+    #         ) for i, (s, param) in enumerate(p)
+    #     ]
+    #
+    #     # set l
+    #     df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
+    #     limx = min([df[0] for df in d]) - 1, max([df[0] for df in d]) + 1
+    #     limy = min([df[1] for df in d]) - 1, max([df[1] for df in d]) + 1
+    #     plt.xlim(*limx)
+    #     plt.ylim(*limy)
+    #
+    #     # annotate start and final position of agent as well as goal area
+    #     ax.annotate('Start', (df['X'][0], df['Y'][0]))
+    #     ax.annotate('End', (df['X'].iloc[-1], df['Y'].iloc[-1]))
+    #
+    #     if save is not None and multipage:
+    #         pdf.savefig(
+    #             orientation='landscape',
+    #             dpi=120,
+    #             bbox_inches='tight'
+    #         )
+    #
+    #     # scatter single steps
+    #     for idx, row in df.iterrows():
+    #         ax.scatter(
+    #             row['X'],
+    #             row['Y'],
+    #             marker='*',
+    #             label=row['L'],
+    #             color=colors[idx % len(colors)]
+    #         )
+    #
+    #         # print direction arrows
+    #         ax.quiver(
+    #             row['X'],
+    #             row['Y'],
+    #             row['DX'],
+    #             row['DY'],
+    #             color=colors[idx % len(colors)],
+    #             width=0.001
+    #         )
+    #         if save is not None and multipage:
+    #             pdf.savefig(
+    #                 orientation='landscape',
+    #                 dpi=120,
+    #                 bbox_inches='tight'
+    #             )
+    #
+    #     # set figure/window/plot properties
+    #
+    #     plt.grid()
+    #     plt.legend()
+    #
+    #     if save:
+    #         if multipage:
+    #             pdf.savefig(
+    #                 orientation = 'landscape',
+    #                 dpi = 120,
+    #                 bbox_inches = 'tight'
+    #             )
+    #             pdf.close()
+    #         else:
+    #             plt.savefig(
+    #                 save,
+    #                 orientation='landscape',
+    #                 dpi=120,
+    #                 format='pdf',
+    #                 bbox_inches='tight'
+    #             )
+    #
+    #     plt.show()
 
-        # generate data points
-        d = [
-            (
-                s['x_in'].expectation(),
-                s['y_in'].expectation(),
-                s['xdir_in'].expectation(),
-                s['ydir_in'].expectation(),
-                f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
-                f'({s["x_in"].expectation():.2f},{s["y_in"].expectation():.2f}): '
-                f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
-                f'PARAM: {param}'
-            ) if not isinstance(s, Goal) else (
-                first(s['x_in']) if isinstance(s['x_in'], set) else s['x_in'].lower + abs(s['x_in'].upper - s['x_in'].lower)/2,
-                first(s['y_in']) if isinstance(s['y_in'], set) else s['y_in'].lower + abs(s['y_in'].upper - s['y_in'].lower)/2,
-                0,
-                0,
-                f"Goal"
-            ) for i, (s, param) in enumerate(p)
-        ]
-        df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
-
-        # print direction arrows
-        ax.quiver(
-            df['X'],
-            df['Y'],
-            df['DX'],
-            df['DY'],
-            color=colors,
-            width=0.001
-        )
-
-        # annotate start and final position of agent as well as goal area
-        ax.annotate('Start', (df['X'][0], df['Y'][0]))
-        ax.annotate('End', (df['X'].iloc[-1], df['Y'].iloc[-1]))
-
-        # scatter single steps
-        for index, row in df.iterrows():
-            ax.scatter(
-                row['X'],
-                row['Y'],
-                marker='*',
-                label=row['L'],
-                color=colors[index % len(colors)]
-            )
-
-        # set figure/window/plot properties
-        ax.set_xlabel(r'$x$')
-        ax.set_ylabel(r'$y$')
-        fig.suptitle(f'SubAStar-FW')
-        plt.grid()
-        plt.legend()
-        plt.show()
-
-    def test_astar_bdir_path(self) -> None:
+    def test_astar_cram_path(self) -> None:
         cmds = [
-            {'tree': '000-MOVEFORWARD.tree', 'params': None},
-            {'tree': '000-MOVEFORWARD.tree', 'params': None},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(-10,-8)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(-10,-8)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(-10,-8)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(-10,-8)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(-10,-8)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(-10,-8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': None},
-            {'tree': '000-MOVEFORWARD.tree', 'params': None},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(8,10)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(8,10)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(8,10)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(8,10)}},
-            {'tree': '000-TURN.tree', 'params': {'angle': ContinuousSet(8,10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': None},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
         ]
 
         # VARIANT I
         pass
 
-        # VARIANT II
+        # VARIANT II: each leaf of the conditional tree represents one possible action
         s = AStarRobotActionJPTTests.initstate
-        p = [[s, "INIT"]]
+        p = [[s, {}]]
         for cmd in cmds:
             t = AStarRobotActionJPTTests.models[cmd['tree']]
 
@@ -503,17 +581,52 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                     if vn.name in s_:
                         # if the _in variable is already contained in the state, update it by adding the delta
                         # from the leaf distribution
+                        nsegments = len(s_[vn.name].pdf.functions)
                         s_[vn.name] = s_[vn.name] + best.distributions[vn.name.replace('_in', '_out')]
                     else:
+                        nsegments = len(d.pdf.functions)
                         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
                         s_[vn.name] = d + best.distributions[vn.name.replace('_in', '_out')]
 
                     # reduce complexity from adding two distributions
-                    s_[vn.name] = s_[vn.name].approximate(n_segments=10)
+                    nsegments = min(10, nsegments)
+                    s_[vn.name] = s_[vn.name].approximate(n_segments=nsegments)
 
             p.append([s_, cmd['params']])
-            s = s_
-        self.plot_path(p)
+            s = State_()
+            s.update({k: v for k, v in s_.items()})
+
+        # plot_path(
+        #     'x_in',
+        #     'y_in',
+        #     p,
+        #     title="Path A to B",
+        #     save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'path.svg')
+        # )
+
+        plot_pos(
+            path=p,
+            save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'posxy.html'),
+            show=True
+        )
+
+        # plot_dir(
+        #     path=p,
+        #     save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'dirxy.html'),
+        #     show=True,
+        # )
+
+        # SubAStar_.plot_xyvars(
+        #     xvar='x_in',
+        #     yvar='y_in',
+        #     path=p,
+        #     title=f'Position(x,y)',
+        #     limx=[-75, -25],
+        #     limy=[40, 75],
+        #     limz=[0, 0.05],
+        #     save=f'test_astar_cram_path_posxy',
+        #     show=False
+        # )
 
 
     def tearDown(self) -> None:
