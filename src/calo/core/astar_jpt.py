@@ -179,15 +179,21 @@ class SubAStar(AStar):
                     if vn.name in s_:
                         # if the _in variable is already contained in the state, update it by adding the delta
                         # from the leaf distribution
+                        nsegments = len(s_[vn.name].cdf.functions)
                         s_[vn.name] = s_[vn.name] + succ.distributions[vn.name.replace('_in', '_out')]
                     else:
                         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
+                        nsegments = len(d.pdf.functions)
                         s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
 
-                    # reduce complexity from adding two distributions
+                    # reduce complexity from adding two distributions to complexity of previous, unaltered distribution
                     # TODO: remove condition once ppf exists for Integer
                     if hasattr(s_[vn.name], 'approximate'):
-                        s_[vn.name] = s_[vn.name].approximate(n_segments=10)
+                        nsegments = min(10, nsegments)
+                        s_[vn.name] = s_[vn.name].approximate(
+                            # n_segments=nsegments,
+                            error_max=.1
+                        )
 
             successors.append(
                 Node(
