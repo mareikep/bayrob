@@ -191,8 +191,8 @@ class SubAStar(AStar):
                     if hasattr(s_[vn.name], 'approximate'):
                         nsegments = min(10, nsegments)
                         s_[vn.name] = s_[vn.name].approximate(
-                            # n_segments=nsegments,
-                            error_max=.1
+                            n_segments=nsegments,
+                            # error_max=.1
                         )
 
             successors.append(
@@ -234,7 +234,9 @@ class SubAStarBW(SubAStar):
             parent=None
         )
 
-        heapq.heappush(self.open, (n_.f, n_))
+        # heapq.heappush(self.open, (n_.f, n_))
+        for n in self.generate_successors(n_):
+            heapq.heappush(self.open, (n.f, n))
 
     def isgoal(
             self,
@@ -314,9 +316,6 @@ class SubAStarBW(SubAStar):
                 # adding the delta to the _in variable (i.e. the actual outcome of performing the action represented
                 # by the leaf)
                 if v.name != v.name.replace('_out', '_in') and v.name in query and v.name.replace('_out', '_in') in l.distributions:
-                    # if type(l.distributions[v.name]) == Numeric:  # TODO: remove once __add__ from Numeric distribution is pushed
-                    #     ndist = Numeric().set(QuantileDistribution.from_cdf(l.distributions[v.name].cdf.(-l.distributions[v.name.replace('_out', '_in')].expectation())))
-                    # else:
                     ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
                     newv = ndist.p(query_[v])
                 else:
@@ -366,7 +365,6 @@ class SubAStarBW(SubAStar):
         for pred, tn, t in self.generate_steps(node):
 
             # copy previous state
-            # s_ = self.goal_t()
             s_ = self.state_t()
             s_.update({k: v for k, v in node.state.items()})
 
