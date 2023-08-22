@@ -1,14 +1,12 @@
 import os
 import random
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.figure_factory as ff
+import plotly.graph_objects as go
 from _plotly_utils.colors import sample_colorscale
 from plotly.graph_objs import Figure
-import plotly.figure_factory as ff
-from plotly.graph_objs.heatmap import Hoverlabel
-from plotly.graph_objs.layout.shape import Label
 
 import numpy as np
 import pandas as pd
@@ -34,8 +32,7 @@ def plot_pos(
         title = f'Position x/y'
 
     # generate datapoints
-    data = [
-        pd.DataFrame(
+    data = pd.DataFrame(
             data=[
                 gendata(
                     'x_in',
@@ -43,11 +40,10 @@ def plot_pos(
                     s,
                     p,
                     conf=conf
-                )
+                ) for i, (s, p) in enumerate(path)
             ],
             columns=['x', 'y', 'z', 'lbl']
-        ) for i, (s, p) in enumerate(path)
-    ]
+        )
 
     # generate datapoints
     # data = [(gendata_out if inout else gendata)('x_in', 'y_in', s, p, conf=conf) for s, p in path]
@@ -157,100 +153,13 @@ def gendata(
     lbl = f'Leaf#{state.leaf if state.leaf is not None else "ROOT"} ' \
           f'Action: {params.get("action")}, Params: {"angle=" if "angle" in params else ""}{params.get("angle", None)}'
 
-    return X, Y, Z, lbl
-
-
-# def gendata_out(
-#         xvar,
-#         yvar,
-#         state,
-#         params,
-#         conf=None,
-#         failifnotpresent: bool=True
-# ):
-#     # check if xvar and yvar have corresponding _out variables in state.leaf
-#     xvar_out = xvar.replace('_in', '_out')
-#     yvar_out = yvar.replace('_in', '_out')
-#
-#     if state.leaf is None or state.tree is None:
-#         # the very first state of a sequence does not have a leaf attached, therefore we can only use the distributions
-#         # stored in the state directly (i.e. the '_in'-distributions of the initstate)
-#         return gendata(
-#             xvar,
-#             yvar,
-#             state,
-#             params,
-#             conf=conf
-#         )
-#
-#     # if corresponding _out variables is not present, either throw an error or only use the _in variable instead
-#     # it might make sense to set failifnotpresent to false, when gendata_out is called in a loop and some states
-#     # may be the result of turn actions, whose leaves do not contain out_variables for dir
-#     if xvar_out not in state.tree.leaves[state.leaf].distributions:
-#         if failifnotpresent:
-#             raise ValueError(f'Variable {xvar_out} is not present in state distributions. Available variables are: {", ".join([v.name for v in state.tree.leaves[state.leaf].distributions])}')
-#         # else:
-#         #     return gendata(
-#         #         xvar,
-#         #         yvar,
-#         #         state,
-#         #         params,
-#         #         conf=conf
-#         #     )
-#
-#     if yvar_out not in state.tree.leaves[state.leaf].distributions:
-#         if failifnotpresent:
-#             raise ValueError(f'Variable {yvar_out} is not present in state distributions. Available variables are: {", ".join([v.name for v in state.tree.leaves[state.leaf].distributions])}')
-#         # else:
-#         #     return gendata(
-#         #         xvar,
-#         #         yvar,
-#         #         state,
-#         #         params,
-#         #         conf=conf
-#         #     )
-#
-#     # generate new distributions by performing distribution addition (and reducing complexity to complexity of
-#     # previous, unaltered distribution to keep resulting distribution manageable)
-#     if xvar_out not in state.tree.leaves[state.leaf].distributions:
-#         xdist = state[xvar]
-#     else:
-#         xdist = state[xvar] + state.tree.leaves[state.leaf].distributions[xvar_out]
-#         if hasattr(xdist, 'approximate'):
-#             xdist = xdist.approximate(n_segments=len(state[xvar].pdf.functions))
-#
-#     if yvar_out not in state.tree.leaves[state.leaf].distributions:
-#         ydist = state[yvar]
-#     else:
-#         ydist = state[yvar] + state.tree.leaves[state.leaf].distributions[yvar_out]
-#         if hasattr(ydist, 'approximate'):
-#             ydist = ydist.approximate(n_segments=len(state[yvar].pdf.functions))
-#
-#     # generate datapoints
-#     x = xdist.pdf.boundaries()
-#     y = ydist.pdf.boundaries()
-#
-#     X, Y = np.meshgrid(x, y)
-#     Z = np.array(
-#         [
-#             xdist.pdf(x) * ydist.pdf(y)
-#             for x, y, in zip(X.ravel(), Y.ravel())
-#         ]).reshape(X.shape)
-#
-#     # show only values above a certain threshold, consider lower values as high-uncertainty areas
-#     if conf is not None:
-#         Z[Z < conf] = 0.
-#
-#     # remove or replace by eliminating values > median
-#     Z[Z > np.median(Z)] = np.median(Z)
-#
-#     return X, Y, Z, params
+    return x, y, Z, lbl
 
 
 def plot_heatmap(
         xvar: str,
         yvar: str,
-        data: List[pd.DataFrame],
+        data: pd.DataFrame,
         title: str = None,
         limx: Tuple = None,
         limy: Tuple = None,
@@ -264,24 +173,24 @@ def plot_heatmap(
     # determine limits, if not given
     # exclude first element from limit calculations, as it causes the lower probs to be all equal colors
     if limx is None:
-        limx = min([df[xvar][0].min() for df in data]), max([df[xvar][0].max() for df in data])
+        limx = min([df[xvar].min() for _, df in data.iterrows()]), max([df[xvar].max() for _, df in data.iterrows()])
 
     if limy is None:
-        limy = min([df[yvar][0].min() for df in data]), max([df[yvar][0].max() for df in data])
+        limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
     if limz is None:
-        limz = min([df["z"][0].min() for df in data]), max([df["z"][0].max() for df in data])
+        limz = min([df["z"].min() for _, df in data.iterrows()]), max([df["z"].max() for _, df in data.iterrows()])
 
     # generate the frames
     frames = [
         go.Frame(
             data=go.Heatmap(
-                x=d[xvar][0][0],  # x[0],
-                y=d[yvar][0].T[0],  # y.T[0],
-                z=d['z'][0],  # z,
+                x=d[xvar],  # x[0],
+                y=d[yvar].T,  # y.T[0],
+                z=d['z'],  # z,
                 zmin=limz[0],
                 zmax=limz[1],
-                customdata=np.full(d['z'][0].shape, d["lbl"]),
+                customdata=np.full(d['z'].shape, d["lbl"]),
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
                     title=f"P({xvar},{yvar})",
@@ -296,7 +205,7 @@ def plot_heatmap(
                               '<extra>%{customdata}</extra>'
             ),
             name=f"Step {i}"
-        ) for i, d in enumerate(data)
+        ) for i, d in data.iterrows()
     ]
 
     fig = go.Figure(
@@ -576,10 +485,10 @@ def gaussian(
         Z += 1 / len(gaussians) * gaussian.pdf(xy)
     Z = Z.reshape(X.shape)
 
-    return X, Y, Z, f"test {i}"
+    return x, y, Z, f"test {i}"
 
 
-def testhm():
+def test_hm():
     """plot difference between M(N) and M+1(N+1),
     cmp. https://plotly.com/javascript/reference/heatmap/
     """
@@ -596,13 +505,13 @@ def testhm():
         [0, 0.5, 1, 0.5, 0]
     ])
 
-    plot_heatmap_test(
+    plot_heatmap(
             'x',
             'y',
             [
-                [x, y, z],
-                [x2, y2, z],
-                [x5, y5, z],
+                pd.DataFrame([x, y, z], columns=['x', 'y', 'z']),
+                pd.DataFrame([x2, y2, z], columns=['x', 'y', 'z']),
+                pd.DataFrame([x5, y5, z], columns=['x', 'y', 'z'])
             ],
             save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'testhm.html')
         )
@@ -612,9 +521,9 @@ def plot_path(
         xvar,
         yvar,
         p: List,
-        title: None,
+        title: str = None,
         save: str = None
-) -> None:
+) -> Figure:
 
     # generate data points
     d = [
@@ -623,9 +532,8 @@ def plot_path(
             s[yvar].expectation(),
             s['xdir_in'].expectation(),
             s['ydir_in'].expectation(),
-            f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
-            f'({s[xvar].expectation():.2f},{s[yvar].expectation():.2f}): '
-            f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
+            f'Step {i}',
+            f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}<br>'
             f'PARAM: {param}',
             1
         ) if 'xdir_in' in s and 'ydir_in' in s else (
@@ -633,70 +541,99 @@ def plot_path(
             first(s[yvar]) if isinstance(s[yvar], set) else s[yvar].lower + abs(s[yvar].upper - s[yvar].lower)/2,
             0,
             0,
+            f'Step {i}',
             f"Goal",
             1
         ) for i, (s, param) in enumerate(p)
     ]
 
     # draw scatter points and quivers
-    data = pd.DataFrame(data=d, columns=[xvar, yvar, 'dx', 'dy', 'Step', 'size'])
+    data = pd.DataFrame(
+        data=d,
+        columns=[xvar, yvar, 'dx', 'dy', 'step', 'lbl', 'size']
+    )
 
-    plot_scatter_quiver(
+    return plot_scatter_quiver(
         xvar,
         yvar,
         data,
-        lbl='Step',
         title=title,
         save=save
     )
+
+
+def plotly_pt(
+        pt: Tuple,
+        dir: Tuple = None
+) -> Any:
+    ix, iy = pt
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=[ix],
+            y=[iy],
+            marker=dict(
+                symbol='star',
+                color='rgb(0,125,0)'
+            ),
+            fillcolor='rgb(0,125,0)',
+            name="Start",
+        )
+    )
+
+    if dir is not None:
+        idx, idy = dir
+        fig.add_traces(
+            ff.create_quiver(
+                [ix],
+                [iy],
+                [idx],
+                [idy],
+                scale=.5,
+                marker_color='rgb(0,125,0)',
+                line_color='rgb(0,125,0)',
+                showlegend=False,
+                name="Start"
+            ).data
+        )
+    return fig
+
+
+def plotly_sq(
+    area: Tuple
+) -> Any:
+    gxl, gyl, gxu, gyu = area
+
+    return go.Scatter(
+            x=[gxl, gxl, gxu, gxu, gxl],
+            y=[gyl, gyu, gyu, gyl, gyl],
+            fill="toself",
+            marker_symbol='star',
+            marker_color='rgba(0,125,0,0.4)',
+            fillcolor='rgba(0,125,0,0.1)',
+            name="Goal"
+        )
 
 
 def plot_pt_sq(
         pt: Tuple,
         area: Tuple
 ) -> Figure:
-    ix, iy, idx, idy = pt
-    gxl, gyl, gxu, gyu = area
 
-    fig = px.scatter(
-        [[ix, iy]],
-        x=0,
-        y=1,
-        color_discrete_sequence=['rgb(0,125,0)'],
-        labels=["Start"]
-    )
-
-    f_q = ff.create_quiver(
-        [ix],
-        [iy],
-        [idx],
-        [idy],
-        scale=.5,
-    )
-
-    f_q.update_traces(
-        line_color='rgb(0,125,0)',
-        showlegend=False
-    )
+    fig = go.Figure()
 
     fig.add_traces(
-        data=f_q.data
+        data=plotly_pt(
+            pt[:2],
+            dir=pt[2:]
+        ).data
     )
 
-    # Add a shape whose x and y coordinates refer to the domains of the x and y axes
-    fig.add_shape(
-        type="rect",
-        xref="x",
-        yref="y",
-        x0=gxl, x1=gxu, y0=gyl, y1=gyu,
-        label=Label(
-            text='Goal',
-            textposition="middle center"
-        ),
-        fillcolor='rgb(0,125,0)',
-        opacity=0.1
+    # draw square area
+    fig.add_trace(
+        plotly_sq(area)
     )
-
 
     fig.update_coloraxes(
         showscale=False
@@ -712,8 +649,7 @@ def plot_pt_sq(
 def plot_scatter_quiver(
         xvar,
         yvar,
-        data: List,
-        lbl: str = 'label',
+        data: pd.DataFrame,
         title: str = None,
         save: str = None,
         show: bool = True,
@@ -726,8 +662,8 @@ def plot_scatter_quiver(
     colors_discr = sample_colorscale(
         px.colors.sequential.dense,
         max(2, len(data)),
-        low=0.0,
-        high=.9,
+        low=.1,  # the first few values are very light and not easy to see on a plot, so we start higher up
+        high=1.,
         colortype="rgb"
     )
 
@@ -740,12 +676,18 @@ def plot_scatter_quiver(
         y=yvar,
         title=title,
         color_discrete_sequence=colors_discr,
-        hover_data=lbl,
-        color=lbl,
-        labels=lbl,
+        custom_data=['dx', 'dy', 'lbl'],
+        color="step",
+        labels=[f'Step {i}' for i in data['step']],
         size='size' if 'size' in data.columns else [1]*len(data),
-        width=2000,
+        width=1700,
         height=1000
+    )
+
+    fig_s.update_traces(
+        hovertemplate='pos: (%{x:.2f},%{y:.2f})<br>'
+                      'dir: (%{customdata[0]:.2f},%{customdata[1]:.2f})<br>'
+                      '<extra>%{customdata[2]}</extra>'
     )
 
     mainfig.add_traces(
@@ -778,7 +720,7 @@ def plot_scatter_quiver(
             [dx],
             [dy],
             scale=.5,
-            name=row[lbl]
+            name=row['lbl']
         )
 
         f_q.update_traces(
@@ -808,27 +750,54 @@ def plot_scatter_quiver(
     return mainfig
 
 
-def plotexamplepath():
+def test_plotexamplepath():
     d = []
     for i in range(30):
-        d.append([i, random.randint(i-3, i+3), 1, random.randint(-1, 1), f'Step {i}', 1])
+        d.append(
+            [
+                i,
+                random.randint(i-3, i+3),
+                1,
+                random.randint(-1, 1),
+                f'Step {i}',
+                f'Step {i}',
+                1
+            ]
+        )
 
         data = pd.DataFrame(
         data=d,
-        columns=['x', 'y', 'dx', 'dy', 'Step', 'size']
+        columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
     )
 
-    plot_scatter_quiver(
+    # draw path
+    fig = plot_scatter_quiver(
         'x',
         'y',
         data,
-        lbl='Step',
         title="plotexamplepath",
+        show=False,
         save=os.path.join('/home/mareike/Downloads/test.svg')
     )
 
+    # draw init and goal
+    init = (0, 5, 1, 0)
+    goal = (28.5, 30, 32, 35)
 
-def plotexampleheatmap():
+    fig2 = plot_pt_sq(
+        pt=init,
+        area=goal
+
+    )
+
+    fig.add_traces(
+        data=fig2.data
+    )
+
+    return fig
+
+
+def test_plotexampleheatmap():
     d = [
         [
             [-.25, 0],
@@ -862,7 +831,10 @@ def plotexampleheatmap():
             5
         ]
     ]
-    data = [pd.DataFrame(data=[gaussian(*p)], columns=['x', 'y', 'z', 'lbl']) for p in d]
+    data = pd.DataFrame(
+        data=[gaussian(*p) for p in d],
+        columns=['x', 'y', 'z', 'lbl']
+    )
 
     plot_heatmap(
         'x',
@@ -872,14 +844,16 @@ def plotexampleheatmap():
     )
 
 
-def plot_start_goal():
+def test_plot_start_goal():
     start = [10, 10, 1, 0]
     goal = [3, 3, 6, 7]
 
-    plot_pt_sq(start, goal)
+    f = plot_pt_sq(start, goal)
+    f.show()
 
 
 if __name__ == '__main__':
-    # plotexamplepath()
-    plotexampleheatmap()
-    # plot_start_goal()
+    f = test_plotexamplepath()
+    f.show()
+    # test_plotexampleheatmap()
+    # test_plot_start_goal()
