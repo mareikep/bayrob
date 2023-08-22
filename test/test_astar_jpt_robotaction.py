@@ -248,7 +248,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # )
 
         tolerance = .2
-        initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
+        # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
+        initx, inity, initdirx, initdiry = [-61, 61, 0, -1]
 
         dx = Gaussian(initx, tolerance).sample(50)
         distx = Numeric()
@@ -374,123 +375,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         return ct.leaves.values()
 
-
-    # @staticmethod
-    # def plot_path(
-    #         p: List,
-    #         save: str = None,
-    #         multipage: bool = False
-    # ) -> None:
-    #     from matplotlib import pyplot as plt
-    #     from matplotlib import colormaps
-    #     import pandas as pd
-    #
-    #     if save is not None and multipage:
-    #         from matplotlib.backends.backend_pdf import PdfPages
-    #         pdf = PdfPages(
-    #             save,
-    #             metadata={
-    #                 'Creator': 'CALO',
-    #                 'Author': 'mareikep',
-    #                 'Title': 'Path'
-    #             }
-    #         )
-    #
-    #     cmap = colormaps['tab20b']
-    #     colors = cmap.colors
-    #     fig, ax = plt.subplots(num=1, clear=True)
-    #     ax.set_xlabel(r'$x$')
-    #     ax.set_ylabel(r'$y$')
-    #     fig.suptitle(f'SubAStar-FW')
-    #
-    #     # generate data points
-    #     d = [
-    #         (
-    #             s['x_in'].expectation(),
-    #             s['y_in'].expectation(),
-    #             s['xdir_in'].expectation(),
-    #             s['ydir_in'].expectation(),
-    #             f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
-    #             f'({s["x_in"].expectation():.2f},{s["y_in"].expectation():.2f}): '
-    #             f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
-    #             f'PARAM: {param}'
-    #         ) if not isinstance(s, Goal) else (
-    #             first(s['x_in']) if isinstance(s['x_in'], set) else s['x_in'].lower + abs(s['x_in'].upper - s['x_in'].lower)/2,
-    #             first(s['y_in']) if isinstance(s['y_in'], set) else s['y_in'].lower + abs(s['y_in'].upper - s['y_in'].lower)/2,
-    #             0,
-    #             0,
-    #             f"Goal"
-    #         ) for i, (s, param) in enumerate(p)
-    #     ]
-    #
-    #     # set l
-    #     df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
-    #     limx = min([df[0] for df in d]) - 1, max([df[0] for df in d]) + 1
-    #     limy = min([df[1] for df in d]) - 1, max([df[1] for df in d]) + 1
-    #     plt.xlim(*limx)
-    #     plt.ylim(*limy)
-    #
-    #     # annotate start and final position of agent as well as goal area
-    #     ax.annotate('Start', (df['X'][0], df['Y'][0]))
-    #     ax.annotate('End', (df['X'].iloc[-1], df['Y'].iloc[-1]))
-    #
-    #     if save is not None and multipage:
-    #         pdf.savefig(
-    #             orientation='landscape',
-    #             dpi=120,
-    #             bbox_inches='tight'
-    #         )
-    #
-    #     # scatter single steps
-    #     for idx, row in df.iterrows():
-    #         ax.scatter(
-    #             row['X'],
-    #             row['Y'],
-    #             marker='*',
-    #             label=row['L'],
-    #             color=colors[idx % len(colors)]
-    #         )
-    #
-    #         # print direction arrows
-    #         ax.quiver(
-    #             row['X'],
-    #             row['Y'],
-    #             row['DX'],
-    #             row['DY'],
-    #             color=colors[idx % len(colors)],
-    #             width=0.001
-    #         )
-    #         if save is not None and multipage:
-    #             pdf.savefig(
-    #                 orientation='landscape',
-    #                 dpi=120,
-    #                 bbox_inches='tight'
-    #             )
-    #
-    #     # set figure/window/plot properties
-    #
-    #     plt.grid()
-    #     plt.legend()
-    #
-    #     if save:
-    #         if multipage:
-    #             pdf.savefig(
-    #                 orientation = 'landscape',
-    #                 dpi = 120,
-    #                 bbox_inches = 'tight'
-    #             )
-    #             pdf.close()
-    #         else:
-    #             plt.savefig(
-    #                 save,
-    #                 orientation='landscape',
-    #                 dpi=120,
-    #                 format='pdf',
-    #                 bbox_inches='tight'
-    #             )
-    #
-    #     plt.show()
-
     def test_astar_cram_path(self) -> None:
         cmds = [
             {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
@@ -498,42 +382,42 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
             {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
             {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
         ]
 
         # VARIANT I
@@ -569,7 +453,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             # create successor state
             s_ = State_()
             s_.update({k: v for k, v in s.items()})
-            s_.tree = t
+            s_.tree = cmd['tree']
             s_.leaf = best.idx
 
             # update belief state of potential predecessor
@@ -596,13 +480,13 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             s = State_()
             s.update({k: v for k, v in s_.items()})
 
-        # plot_path(
-        #     'x_in',
-        #     'y_in',
-        #     p,
-        #     title="Path A to B",
-        #     save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'path.svg')
-        # )
+        plot_path(
+            'x_in',
+            'y_in',
+            p,
+            title="Path A to B",
+            save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'path.svg')
+        )
 
         plot_pos(
             path=p,
