@@ -5,7 +5,7 @@ from typing import Tuple, Any, List
 
 import numpy as np
 import pandas as pd
-from calo.utils.plotlib import plot_pos, plot_dir, plot_path
+from calo.utils.plotlib import plot_pos, plot_dir, plot_path, plot_tree_dist
 from dnutils import ifnone, first
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
@@ -119,97 +119,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         if show:
             plt.show()
 
-    @staticmethod
-    def plotli(
-        tree: JPT,
-        qvarx: Any = None,
-        qvary: Any = None,
-        title: str = None,
-        conf: float = None,
-        limx: Tuple = None,
-        limy: Tuple = None,
-        limz: Tuple = None,
-        save: str = None,
-        show: bool = True
-    ) -> None:
-        """Plots a heatmap representing the belief state for the agents' position, i.e. the joint
-        probability of the x and y variables: P(x, y).
-
-        :param title: The plot title
-        :param conf:  A confidence value. Values below this threshold are set to 0. (= equal color for lowest value in plot)
-        :param limx: The limits for the x-variable; determined from boundaries if not given
-        :param limy: The limits for the y-variable; determined from boundaries if not given
-        :param limz: The limits for the z-variable; determined from data if not given
-        :param save: The location where the plot is saved (if given)
-        :param show: Whether the plot is shown
-        :return: None
-        """
-        import plotly.graph_objects as go
-
-        # generate datapoints
-        x = np.linspace(limx[0], limx[1], 50)
-        y = np.linspace(limy[0], limy[1], 50)
-
-        X, Y = np.meshgrid(x, y)
-        Z = np.array(
-            [
-                tree.pdf(
-                    tree.bind(
-                        {
-                            qvarx: x,
-                            qvary: y,
-                            # tree.varnames['collided']: False
-                        }
-                    )
-                ) for x, y, in zip(X.ravel(), Y.ravel())
-                # tree.pdf(
-                #     tree.bind(
-                #         {
-                #             qvarx: x,
-                #             qvary: y,
-                #             tree.varnames['collided']: False
-                #         }
-                #     )
-                # ) for x, y, in zip(X.ravel(), Y.ravel())
-            ]
-
-        ).reshape(X.shape)
-
-        # determine limits
-        xmin = ifnone(limx, min(x) - 15, lambda l: l[0])
-        xmax = ifnone(limx, max(x) + 15, lambda l: l[1])
-        ymin = ifnone(limy, min(y) - 15, lambda l: l[0])
-        ymax = ifnone(limy, max(y) + 15, lambda l: l[1])
-
-        # show only values above a certain threshold, consider lower values as high-uncertainty areas
-        if conf is not None:
-            Z[Z < conf] = 0.
-
-        # remove or replace by eliminating values > median
-        # Z[Z > np.median(Z)] = np.median(Z)
-
-        zmin = ifnone(limz, Z.min(), lambda l: l[0])
-        zmax = ifnone(limz, Z.max(), lambda l: l[1])
-
-        dfX = pd.DataFrame(data=X)
-        dfX.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfX.csv", index=False)
-
-        dfY = pd.DataFrame(data=Y)
-        dfY.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfY.csv", index=False)
-
-        dfZ = pd.DataFrame(data=Z)
-        dfZ.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfZ.csv", index=False)
-
-        fig = go.Figure(data=[go.Surface(x=X, y=Y, z=Z)])
-        fig.update_traces(contours_z=dict(show=True, usecolormap=True,
-                                          highlightcolor="limegreen", project_z=True))
-
-        fig.update_layout(title=title, autosize=True,
-                          width=500, height=500,
-                          margin=dict(l=65, r=50, b=65, t=90))
-
-        fig.show()
-
     # assumes trees MOVEFORWARD and TURN generated previously from functions in calo-dev/test/test_robotpos.py,
     # executed in the following order:
     # test_robot_pos_random (xor test_robot_pos) --> generates csv files from consecutive (random) move/turn actions
@@ -236,20 +145,20 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # plot initial distributions over x/y positions
         t = cls.models['000-MOVEFORWARD.tree']
-        # AStarRobotActionJPTTests.plotli(
+        # plot_tree_dist(
         #     tree=t,
         #     qvarx=t.varnames['x_in'],
         #     qvary=t.varnames['y_in'],
         #     title='Initial distribution P(x,y)',
         #     limx=(-100, 100),
         #     limy=(-100, 100),
-        #     save=os.path.join(os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23', 'plots', '000-init-dist.png')),
+        #     save=os.path.join(os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23', 'plots', '000-init-dist.html')),
         #     show=True
         # )
 
         tolerance = .2
         # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
-        initx, inity, initdirx, initdiry = [-61, 61, 0, -1]
+        initx, inity, initdirx, initdiry = [-42, 48, 0.5, -.86]
 
         dx = Gaussian(initx, tolerance).sample(50)
         distx = Numeric()
