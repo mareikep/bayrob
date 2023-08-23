@@ -12,9 +12,29 @@ import numpy as np
 import pandas as pd
 from calo.utils import locs
 from calo.utils.utils import unit
-from dnutils import first
+from dnutils import first, ifnone
+
+from jpt import JPT
 from jpt.distributions import Gaussian
 
+defaultconfig = dict(
+    displaylogo=False,
+    toImageButtonOptions=dict(
+        format='svg',  # one of png, svg, jpeg, webp
+        filename='calo_plot',
+        height=500,
+        width=700,
+        scale=1  # Multiply title/legend/axis/canvas sizes by this factor
+    ),
+   #  modeBarButtonsToAdd=[  # allow drawing tools to highlight important regions before downloading snapshot
+   #      'drawline',
+   #      'drawopenpath',
+   #      'drawclosedpath',
+   #      'drawcircle',
+   #      'drawrect',
+   #      'eraseshape'
+   # ]
+)
 
 def plot_pos(
         path: List,
@@ -334,133 +354,102 @@ def plot_heatmap(
             fig.write_image(save)
 
     if show:
-        fig.show()
+        fig.show(config=defaultconfig)
 
     return fig
 
 
-# def plot_xyvars(
-#         xvar: str,
-#         yvar: str,
-#         path: List,
-#         title: str = None,
-#         conf: float = None,
-#         limx: Tuple = None,
-#         limy: Tuple = None,
-#         limz: Tuple = None,
-#         save: str = None,
-#         show: bool = True,
-#         animation: bool = False
-# ) -> None:
-#     """ONLY FOR GRIDWORLD DATA
-#     """
-#     from matplotlib import pyplot as plt
-#     import matplotlib.animation as animation
-#     cmap = 'BuPu'  # viridis, Blues, PuBu, 0rRd, BuPu
-#
-#     def gendata(frame):
-#         s, p = path[frame]
-#
-#         # generate datapoints
-#         x = s[xvar].pdf.boundaries()
-#         y = s[yvar].pdf.boundaries()
-#
-#         X, Y = np.meshgrid(x, y)
-#         Z = np.array(
-#             [
-#                 s[xvar].pdf(x) * s[yvar].pdf(y)
-#                 for x, y, in zip(X.ravel(), Y.ravel())
-#             ]).reshape(X.shape)
-#
-#         # show only values above a certain threshold, consider lower values as high-uncertainty areas
-#         if conf is not None:
-#             Z[Z < conf] = 0.
-#
-#         # remove or replace by eliminating values > median
-#         Z[Z > np.median(Z)] = np.median(Z)
-#
-#         return X, Y, Z
-#
-#     def update(frame):
-#         X, Y, Z = gendata(frame)
-#
-#         # determine limits
-#         zmin = ifnone(limz, Z.min(), lambda l: l[0])
-#         zmax = ifnone(limz, Z.max(), lambda l: l[1])
-#
-#         # generate heatmap
-#         ax.pcolormesh(X, Y, Z, cmap=cmap, vmin=zmin, vmax=zmax)
-#
-#     if animation:
-#
-#         # init plot
-#         fig, ax = plt.subplots(num=1, clear=True)
-#         fig.patch.set_facecolor('#D6E7F8')  # set bg color around the plot area (royal purple)
-#         ax.set_facecolor('white')  # set bg color of plot area (dark purple)
-#
-#         X, Y, Z = gendata(0)
-#
-#         c = ax.pcolormesh(X, Y, Z, cmap=cmap, vmin=limz[0], vmax=limz[1])
-#         fig.colorbar(c, ax=ax)
-#         fig.suptitle(title)
-#         fig.canvas.manager.set_window_title(f'Belief State: P({xvar}/{yvar})')
-#
-#         ax.set_title(f'P({xvar},{yvar})')
-#
-#         # setting the limits of the plot to the limits of the data
-#         ax.axis([limx[0], limx[1], limy[0], limy[1]])
-#         ax.set_xlabel(rf'${xvar}$')
-#         ax.set_ylabel(rf'${yvar}$')
-#
-#         ani = animation.FuncAnimation(
-#             fig=fig,
-#             func=update,
-#             frames=len(path),  # length of the animation
-#             interval=30  # time in milliseconds between drawing of two frames
-#         )
-#
-#         if save:
-#             # plt.savefig(f'{i:03}-{save}')
-#             ani.save(filename=f'{save}.mp4', writer="ffmpeg")
-#
-#         if show:
-#             plt.show()
-#     else:
-#
-#         for i, _ in enumerate(path):
-#             X, Y, Z, p = gendata(i)
-#
-#             # init plot
-#             fig, ax = plt.subplots(num=1, clear=True)
-#             fig.patch.set_facecolor('#D6E7F8')  # set bg color around the plot area (royal purple)
-#             ax.set_facecolor('white')  # set bg color of plot area (dark purple)
-#
-#             # determine limits
-#             xmin = ifnone(limx, X.min(), lambda l: l[0])
-#             xmax = ifnone(limx, X.max(), lambda l: l[1])
-#             ymin = ifnone(limy, Y.min(), lambda l: l[0])
-#             ymax = ifnone(limy, Y.max(), lambda l: l[1])
-#             zmin = ifnone(limz, Z.min(), lambda l: l[0])
-#             zmax = ifnone(limz, Z.max(), lambda l: l[1])
-#
-#             # generate heatmap
-#             c = ax.pcolormesh(X, Y, Z, cmap=cmap, vmin=zmin, vmax=zmax)
-#
-#             ax.set_title(f'P({xvar},{yvar})')
-#
-#             # setting the limits of the plot to the limits of the data
-#             ax.axis([xmin, xmax, ymin, ymax])
-#             ax.set_xlabel(rf'${xvar}$')
-#             ax.set_ylabel(rf'${yvar}$')
-#             fig.colorbar(c, ax=ax)
-#             fig.suptitle(title)
-#             fig.canvas.manager.set_window_title(f'Belief State at Step{i}: P({xvar}/{yvar}), params: {p}')
-#
-#             if save:
-#                 plt.savefig(f'{i:03}-{save}')
-#
-#             if show:
-#                 plt.show()
+def plot_tree_dist(
+    tree: JPT,
+    qvarx: Any = None,
+    qvary: Any = None,
+    title: str = None,
+    conf: float = None,
+    limx: Tuple = None,
+    limy: Tuple = None,
+    limz: Tuple = None,
+    save: str = None,
+    show: bool = True
+) -> Figure:
+    """Plots a heatmap representing the belief state for the agents' position, i.e. the joint
+    probability of the x and y variables: P(x, y).
+
+    :param title: The plot title
+    :param conf:  A confidence value. Values below this threshold are set to 0. (= equal color for lowest value in plot)
+    :param limx: The limits for the x-variable; determined from boundaries if not given
+    :param limy: The limits for the y-variable; determined from boundaries if not given
+    :param limz: The limits for the z-variable; determined from data if not given
+    :param save: The location where the plot is saved (if given)
+    :param show: Whether the plot is shown
+    :return: None
+    """
+
+    # generate datapoints
+    x = np.linspace(limx[0], limx[1], 50)
+    y = np.linspace(limy[0], limy[1], 50)
+
+    X, Y = np.meshgrid(x, y)
+    Z = np.array(
+        [
+            tree.pdf(
+                tree.bind(
+                    {
+                        qvarx: x,
+                        qvary: y
+                    }
+                )
+            ) for x, y, in zip(X.ravel(), Y.ravel())
+        ]
+
+    ).reshape(X.shape)
+
+    lbl = f'Some random label'
+
+    # show only values above a certain threshold, consider lower values as high-uncertainty areas
+    if conf is not None:
+        Z[Z < conf] = 0.
+
+    data = pd.DataFrame(data=[[x, y, Z, lbl]], columns=['x', 'y', 'z', 'lbl'])
+
+    return plot_heatmap(
+        'x',
+        'y',
+        data,
+        title=title,
+        limx=limx,
+        limy=limy,
+        limz=limz,
+        save=save,
+        show=show
+    )
+
+    # dfX = pd.DataFrame(data=X)
+    # dfX.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfX.csv", index=False)
+    #
+    # dfY = pd.DataFrame(data=Y)
+    # dfY.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfY.csv", index=False)
+    #
+    # dfZ = pd.DataFrame(data=Z)
+    # dfZ.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfZ.csv", index=False)
+    #
+    # fig = go.Figure(data=[go.Surface(x=X, y=Y, z=Z)])
+    # fig.update_traces(contours_z=dict(show=True, usecolormap=True,
+    #                                   highlightcolor="limegreen", project_z=True))
+    #
+    # fig.update_layout(title=title, autosize=True,
+    #                   width=500, height=500,
+    #                   margin=dict(l=65, r=50, b=65, t=90))
+    #
+    # if save is not None:
+    #     fig.write_image(
+    #         save,
+    #         scale=1
+    #     )
+    #
+    # if show:
+    #     fig.show(config=defaultconfig)
+    #
+    # return fig
 
 
 def gaussian(
@@ -745,7 +734,7 @@ def plot_scatter_quiver(
         )
 
     if show:
-        mainfig.show()
+        mainfig.show(config=defaultconfig)
 
     return mainfig
 
@@ -849,11 +838,11 @@ def test_plot_start_goal():
     goal = [3, 3, 6, 7]
 
     f = plot_pt_sq(start, goal)
-    f.show()
+    f.show(config=defaultconfig)
 
 
 if __name__ == '__main__':
     f = test_plotexamplepath()
-    f.show()
+    f.show(config=defaultconfig)
     # test_plotexampleheatmap()
     # test_plot_start_goal()
