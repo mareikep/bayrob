@@ -10,7 +10,7 @@ import pandas as pd
 from calo.core.astar_jpt import State, SubAStar, Goal, SubAStarBW
 from calo.utils import locs
 from calo.utils.constants import plotcolormap, cs
-from calo.utils.plotlib import plot_heatmap, plot_scatter_quiver, plot_pt_sq
+from calo.utils.plotlib import plot_heatmap, plot_scatter_quiver, plot_pt_sq, defaultconfig
 from calo.utils.utils import recent_example
 from dnutils import ifnone, first
 from jpt.distributions import Numeric, Integer
@@ -261,7 +261,7 @@ class SubAStar_(SubAStar):
             title: str = None,
             save: str = None,
             show: bool = False
-    ) -> None:
+    ) -> Figure:
 
         # generate data points
         d = [
@@ -329,7 +329,7 @@ class SubAStar_(SubAStar):
             )
 
         if show:
-            mainfig.show()
+            mainfig.show(config=defaultconfig)
 
         return mainfig
 
@@ -373,13 +373,13 @@ class SubAStar_(SubAStar):
             self,
             node: Node,
             **kwargs
-    ) -> None:
+    ) -> Figure:
         """ONLY FOR GRIDWORLD DATA
         """
 
         p = self.retrace_path(node)
 
-        self.plot_path(
+        fig=self.plot_path(
             xvar='x_in',
             yvar='y_in',
             p=p,
@@ -414,115 +414,7 @@ class SubAStar_(SubAStar):
                 show=kwargs.get('show', True)
             )
 
-        # from matplotlib import pyplot as plt
-        # from matplotlib import colormaps
-        # from matplotlib import patches
-        # import pandas as pd
-        #
-        # p = self.retrace_path(node)
-        # cmap = colormaps[plotcolormap]
-        # colors = cmap.colors
-        # fig, ax = plt.subplots(num=1, clear=True)
-        #
-        # gxl = self.goal['x_in'].lower if isinstance(self.goal['x_in'], ContinuousSet) else first(self.goal['x_in'])
-        # gxu = self.goal['x_in'].upper if isinstance(self.goal['x_in'], ContinuousSet) else first(self.goal['x_in'])
-        # gyl = self.goal['y_in'].lower if isinstance(self.goal['y_in'], ContinuousSet) else first(self.goal['y_in'])
-        # gyu = self.goal['y_in'].upper if isinstance(self.goal['y_in'], ContinuousSet) else first(self.goal['y_in'])
-        #
-        # # print goal position/area
-        # ax.add_patch(patches.Rectangle(
-        #     (
-        #         gxl,
-        #         gyl
-        #     ),
-        #     gxu - gxl,
-        #     gyu - gyl,
-        #     linewidth=1,
-        #     color='green',
-        #     alpha=.2)
-        # )
-        # ax.annotate('Goal', (gxl, gyl))
-        #
-        # # print init position/direction
-        # ix = self.initstate['x_in'].expectation()
-        # iy = self.initstate['y_in'].expectation()
-        # ixd = self.initstate['xdir_in'].expectation()
-        # iyd = self.initstate['ydir_in'].expectation()
-        #
-        # ax.scatter(
-        #     ix,
-        #     iy,
-        #     marker='*',
-        #     color='k'
-        # )
-        #
-        # ax.quiver(
-        #     ix,
-        #     iy,
-        #     ixd,
-        #     iyd,
-        #     color='k',
-        #     width=0.001
-        # )
-        # ax.annotate('Init', (ix, iy))
-        #
-        # # generate data points
-        # d = [
-        #     (
-        #         s['x_in'].expectation(),
-        #         s['y_in'].expectation(),
-        #         s['xdir_in'].expectation(),
-        #         s['ydir_in'].expectation(),
-        #         f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
-        #         f'({s["x_in"].expectation():.2f},{s["y_in"].expectation():.2f}): '
-        #         f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
-        #     ) if not isinstance(s, Goal) else (
-        #         first(s['x_in']) if isinstance(s['x_in'], set) else s['x_in'].lower + abs(s['x_in'].upper - s['x_in'].lower)/2,
-        #         first(s['y_in']) if isinstance(s['y_in'], set) else s['y_in'].lower + abs(s['y_in'].upper - s['y_in'].lower)/2,
-        #         0,
-        #         0,
-        #         f"Goal"
-        #     ) for i, s in enumerate(p)
-        # ]
-        # df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
-        #
-        # # print direction arrows
-        # ax.quiver(
-        #     df['X'],
-        #     df['Y'],
-        #     df['DX'],
-        #     df['DY'],
-        #     color=colors,
-        #     width=0.001
-        # )
-        #
-        # # annotate start and final position of agent as well as goal area
-        # ax.annotate('Start', (df['X'][0], df['Y'][0]))
-        # ax.annotate('End', (df['X'].iloc[-1], df['Y'].iloc[-1]))
-        #
-        # # scatter single steps
-        # for index, row in df.iterrows():
-        #     ax.scatter(
-        #         row['X'],
-        #         row['Y'],
-        #         marker='*',
-        #         label=row['L'],
-        #         color=colors[index % len(colors)]
-        #     )
-        #
-        # # set figure/window/plot properties
-        # ax.set_xlabel(r'$x$')
-        # ax.set_ylabel(r'$y$')
-        # fig.suptitle(f'SubAStar-FW-{str(node)}')
-        # plt.grid()
-        # plt.legend()
-        # plt.savefig(
-        #     os.path.join(
-        #         locs.logs,
-        #         f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-path.png'
-        #     )
-        # )
-        # plt.show()
+        return fig
 
 
 class SubAStarBW_(SubAStarBW):
@@ -688,7 +580,7 @@ class SubAStarBW_(SubAStarBW):
             title: str = None,
             save: str = None,
             show: bool = False
-    ) -> None:
+    ) -> Figure:
 
         # generate data points
         d = [
@@ -758,11 +650,14 @@ class SubAStarBW_(SubAStarBW):
             data=fig_path.data
         )
 
-        if save is not None:
-            mainfig.write_image(
-                save,
-                scale=1
-            )
+        if save:
+            if save.endswith('html'):
+                mainfig.write_html(
+                    save,
+                    include_plotlyjs="cdn"
+                )
+            else:
+                mainfig.write_image(save)
 
         if show:
             mainfig.show()
@@ -809,19 +704,19 @@ class SubAStarBW_(SubAStarBW):
             self,
             node: Node,
             **kwargs
-    ) -> None:
+    ) -> Figure:
         """ONLY FOR GRIDWORLD DATA
         """
 
         p = self.retrace_path(node)
 
-        self.plot_path(
+        fig=self.plot_path(
             xvar='x_in',
             yvar='y_in',
             p=p,
             title=f'SubAStar (bwd)<br>{str(node)}',
             save=os.path.join(
-                locs.logs, f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-bwd-path.png'
+                locs.logs, f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-bwd-path.html'
             ),
             show=True
         )
@@ -850,112 +745,4 @@ class SubAStarBW_(SubAStarBW):
                 show=kwargs.get('show', True)
             )
 
-        # from matplotlib import pyplot as plt
-        # from matplotlib import colormaps
-        # from matplotlib import patches
-        # import pandas as pd
-        #
-        # p = self.retrace_path(node)
-        # cmap = colormaps[plotcolormap]
-        # colors = cmap.colors
-        # fig, ax = plt.subplots(num=1, clear=True)
-        #
-        # gxl = self.goal['x_in'].lower if isinstance(self.goal['x_in'], ContinuousSet) else first(self.goal['x_in'])
-        # gxu = self.goal['x_in'].upper if isinstance(self.goal['x_in'], ContinuousSet) else first(self.goal['x_in'])
-        # gyl = self.goal['y_in'].lower if isinstance(self.goal['y_in'], ContinuousSet) else first(self.goal['y_in'])
-        # gyu = self.goal['y_in'].upper if isinstance(self.goal['y_in'], ContinuousSet) else first(self.goal['y_in'])
-        #
-        # # print goal position/area
-        # ax.add_patch(patches.Rectangle(
-        #     (
-        #         gxl,
-        #         gyl
-        #     ),
-        #     gxu - gxl,
-        #     gyu - gyl,
-        #     linewidth=1,
-        #     color='green',
-        #     alpha=.2)
-        # )
-        # ax.annotate('Goal', (gxl, gyl))
-        #
-        # # print init position/direction
-        # ix = self.initstate['x_in'].expectation()
-        # iy = self.initstate['y_in'].expectation()
-        # ixd = self.initstate['xdir_in'].expectation()
-        # iyd = self.initstate['ydir_in'].expectation()
-        #
-        # ax.scatter(
-        #     ix,
-        #     iy,
-        #     marker='*',
-        #     color='k'
-        # )
-        #
-        # ax.quiver(
-        #     ix,
-        #     iy,
-        #     ixd,
-        #     iyd,
-        #     color='k',
-        #     width=0.001
-        # )
-        # ax.annotate('Init', (ix, iy))
-        #
-        # # generate data points
-        # d = [
-        #     (
-        #         s['x_in'].expectation(),
-        #         s['y_in'].expectation(),
-        #         s['xdir_in'].expectation(),
-        #         s['ydir_in'].expectation(),
-        #         f'{i}-Leaf#{s.leaf if s.leaf is not None else "ROOT"} '
-        #         f'({s["x_in"].expectation():.2f},{s["y_in"].expectation():.2f}): '
-        #         f'({s["xdir_in"].expectation():.2f},{s["ydir_in"].expectation():.2f})'
-        #     ) if not isinstance(s, Goal) else (
-        #         first(s['x_in']) if isinstance(s['x_in'], set) else s['x_in'].lower + abs(s['x_in'].upper - s['x_in'].lower)/2,
-        #         first(s['y_in']) if isinstance(s['y_in'], set) else s['y_in'].lower + abs(s['y_in'].upper - s['y_in'].lower)/2,
-        #         0,
-        #         0,
-        #         f"Goal"
-        #     ) for i, s in enumerate(p)
-        # ]
-        # df = pd.DataFrame(data=d, columns=['X', 'Y', 'DX', 'DY', 'L'])
-        #
-        # # print direction arrows
-        # ax.quiver(
-        #     df['X'],
-        #     df['Y'],
-        #     df['DX'],
-        #     df['DY'],
-        #     color=colors,
-        #     width=0.001
-        # )
-        #
-        # # annotate start and final position of agent as well as goal area
-        # ax.annotate('Start', (df['X'][0], df['Y'][0]))
-        # ax.annotate('End', (df['X'].iloc[-1], df['Y'].iloc[-1]))
-        #
-        # # scatter single steps
-        # for index, row in df.iterrows():
-        #     ax.scatter(
-        #         row['X'],
-        #         row['Y'],
-        #         marker='*',
-        #         label=row['L'],
-        #         color=colors[index]
-        #     )
-        #
-        # # set figure/window/plot properties
-        # ax.set_xlabel(r'$x$')
-        # ax.set_ylabel(r'$y$')
-        # fig.suptitle(f'SubAStar-BW-{str(node)}')
-        # plt.grid()
-        # plt.legend()
-        # plt.savefig(
-        #     os.path.join(
-        #         locs.logs,
-        #         f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-path.png'
-        #     )
-        # )
-        # plt.show()
+        return fig

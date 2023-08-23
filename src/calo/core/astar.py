@@ -208,7 +208,7 @@ class AStar:
             self,
             node,
             **kwargs
-    ) -> None:
+    ) -> Any:
         raise NotImplementedError
 
 
