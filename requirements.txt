@@ -16,10 +16,11 @@ pyparsing
 psutil
 matplotlib
 networkx
-sklearn
+scikit-learn
 graphviz
 Image
 appdirs
 owlready2
 pracmln
 jpt
+plotly
