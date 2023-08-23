@@ -225,8 +225,7 @@ class SubAStarBW(SubAStar):
         )
 
     def init(self):
-        # generate all the leaves that match the goal specification and push to open all nodes representing
-        # 'predecessor' states from their preconditions
+        # node from goalstate
         n_ = Node(
             state=self.goal,
             g=0.,
@@ -234,9 +233,7 @@ class SubAStarBW(SubAStar):
             parent=None
         )
 
-        # heapq.heappush(self.open, (n_.f, n_))
-        for n in self.generate_successors(n_):
-            heapq.heappush(self.open, (n.f, n))
+        heapq.heappush(self.open, (n_.f, n_))
 
     def isgoal(
             self,
@@ -304,33 +301,42 @@ class SubAStarBW(SubAStar):
             else:
                 query_[var] = set(var.domain.labels.values())
 
-        # stores the probabilities, that the query variables take on the value(s)/a value in the interval given in
-        # the query
-        confs = {}
+        def determine_leaf_confs(l):
+            #  assuming, that the _out variables are deltas but querying for _out semantically means querying for the
+            #  result of adding the delta to the _in variable (i.e. the actual outcome of performing the action
+            #  represented by the leaf)
+            conf = defaultdict(float)
+            for v, dist in l.distributions.items():
+                vname_in = v.name.replace('_out', '_in')
+                vname_out = v.name.replace('_in', '_out')
+
+                # if the current variable is an _out variable and its corresponding _in variable exists in the
+                # distribution, add the two distributions and calculate probability on resulting distribution
+                if v.name != vname_in and v.name in query and vname_in in l.distributions:
+                    ndist = dist + l.distributions[vname_in]
+                    c_ = ndist.p(query_[v])
+                else:
+                    c_ = dist.p(query_[v])
+                if c_ < confidence: return
+                conf[v.name] = c_
+
+                # if the current variable is an _in variable, and it has no corresponding _out variable but is part of
+                # the original query, it is considered to be left unchanged by the "execution" of the action
+                # represented by the leaf.
+                # Therefore, the distribution of the input variable is taken as basis for calculating the
+                # probability
+                # Note: check if vname_out in query but take value from query_, as this is preprocessed and MIGHT differ
+                if v.name != vname_out and vname_out in query and not vname_out in l.distributions:
+                    c_ = dist.p(query_[vname_out])
+                    if c_ < confidence: return
+                    conf[vname_out] = c_
+            return conf
 
         # find the leaf (or the leaves) that matches the query best
         for k, l in t.leaves.items():
-            conf = defaultdict(float)
-            for v, dist in l.distributions.items():
-                # assuming, that the _out variables are deltas but querying for _out means querying for the result of
-                # adding the delta to the _in variable (i.e. the actual outcome of performing the action represented
-                # by the leaf)
-                if v.name != v.name.replace('_out', '_in') and v.name in query and v.name.replace('_out', '_in') in l.distributions:
-                    ndist = l.distributions[v.name] + l.distributions[v.name.replace('_out', '_in')]
-                    newv = ndist.p(query_[v])
-                else:
-                    newv = dist.p(query_[v])
-                conf[v.name] = newv
-
-                if v.name != v.name.replace('_in', '_out') and v.name.replace('_in', '_out') in query and not v.name.replace('_in', '_out') in l.distributions:
-                    # if the leaf contains a queried variable, that only exists as an _in variable but not as an
-                    # _out variable, it is considered to be left unchanged by the action represented by the leaf.
-                    # Therefore, the distribution of the input variable is taken as basis for calculating the
-                    # probability
-                    conf[v.name.replace('_in', '_out')] = dist.p(query[v.name.replace('_in', '_out')])
-            confs[l.idx] = conf
-
-        yield from [(cf, t.leaves[lidx]) for lidx, cf in confs.items() if all(c >= confidence for c in cf.values())]
+            conf = determine_leaf_confs(l)
+            if conf is None: continue
+            yield conf, l
 
     def generate_steps(
             self,
@@ -338,7 +344,6 @@ class SubAStarBW(SubAStar):
     ) -> List[Any]:
         """
         """
-
         # ascertain in generate_successors, that node.state only contains _out variables
         query = {
             var.replace('_in', '_out'):
