@@ -342,8 +342,10 @@ class SubAStar_(SubAStar):
     ):
 
         # generate datapoints
-        x = state[xvar].pdf.boundaries()
-        y = state[yvar].pdf.boundaries()
+        # x = state[xvar].pdf.boundaries()
+        # y = state[yvar].pdf.boundaries()
+        x = state[xvar].cdf.boundaries()
+        y = state[yvar].cdf.boundaries()
 
         X, Y = np.meshgrid(x, y)
         Z = np.array(
