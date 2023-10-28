@@ -5,9 +5,16 @@ from random import randint
 import dnutils
 import numpy as np
 import pandas as pd
+
+from calo.utils.plotlib import defaultconfig, plotly_sq
 from calo.utils.utils import recent_example
 from jpt.distributions import Gaussian
 from matplotlib import pyplot as plt, patches
+import plotly.express as px
+import plotly.figure_factory as ff
+import plotly.graph_objects as go
+from _plotly_utils.colors import sample_colorscale
+
 
 from calo.logs.logs import init_loggers
 from calo.models.action import Move
@@ -29,6 +36,10 @@ def robot_pos_random(dt):
     w.obstacle(50, -30, 20, 10)
     w.obstacle(-75, -10, -50, -40)
     w.obstacle(-25, -50, -15, -75)
+
+    # set uncertainty
+    Move.DEG_U = .01
+    Move.DIST_U = .01
 
     gaussian_deg = Gaussian(0, 360)
 
@@ -108,7 +119,8 @@ def robot_pos_random(dt):
 
 
 def robot_pos_semi_random(dt):
-    # randomly select position in grid and then move 1 step in #NUMACTIONS different directions
+    # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
+    # respectively. check for collision/success
     logger.debug('Generating star-shaped robot data...')
 
     # init agent and world
@@ -119,7 +131,7 @@ def robot_pos_semi_random(dt):
     w.obstacle(-75, -10, -50, -40)
     w.obstacle(-25, -50, -15, -75)
 
-    fig, ax = plt.subplots(num=1, clear=True)
+    # fig, ax = plt.subplots(num=1, clear=True)
 
     # init agent at left lower corner facing right
     a = GridAgent(
@@ -136,9 +148,11 @@ def robot_pos_semi_random(dt):
     dm_ = []
     dt_ = []
 
-    for y in range(-100, 100, 1):
-        for x in range(-100, 100, 1):
-            if x == -100:
+    limit = 100
+
+    for y in range(-limit, limit, 1):
+        for x in range(-limit, limit, 1):
+            if x == -limit:
                 print(f'x/y: {x}/{y}')
 
             npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
@@ -158,11 +172,6 @@ def robot_pos_semi_random(dt):
 
                 adir = a.dir  # save dir before update
                 Move.turndeg(a, degi)
-                # data_turn.loc[cnt] = [
-                #     *adir,
-                #     degi,
-                #     *np.array(a.dir) - np.array(adir)  # deltas!
-                # ]
                 dt_.append(
                     [
                         *adir,
@@ -172,16 +181,10 @@ def robot_pos_semi_random(dt):
                 )
 
                 Move.moveforward(a, 1)
-                # data_moveforward.loc[cnt] = [
-                #     *a.dir,
-                #     *initpos,
-                #     *np.array(a.pos) - np.array(initpos),  # deltas!
-                #     a.collided
-                # ]
                 dm_.append(
                     [
-                        *a.dir,
                         *initpos,
+                        *a.dir,
                         *np.array(a.pos) - np.array(initpos),  # deltas!
                         a.collided
                     ]
@@ -197,11 +200,6 @@ def robot_pos_semi_random(dt):
 
                 adir = a.dir  # save dir before update
                 Move.turndeg(a, degi)
-                # data_turn.loc[cnt] = [
-                #     *adir,
-                #     degi,
-                #     *a.dir
-                # ]
                 dt_.append(
                     [
                         *adir,
@@ -211,16 +209,11 @@ def robot_pos_semi_random(dt):
                 )
 
                 Move.moveforward(a, 1)
-                # data_moveforward.loc[cnt] = [
-                #     *a.dir,
-                #     *initpos,
-                #     *a.pos,
-                #     a.collided
-                # ]
+
                 dm_.append(
                     [
-                        *a.dir,
                         *initpos,
+                        *a.dir,
                         *np.array(a.pos) - np.array(initpos),  # deltas!
                         a.collided
                     ]
@@ -230,15 +223,15 @@ def robot_pos_semi_random(dt):
                 a.pos = initpos
                 cnt += 1
 
-    data_moveforward = pd.DataFrame(data=dm_, columns=['xdir_in', 'ydir_in', 'x_in', 'y_in', 'x_out', 'y_out', 'collided'])
+    data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
     data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
 
     # save data
     data_moveforward = data_moveforward.astype({
-        'xdir_in': np.float64,
-        'ydir_in': np.float64,
         'x_in': np.float64,
         'y_in': np.float64,
+        'xdir_in': np.float64,
+        'ydir_in': np.float64,
         'x_out': np.float64,
         'y_out': np.float64,
         'collided': bool
@@ -254,53 +247,54 @@ def robot_pos_semi_random(dt):
     })
     data_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
 
+    logger.debug('...done! Saving plots...')
+
     # plot trajectories and highlight start and end points
-    c = np.arange(data_moveforward.shape[0])
-    ax.scatter(
-        data_moveforward['x_in'],
-        data_moveforward['y_in'],
-        marker='+',
-        c=c,
-        alpha=.005
+    colors_discr = sample_colorscale(
+        px.colors.sequential.dense,
+        max(2, data_moveforward.shape[0]),
+        low=.1,  # the first few values are very light and not easy to see on a plot, so we start higher up
+        high=1.,
+        colortype="rgb"
+    )
+    colors_discr = colors_discr[:min(len(data_moveforward), len(colors_discr))]
+
+    mainfig = go.Figure()
+    fig_s = px.scatter(
+        data_moveforward,
+        x="x_in",
+        y="y_in",
+        color_discrete_sequence=colors_discr,
+        opacity=0.005,
+        size=[1]*len(data_moveforward),
+        width=1700,
+        height=1000
     )
 
-    # TODO: remove to save storage space and prevent overload of produced images
-    plt.savefig(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'{cnt}-MOVE.png'), format="png")
+    mainfig.add_traces(
+        data=fig_s.data
+    )
+
+    mainfig.update_coloraxes(showscale=False)
+
+    mainfig.write_html(
+        os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE.html'),
+        config=defaultconfig,
+        include_plotlyjs="cdn"
+    )
+    mainfig.write_image(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE.svg'))
 
     # plot annotated rectangles representing the obstacles
     for i, o in enumerate(w.obstacles):
-        ax.add_patch(patches.Rectangle(
-            (
-                o[0],
-                o[1]
-            ),
-            width=o[2] - o[0],
-            height=o[3] - o[1],
-            linewidth=1,
-            color='green',
-            alpha=.2)
-        )
-        ax.annotate(
-            f'O{i+1}',
-            (
-                o[0] + (o[2] - o[0]) / 2,
-                o[1] + (o[3] - o[1]) / 2
-            )
-        )
+        mainfig.add_trace(
+            plotly_sq(o, lbl=f'O{i+1}', color="60,60,60", legend=False))
 
-    logger.debug('...done! Saving plot...')
-
-    # figure settings
-    fig.suptitle(f'{RUNS} runs; {NUMACTIONS} actions per run')
-    fig.canvas.manager.set_window_title(f'000-ALL-MOVE.png')
-    plt.legend()
-    plt.grid()
-
-    # save and show
-    plt.savefig(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-ALL-MOVE.png'), format="png")
-
-    if SHOWPLOTS:
-        plt.show()
+    mainfig.write_html(
+        os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE_annotated.html'),
+        config=defaultconfig,
+        include_plotlyjs="cdn"
+    )
+    mainfig.write_image(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE_annotated.svg'))
 
 
 def data_curation(dt, usedeltas=False):
@@ -371,7 +365,7 @@ def data_curation_semi(dt):
     # (position-independent)
 
     if COLLIDED:
-        data_moveforward = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'x_in', 'y_in', 'x_out', 'y_out', 'collided'])
+        data_moveforward = pd.DataFrame(columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
     else:
         data_moveforward = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'x_in', 'y_in', 'x_out', 'y_out'])
 
@@ -383,10 +377,10 @@ def data_curation_semi(dt):
 
                 if COLLIDED:
                     data_moveforward.loc[idx + i * RUNS] = [
-                        row['xdir'],
-                        row['ydir'],
                         d.iloc[0]['x'],  # first x-value in file is always starting point
                         d.iloc[0]['y'],  # first y-value in file is always starting point
+                        row['xdir'],
+                        row['ydir'],
                         row['x'],
                         row['y'],
                         row['collided']
@@ -432,13 +426,15 @@ def learn_jpt_moveforward(dt):
         delimiter=',',
         header=0
     )
+
+    # data_moveforward = data_moveforward[['x_in', 'y_in', 'x_out', 'y_out']]
     movevars = infer_from_dataframe(data_moveforward, scale_numeric_types=False)
 
     jpt_mf = JPT(
         variables=movevars,
-        targets=movevars[4:],
+        # targets=movevars[4:],
         min_impurity_improvement=None,  # IMP_IMP,
-        min_samples_leaf=.001
+        min_samples_leaf=.01
     )
 
     jpt_mf.learn(data_moveforward)
@@ -530,7 +526,6 @@ SEMI = True  # semi = True: randomly select position and move around in circles,
 USEDELTAS = True
 USE_RECENT = True
 SHOWPLOTS = False
-LEARNONLY = True
 
 
 if __name__ == '__main__':
@@ -539,7 +534,7 @@ if __name__ == '__main__':
     # use most recently created dataset or create from scratch
     if USE_RECENT:
         DT = recent_example(os.path.join(locs.examples, 'robotaction'))
-        DT = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
+        # DT = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
 
@@ -550,7 +545,7 @@ if __name__ == '__main__':
         os.mkdir(os.path.join(locs.examples, 'robotaction', DT, 'plots'))
         os.mkdir(os.path.join(locs.examples, 'robotaction', DT, 'data'))
 
-    if not LEARNONLY:
+    if not USE_RECENT:
         if SEMI:
             robot_pos_semi_random(DT)
             # data_curation_semi(DT)

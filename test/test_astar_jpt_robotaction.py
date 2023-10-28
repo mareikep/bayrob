@@ -145,20 +145,21 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # plot initial distributions over x/y positions
         t = cls.models['000-MOVEFORWARD.tree']
-        # plot_tree_dist(
-        #     tree=t,
-        #     qvarx=t.varnames['x_in'],
-        #     qvary=t.varnames['y_in'],
-        #     title='Initial distribution P(x,y)',
-        #     limx=(-100, 100),
-        #     limy=(-100, 100),
-        #     save=os.path.join(os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23', 'plots', '000-init-dist.html')),
-        #     show=True
-        # )
+        plot_tree_dist(
+            tree=t,
+            qvarx=t.varnames['x_in'],
+            qvary=t.varnames['y_in'],
+            title='Initial distribution P(x,y)',
+            limx=(-100, 100),
+            limy=(-100, 100),
+            save=os.path.join(os.path.join(recent, 'plots', '000-init-dist.html')),
+            show=True
+        )
 
-        tolerance = .2
+        tolerance = .01
         # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
-        initx, inity, initdirx, initdiry = [-42, 48, 0.5, -.86]
+        initx, inity, initdirx, initdiry = [-61, 61, 0, -1]
+        # initx, inity, initdirx, initdiry = [-42, 48, 0.5, -.86]
 
         dx = Gaussian(initx, tolerance).sample(50)
         distx = Numeric()
@@ -282,7 +283,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             fail_on_unsatisfiability=False
         )
 
-        return ct.leaves.values()
+        return ct, ct.leaves.values()
 
     def test_astar_cram_path(self) -> None:
         cmds = [
@@ -347,7 +348,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 evidence.update(cmd["params"])
 
             # candidates are all the leaves from the conditional tree
-            candidates = self.generate_steps(evidence, t)
+            t_, candidates = self.generate_steps(evidence, t)
 
             # the "best" candidate is the one with the maximum similarity to the evidence state
             best = None
@@ -374,16 +375,19 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                     if vn.name in s_:
                         # if the _in variable is already contained in the state, update it by adding the delta
                         # from the leaf distribution
-                        nsegments = len(s_[vn.name].pdf.functions)
+                        nsegments = len(s_[vn.name].cdf.functions)
                         s_[vn.name] = s_[vn.name] + best.distributions[vn.name.replace('_in', '_out')]
                     else:
                         nsegments = len(d.pdf.functions)
                         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
                         s_[vn.name] = d + best.distributions[vn.name.replace('_in', '_out')]
 
-                    # reduce complexity from adding two distributions
-                    nsegments = min(10, nsegments)
-                    s_[vn.name] = s_[vn.name].approximate(n_segments=nsegments)
+                    if hasattr(s_[vn.name], 'approximate'):
+                        nsegments = min(10, nsegments)
+                        s_[vn.name] = s_[vn.name].approximate(
+                            n_segments=nsegments,
+                            # error_max=.1
+                        )
 
             p.append([s_, cmd['params']])
             s = State_()

@@ -348,6 +348,7 @@ def plot_heatmap(
         if save.endswith('html'):
             fig.write_html(
                 save,
+                config=defaultconfig,
                 include_plotlyjs="cdn"
             )
         else:
@@ -590,7 +591,10 @@ def plotly_pt(
 
 
 def plotly_sq(
-    area: Tuple
+        area: Tuple,
+        lbl: str = "Goal",
+        color: str = "0,125,0",
+        legend: bool = True
 ) -> Any:
     gxl, gyl, gxu, gyu = area
 
@@ -598,10 +602,13 @@ def plotly_sq(
             x=[gxl, gxl, gxu, gxu, gxl],
             y=[gyl, gyu, gyu, gyl, gyl],
             fill="toself",
-            marker_symbol='star',
-            marker_color='rgba(0,125,0,0.4)',
-            fillcolor='rgba(0,125,0,0.1)',
-            name="Goal"
+            marker=dict(
+                symbol='star',
+                color=f'rgba({color},0.4)'
+            ),
+            fillcolor=f'rgba({color},0.1)',
+            name=lbl,
+            showlegend=legend
         )
 
 
