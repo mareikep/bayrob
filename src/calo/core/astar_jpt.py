@@ -172,7 +172,7 @@ class SubAStar(AStar):
 
             # update belief state of potential predecessor
             for vn, d in succ.distributions.items():
-                # generate new distribution by shifting position delta distributions by expectation of position
+                # generate new distribution adding position delta distribution to original dist
                 # belief state
                 if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in succ.distributions:
 
@@ -327,7 +327,7 @@ class SubAStarBW(SubAStar):
                 # probability
                 # Note: check if vname_out in query but take value from query_, as this is preprocessed and MIGHT differ
                 if v.name != vname_out and vname_out in query and not vname_out in l.distributions:
-                    c_ = dist.p(query_[vname_out])
+                    c_ = dist.p(query[vname_out])
                     if c_ < confidence: return
                     conf[vname_out] = c_
             return conf

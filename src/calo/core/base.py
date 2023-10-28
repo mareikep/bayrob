@@ -4,13 +4,13 @@ import os
 import traceback
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import dnutils
 from dnutils import ifnone
 
 import jpt
 from calo.core.astar import BiDirAStar
-from calo.core.hypothesis import Hypothesis
 from calo.utils.constants import calologger, calojsonlogger, projectnameUP
 from calo.utils.utils import generatemln, tovariablemapping
 from jpt import JPT
@@ -99,9 +99,9 @@ class CALO:
 
     def __init__(
             self,
-            astar,
-            start,
-            goal,
+            astar=None,
+            start=None,
+            goal=None,
             datapaths=None,
             stepcost=None,
             heuristic=None
@@ -149,10 +149,13 @@ class CALO:
         self.reloadmodels()
 
     def reloadmodels(self) -> None:
-        try:
-            self._models = dict([(treefile.name, JPT.load(str(treefile))) for p in self._datapaths for treefile in Path(p).rglob('*.tree') if not treefile.name in self.omitmodels])
-        except Exception:
-            logger.error(f'Could not load trees {[str(treefile) for p in self._datapaths for treefile in Path(p).rglob("*.tree") if not treefile.name in self.omitmodels]}\n{traceback.print_exc()}')
+        for p in self._datapaths:
+            for treefile in Path(p).rglob('*.tree'):
+                if treefile.name in self.omitmodels: continue
+                try:
+                    self._models[treefile.name] = JPT.load(str(treefile))
+                except Exception:
+                    logger.error(f'Could not load tree {treefile.name}:\n{traceback.print_exc()}')
 
     @property
     def query(self) -> jpt.variables.VariableMap:
@@ -241,7 +244,7 @@ class CALO:
         return self._resulttree
 
     @property
-    def hypotheses(self) -> list[Hypothesis]:
+    def hypotheses(self) -> list[Any]:
         """The resulting hypothesis from a forerun inference.
 
         :returns: the generated hypotheses
