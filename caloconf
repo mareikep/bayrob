@@ -21,3 +21,7 @@ uploadfldr = /tmp
 public = False
 mode = debug
 datapath = 'data'
+
+[plotly]
+username=mareikep
+apikey=e8JpsxUyJtRFT5J8JtzE

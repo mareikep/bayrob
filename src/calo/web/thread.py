@@ -1,6 +1,6 @@
 import os
 
-from typing import List
+from typing import List, Any
 
 import calo
 from calo.core.base import CALO
@@ -61,7 +61,7 @@ class CALODST(DetachedSessionThread):
         return self._calo.resulttree
 
     @property
-    def hypotheses(self) -> List[calo.core.base.Hypothesis]:
+    def hypotheses(self) -> List[Any]:
         return self._calo.hypotheses
 
     @property

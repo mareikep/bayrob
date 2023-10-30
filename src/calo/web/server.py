@@ -23,7 +23,7 @@ import pyrap
 from dnutils import out, LinearScale
 
 from calo.utils.constants import calologger, calojsonlogger
-from src.calo import config
+from calo import config
 from calo.core.base import CALO, ResTree
 from calo.logs.logs import init_loggers
 from calo.utils.utils import res
@@ -45,6 +45,7 @@ from pyrap.pwt.bubblyclusters.bubblyclusters import BubblyClusters
 from pyrap.pwt.graph.graph import Graph
 from pyrap.pwt.heatmap.heatmap import Heatmap
 from pyrap.pwt.plot.plot import Scatterplot
+from pyrap.pwt.plotly.plotly import Plotly
 from pyrap.pwt.radialtree.radialtree import RadialTree
 from pyrap.pwt.svg.svg import SVG
 from pyrap.pwt.tree.tree import Tree
@@ -992,6 +993,31 @@ class CALOWeb:
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+        # # PLOTLY TAB #
+
+        plt_stack = tabfldr_body.addtab('Plotly')
+        plt_stack.content.layout = StackLayout(halign='fill', valign='fill')
+        tabfldr_body.selected = 0
+
+        plt_sash_menu = SashMenuComposite(plt_stack.content, self._shell, color='#5882B5', mwidth=260)
+
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        # PLOTLY MENU
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        plt_comp_menu = plt_sash_menu.menu
+
+        btn_plotly = Button(plt_comp_menu, text='Plot!', minwidth=px(self.menu_width - 30), halign='left', valign='fill')
+
+        comp_plotly = Composite(plt_sash_menu.content)
+        comp_plotly.layout = CellLayout(halign='fill', valign='fill')
+
+        comp_body_plt = Composite(comp_plotly)
+        comp_body_plt.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 0.2, 1: 0.8})
+        Label(comp_body_plt, "", halign='fill', valign='fill')
+        plotly = Plotly(comp_body_plt, opts={'url': "http://127.0.0.1:5005/calo/empty"}, halign='fill', valign='fill')
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
         # DOCUMENTATION TAB #
         comp_docs = tabfldr_body.addtab('Documentation', idx=2)
         comp_docs.layout = CellLayout(halign='fill', valign='fill')
@@ -1007,6 +1033,21 @@ class CALOWeb:
         ######################
         # LISTENER FUNCTIONS #
         ######################
+
+        def plotly_plot(*_) -> None:
+            logger.warning('PLOTLY PLOT FN CALLED')
+            from chart_studio import plotly as ply
+            import plotly.express as pxpress
+
+            df = pxpress.data.gapminder().query("country=='Canada'")
+            fig = pxpress.line(df, x="year", y="lifeExp", title='Life expectancy in Canada')
+            logger.warning('GENERATED PLOT')
+
+            url = ply.plot(fig, filename='stacked-bar', auto_open=False)
+            logger.warning(f"GOT URL {url}.. calling...")
+            plotly.url = url
+
+
         def definereqprofile(*_) -> None:
 
             if self.wnd_reqprof is None or self.wnd_reqprof.disposed:
@@ -1477,6 +1518,7 @@ class CALOWeb:
         # SET LISTENERS #
         #################
         btn_defreq.on_select += definereqprofile
+        btn_plotly.on_select += plotly_plot
         btn_dlviz.on_select += downloadviz
         btn_dlhypsjson.on_select += downloadhypsjson
         btn_dlhypscsv.on_select += downloadhypscsv
@@ -1937,6 +1979,17 @@ class CALOWeb:
 
         self._shell.show()
 
+    def empty(self, **kwargs) -> None:
+        self._shell = Shell(maximized=True, titlebar=False)
+        self._shell.bg = Color('transp')
+        self._shell.on_resize += self._shell.dolayout
+
+        comp_mainframe = Composite(self._shell.content)
+        comp_mainframe.layout = CellLayout(halign='fill', valign='fill')
+        Label(comp_mainframe, "I am a placeholder")
+
+        self._shell.show()
+
 
 def main(ip='127.0.0.1', port=5008) -> None:
 
@@ -1945,6 +1998,7 @@ def main(ip='127.0.0.1', port=5008) -> None:
                        name='CALO',
                        entrypoints={'desktop': CALOWeb.desktop,
                                     'mobile': CALOWeb.mobile,
+                                    'empty': CALOWeb.empty,
                                     },
                        setup=CALOWeb.setup,
                        theme=res('static/css/default.css'),
@@ -1956,7 +2010,7 @@ def main(ip='127.0.0.1', port=5008) -> None:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CALOWeb.')
-    parser.add_argument('-p', '--port', type=int, default=5008, help='specify port to run the app on', required=False)
+    parser.add_argument('-p', '--port', type=int, default=5005, help='specify port to run the app on', required=False)
     parser.add_argument('-i', '--ip', type=str, default='127.0.0.1', help='specify port to run the app on', required=False)
     parser.add_argument("-v", "--verbose", dest="verbose", default='info', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
     args = parser.parse_args()
