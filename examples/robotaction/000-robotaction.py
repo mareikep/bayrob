@@ -6,7 +6,7 @@ import dnutils
 import numpy as np
 import pandas as pd
 
-from calo.utils.plotlib import defaultconfig, plotly_sq
+from calo.utils.plotlib import defaultconfig, plotly_sq, plot_tree_dist
 from calo.utils.utils import recent_example
 from jpt.distributions import Gaussian
 from matplotlib import pyplot as plt, patches
@@ -427,7 +427,12 @@ def learn_jpt_moveforward(dt):
         header=0
     )
 
+    # data_moveforward = data_moveforward[['x_in', 'y_in']]
     # data_moveforward = data_moveforward[['x_in', 'y_in', 'x_out', 'y_out']]
+    # data_moveforward = data_moveforward[['x_in', 'y_in', 'x_out', 'y_out', 'collided']]
+    # data_moveforward = data_moveforward[['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out']]
+    # data_moveforward = data_moveforward[['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out']]
+    # data_moveforward = data_moveforward[['x_in', 'y_in', 'xdir_in', 'x_out']]
     movevars = infer_from_dataframe(data_moveforward, scale_numeric_types=False)
 
     jpt_mf = JPT(
@@ -440,11 +445,23 @@ def learn_jpt_moveforward(dt):
     jpt_mf.learn(data_moveforward)
     jpt_mf.postprocess_leaves()
 
+    plot_tree_dist(
+        tree=jpt_mf,
+        qvarx=jpt_mf.varnames['x_in'],
+        qvary=jpt_mf.varnames['y_in'],
+        title='Initial distribution P(x,y)',
+        limx=(-100, 100),
+        limy=(-100, 100),
+        save=os.path.join(os.path.join(dt, 'plots', '000-init-dist.html')),
+        show=True
+    )
+
     logger.debug(f'...done! saving to file {os.path.join(locs.examples, "robotaction", dt, f"000-MOVEFORWARD.tree")}')
 
     jpt_mf.save(os.path.join(locs.examples, 'robotaction', dt, f'000-MOVEFORWARD.tree'))
 
     logger.debug('...done.')
+
 
 
 def learn_jpt_turn(dt):
@@ -556,5 +573,5 @@ if __name__ == '__main__':
     learn_jpt_moveforward(DT)
     # learn_jpt_turn(DT)
 
-    plot_jpt_moveforward(DT)
+    # plot_jpt_moveforward(DT)
     # plot_jpt_turn(DT)

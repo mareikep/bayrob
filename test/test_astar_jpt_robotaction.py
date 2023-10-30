@@ -145,16 +145,16 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # plot initial distributions over x/y positions
         t = cls.models['000-MOVEFORWARD.tree']
-        plot_tree_dist(
-            tree=t,
-            qvarx=t.varnames['x_in'],
-            qvary=t.varnames['y_in'],
-            title='Initial distribution P(x,y)',
-            limx=(-100, 100),
-            limy=(-100, 100),
-            save=os.path.join(os.path.join(recent, 'plots', '000-init-dist.html')),
-            show=True
-        )
+        # plot_tree_dist(
+        #     tree=t,
+        #     qvarx=t.varnames['x_in'],
+        #     qvary=t.varnames['y_in'],
+        #     title='Initial distribution P(x,y)',
+        #     limx=(-100, 100),
+        #     limy=(-100, 100),
+        #     save=os.path.join(os.path.join(recent, 'plots', '000-init-dist.html')),
+        #     show=True
+        # )
 
         tolerance = .01
         # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
@@ -348,39 +348,41 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 evidence.update(cmd["params"])
 
             # candidates are all the leaves from the conditional tree
-            t_, candidates = self.generate_steps(evidence, t)
+            t_, _ = self.generate_steps(evidence, t)
 
             # the "best" candidate is the one with the maximum similarity to the evidence state
-            best = None
-            sim = -1
-            for c in candidates:
-                # type(self[vn]).jaccard_similarity(val, other[vn])
-                sim_ = min([type(d).jaccard_similarity(s[v.name], d) for v, d in c.distributions.items() if v.name in s])
-                if sim_ > sim:
-                    best = c
-                    sim = sim_
+            # best = None
+            # sim = -1
+            # for c in candidates:
+            #     # type(self[vn]).jaccard_similarity(val, other[vn])
+            #     sim_ = min([type(d).jaccard_similarity(s[v.name], d) for v, d in c.distributions.items() if v.name in s])
+            #     if sim_ > sim:
+            #         best = c
+            #         sim = sim_
+            best = t_.posterior(variables=t_.targets)
 
             # create successor state
             s_ = State_()
             s_.update({k: v for k, v in s.items()})
             s_.tree = cmd['tree']
-            s_.leaf = best.idx
+            s_.leaf = None
 
             # update belief state of potential predecessor
-            for vn, d in best.distributions.items():
+            for vn, d in best.items():
+                # vn = v.name
                 # generate new distribution by shifting position delta distributions by expectation of position
                 # belief state
-                if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in best.distributions:
+                if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in best:
 
                     if vn.name in s_:
                         # if the _in variable is already contained in the state, update it by adding the delta
                         # from the leaf distribution
                         nsegments = len(s_[vn.name].cdf.functions)
-                        s_[vn.name] = s_[vn.name] + best.distributions[vn.name.replace('_in', '_out')]
+                        s_[vn.name] = s_[vn.name] + best[vn.name.replace('_in', '_out')]
                     else:
                         nsegments = len(d.pdf.functions)
                         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
-                        s_[vn.name] = d + best.distributions[vn.name.replace('_in', '_out')]
+                        s_[vn.name] = d + best[vn.name.replace('_in', '_out')]
 
                     if hasattr(s_[vn.name], 'approximate'):
                         nsegments = min(10, nsegments)
