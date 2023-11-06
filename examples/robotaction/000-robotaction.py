@@ -135,10 +135,9 @@ def robot_pos_semi_random(dt):
     # data_moveforward = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'x_in', 'y_in', 'x_out', 'y_out', 'collided'])
     # data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
 
-    header = True
+    dm_ = []
+    dt_ = []
     for y in range(-limit, limit, 1):
-        dm_ = []
-        dt_ = []
 
         for x in range(-limit, limit, 1):
             if x == -limit:
@@ -254,69 +253,69 @@ def robot_pos_semi_random(dt):
                     a.dir = curdir
                     a.pos = initpos
 
-        data_moveforward = pd.DataFrame(
-            data=dm_,
-            columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out','collided']
-        )
+        # data_moveforward = pd.DataFrame(
+        #     data=dm_,
+        #     columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out','collided']
+        # )
+        #
+        # # save data
+        # data_moveforward = data_moveforward.astype({
+        #     'x_in': np.float64,
+        #     'y_in': np.float64,
+        #     'xdir_in': np.float64,
+        #     'ydir_in': np.float64,
+        #     'x_out': np.float64,
+        #     'y_out': np.float64,
+        #     'collided': bool
+        # })
+        # data_moveforward.to_parquet(
+        #     os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
+        #     header=header,
+        #     index=False,
+        #     mode='a'
+        # )
+        #
+        # data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+        #
+        # data_turn = data_turn.astype({
+        #     'xdir_in': np.float64,
+        #     'ydir_in': np.float64,
+        #     'xdir_out': np.float64,
+        #     'ydir_out': np.float64,
+        #     'angle': np.float64
+        # })
+        # data_turn.to_parquet(
+        #     os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'),
+        #     header=header,
+        #     index=False,
+        #     mode='a'
+        # )
+        #
+        # header = None
 
-        # save data
-        data_moveforward = data_moveforward.astype({
-            'x_in': np.float64,
-            'y_in': np.float64,
-            'xdir_in': np.float64,
-            'ydir_in': np.float64,
-            'x_out': np.float64,
-            'y_out': np.float64,
-            'collided': bool
-        })
-        data_moveforward.to_parquet(
-            os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
-            header=header,
-            index=False,
-            mode='a'
-        )
+    data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
+    data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
 
-        data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+    # save data
+    data_moveforward = data_moveforward.astype({
+        'x_in': np.float64,
+        'y_in': np.float64,
+        'xdir_in': np.float64,
+        'ydir_in': np.float64,
+        'x_out': np.float64,
+        'y_out': np.float64,
+        'collided': bool
+    })
+    data_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
 
-        data_turn = data_turn.astype({
-            'xdir_in': np.float64,
-            'ydir_in': np.float64,
-            'xdir_out': np.float64,
-            'ydir_out': np.float64,
-            'angle': np.float64
-        })
-        data_turn.to_parquet(
-            os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'),
-            header=header,
-            index=False,
-            mode='a'
-        )
-
-        header = None
-
-    # data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
-    # data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
-
-    # # save data
-    # data_moveforward = data_moveforward.astype({
-    #     'x_in': np.float64,
-    #     'y_in': np.float64,
-    #     'xdir_in': np.float64,
-    #     'ydir_in': np.float64,
-    #     'x_out': np.float64,
-    #     'y_out': np.float64,
-    #     'collided': bool
-    # })
-    # data_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
-
-    # data_turn = data_turn.astype({
-    #     'xdir_in': np.float64,
-    #     'ydir_in': np.float64,
-    #     'xdir_out': np.float64,
-    #     'ydir_out': np.float64,
-    #     'angle': np.float64
-    # })
-    # data_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
+    data_turn = data_turn.astype({
+        'xdir_in': np.float64,
+        'ydir_in': np.float64,
+        'xdir_out': np.float64,
+        'ydir_out': np.float64,
+        'angle': np.float64
+    })
+    data_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
 
     logger.debug('...done! Saving plots...')
 
