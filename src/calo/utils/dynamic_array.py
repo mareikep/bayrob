@@ -165,7 +165,7 @@ class DynamicArray:
         change_need = add_size - self.capacity
 
         # make new larger data array
-        shape_ = List(self._data.shape)
+        shape_ = list(self._data.shape)
         if shape_[0] + self.capacity > add_size:
             # double in size
             self.capacity += shape_[0]
