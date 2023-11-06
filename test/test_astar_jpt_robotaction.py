@@ -1,23 +1,21 @@
 import os
 import unittest
 from pathlib import Path
-from typing import Tuple, Any, List
+from typing import Tuple, Any
 
 import numpy as np
 import pandas as pd
-from calo.utils.plotlib import plot_pos, plot_dir, plot_path, plot_tree_dist
 from dnutils import ifnone, first
+from jpt.base.intervals import ContinuousSet
+from matplotlib import pyplot as plt
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal
 from calo.utils import locs
+from calo.utils.plotlib import plot_pos, plot_path, gendata, plot_heatmap, plot_deltas_extract
 from calo.utils.utils import recent_example
 from jpt import JPT
-from jpt.base.intervals import ContinuousSet
-
-
-from matplotlib import pyplot as plt
 from jpt.distributions import Numeric, Gaussian
 
 
@@ -156,10 +154,14 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         #     show=True
         # )
 
-        tolerance = .01
-        # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
-        initx, inity, initdirx, initdiry = [-61, 61, 0, -1]
         # initx, inity, initdirx, initdiry = [-42, 48, 0.5, -.86]
+        # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
+        # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]
+        # initx, inity, initdirx, initdiry = [-61, 61, -1, 0]  # OK
+        # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # OK
+        initx, inity, initdirx, initdiry = [-61, 61, 0, -1]  # NICHT OK
+        # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]  # NICHT OK
+        tolerance = .01
 
         dx = Gaussian(initx, tolerance).sample(50)
         distx = Numeric()
@@ -169,11 +171,11 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         disty = Numeric()
         disty.fit(dy.reshape(-1, 1), col=0)
 
-        ddx = Gaussian(initdirx, tolerance*tolerance).sample(50)
+        ddx = Gaussian(initdirx, tolerance).sample(50)
         distdx = Numeric()
         distdx.fit(ddx.reshape(-1, 1), col=0)
 
-        ddy = Gaussian(initdiry, tolerance*tolerance).sample(50)
+        ddy = Gaussian(initdiry, tolerance).sample(50)
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
@@ -275,7 +277,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             evidence,
             tree
     ):
-        ct = tree.conditional_jpt(
+        return tree.conditional_jpt(
             evidence=tree.bind(
                 {k: v for k, v in evidence.items() if k in tree.varnames},
                 allow_singular_values=False
@@ -283,7 +285,80 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             fail_on_unsatisfiability=False
         )
 
-        return ct, ct.leaves.values()
+    def test_astar_single_action_update(self) -> None:
+        s0 = AStarRobotActionJPTTests.initstate  # = [-61, 61, 0, -1]
+        tm = AStarRobotActionJPTTests.models['000-MOVEFORWARD.tree']
+        tt = AStarRobotActionJPTTests.models['000-TURN.tree']
+
+        # plot init position distribution
+        d = pd.DataFrame(
+            data=[gendata('x_in', 'y_in', s0)],
+            columns=['x', 'y', 'z', 'lbl'])
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\\text{Init Distribution } P(x_{in},y_{in})$",
+            limx=(-65, -55),
+            limy=(55, 65),
+            show=True
+        )
+
+        # ACTION I: MOVE ==============================================================
+        # get update dist
+        evidence = {
+            var: ContinuousSet(s0[var].ppf(.05), s0[var].ppf(.95)) for var in s0.keys()
+        }
+        print('evidence', evidence)
+        tm_ = self.generate_steps(evidence, tm)
+        dist_u1 = tm_.posterior(variables=tm_.targets)
+
+        for v, d in dist_u1.items():
+            d.plot(view=True, title=v.name)
+
+        # plot position update distribution
+        d = pd.DataFrame(
+            data=[gendata('x_out', 'y_out', dist_u1)],
+            columns=['x', 'y', 'z', 'lbl'])
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\delta\\text{-Distribution } P(x_{out},y_{out})$",
+            limx=(-2, 2),
+            limy=(-2, 2),
+            show=True
+        )
+
+        # update pos
+        # create successor state
+        # s1 = State_()
+        # s1.update({k: v for k, v in s0.items()})
+        #
+        # nx = min(10, len(s1['x_in'].cdf.functions))
+        # s1['x_in'] = s1['x_in'] + dist_u1['x_out']
+        # s1['x_in'] = s1['x_in'].approximate(n_segments=nx)
+        #
+        # ny = min(10, len(s1['y_in'].cdf.functions))
+        # s1['y_in'] = s1['y_in'] + dist_u1['y_out']
+        # s1['y_in'] = s1['y_in'].approximate(n_segments=ny)
+        #
+        # # plot result
+        # d = pd.DataFrame(
+        #     data=[gendata('x_in', 'y_in', s1)],
+        #     columns=['x', 'y', 'z', 'lbl'])
+        # plot_heatmap(
+        #     xvar='x',
+        #     yvar='y',
+        #     data=d,
+        #     title="$\\text{Init} + \delta$",
+        #     limx=(-65, -55),
+        #     limy=(55, 65),
+        #     show=True
+        # )
+
+        # ACTION II: TURN ==============================================================
+        # evidence['angle'] = -9
 
     def test_astar_cram_path(self) -> None:
         cmds = [
@@ -348,7 +423,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 evidence.update(cmd["params"])
 
             # candidates are all the leaves from the conditional tree
-            t_, _ = self.generate_steps(evidence, t)
+            t_ = self.generate_steps(evidence, t)
 
             # the "best" candidate is the one with the maximum similarity to the evidence state
             # best = None
@@ -400,18 +475,18 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             'y_in',
             p,
             title="Path A to B",
-            save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'path.svg')
+            save=os.path.join(locs.logs, f'path.svg')
         )
 
         plot_pos(
             path=p,
-            save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'posxy.html'),
+            save=os.path.join(locs.logs, f'posxy.html'),
             show=True
         )
 
         # plot_dir(
         #     path=p,
-        #     save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'dirxy.html'),
+        #     save=os.path.join(locs.logs, f'dirxy.html'),
         #     show=True,
         # )
 
