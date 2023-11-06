@@ -46,6 +46,20 @@ def plot_pos(
         save: str = None,
         show: bool = True
 ) -> Figure:
+    '''
+    Plot Heatmap representing distribution of `x_in`, `y_in` variables from a `path`.
+    `path` is a list of (state, params) tuples generated in `test_astar_jpt_robotaction.test_astar_cram_path`.
+    The
+    :param path:
+    :param title:
+    :param conf:
+    :param limx:
+    :param limy:
+    :param limz:
+    :param save:
+    :param show:
+    :return:
+    '''
 
     # if no title is given, generate it according to the input
     if title is None:
@@ -64,18 +78,6 @@ def plot_pos(
             ],
             columns=['x', 'y', 'z', 'lbl']
         )
-
-    # generate datapoints
-    # data = [(gendata_out if inout else gendata)('x_in', 'y_in', s, p, conf=conf) for s, p in path]
-    # data = [
-    #     gendata(
-    #         'x_in',
-    #         'y_in',
-    #         s,
-    #         p,
-    #         conf=conf
-    #     ) for s, p in path
-    # ]
 
     return plot_heatmap(
         xvar='x',
@@ -148,10 +150,18 @@ def gendata(
         xvar,
         yvar,
         state,
-        params: Dict = None,
+        params: Dict = {},
         conf: float = None
 ):
-
+    '''
+    Generates data points
+    :param xvar:
+    :param yvar:
+    :param state:
+    :param params:
+    :param conf:
+    :return:
+    '''
     # generate datapoints
     x = state[xvar].pdf.boundaries()
     y = state[yvar].pdf.boundaries()
@@ -159,8 +169,8 @@ def gendata(
     X, Y = np.meshgrid(x, y)
     Z = np.array(
         [
-            state[xvar].pdf(x) * state[yvar].pdf(y)
-            for x, y, in zip(X.ravel(), Y.ravel())
+            state[xvar].pdf(a) * state[yvar].pdf(b)
+            for a, b, in zip(X.ravel(), Y.ravel())
         ]).reshape(X.shape)
 
     # show only values above a certain threshold, consider lower values as high-uncertainty areas
@@ -170,7 +180,7 @@ def gendata(
     # remove or replace by eliminating values > median
     Z[Z > np.median(Z)] = np.median(Z)
 
-    lbl = f'Leaf#{state.leaf if state.leaf is not None else "ROOT"} ' \
+    lbl = f'Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"} ' \
           f'Action: {params.get("action")}, Params: {"angle=" if "angle" in params else ""}{params.get("angle", None)}'
 
     return x, y, Z, lbl
@@ -183,11 +193,31 @@ def plot_heatmap(
         title: str = None,
         limx: Tuple = None,
         limy: Tuple = None,
-        limz: Tuple = None,
         save: str = None,
         show: bool = True,
+        fun: str = "heatmap"
 ) -> Figure:
-    """Plot heatmap or 3D surface plot with plotly
+    """Plot heatmap (animation) or 3D surface plot with plotly.
+
+    :param xvar: The name of the x-axis of the heatmap and of the respective column in the `data` Dataframe
+    :type xvar: str
+    :param yvar: The name of the y-axis of the heatmap and of the respective column in the `data` Dataframe
+    :type yvar: str
+    :param data: Each row (!) consists of an entire dataset, such that multiple rows result in an animation, i.e. for
+    an n x m heatmap, each `xvar` cell contains an array of shape (n,), each `yvar` cell contains an array of shape
+    (m,) and the `z` cells contain arrays shaped (m,n). May also contain an optional column called `lbl` of
+    shape (n,) or (m,n) which serves as custom information when hovering over data points.
+    :type data: pd.DataFrame
+    :param title: The title of the plot
+    :type title: str
+    :param limx: The limits of the x-axis. Determined automatically from data if not given
+    :type limx: Tuple
+    :param limy: The limits of the y-axis. Determined automatically from data if not given
+    :type limy: Tuple
+    :param save: a full path (including file name) to save the plot to.
+    :type save: str
+    :param show: whether to automatically open the plot in the default browser.
+    :type show: bool
     """
 
     # determine limits, if not given
@@ -198,19 +228,16 @@ def plot_heatmap(
     if limy is None:
         limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
-    if limz is None:
-        limz = min([df["z"].min() for _, df in data.iterrows()]), max([df["z"].max() for _, df in data.iterrows()])
+    fun = {"heatmap": go.Heatmap, "surface": go.Surface}.get(fun, go.Heatmap)
 
     # generate the frames
     frames = [
         go.Frame(
-            data=go.Heatmap(
-                x=d[xvar],  # x[0],
-                y=d[yvar].T,  # y.T[0],
-                z=d['z'],  # z,
-                zmin=limz[0],
-                zmax=limz[1],
-                customdata=np.full(d['z'].shape, d["lbl"]),
+            data=fun(
+                x=d[xvar],
+                y=d[yvar].T,
+                z=d['z'],
+                customdata=d["lbl"] if "lbl" in data.columns and d["lbl"].shape == d["z"].shape else np.full(d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
                     title=f"P({xvar},{yvar})",
@@ -362,6 +389,7 @@ def plot_heatmap(
 
 def plot_tree_dist(
     tree: JPT,
+    qvars: dict = None,
     qvarx: Any = None,
     qvary: Any = None,
     title: str = None,
@@ -390,19 +418,30 @@ def plot_tree_dist(
     y = np.linspace(limy[0], limy[1], 50)
 
     X, Y = np.meshgrid(x, y)
-    Z = np.array(
-        [
-            tree.pdf(
-                tree.bind(
-                    {
-                        qvarx: x,
-                        qvary: y
-                    }
-                )
-            ) for x, y, in zip(X.ravel(), Y.ravel())
-        ]
+    # Z = np.array(
+    #     [
+    #         tree.pdf(
+    #             tree.bind(
+    #                 {
+    #                     qvarx: x,
+    #                     qvary: y
+    #                 }
+    #             )
+    #         ) for x, y, in zip(X.ravel(), Y.ravel())
+    #     ]
+    #
+    # ).reshape(X.shape)
+    Z = []
+    for y_ in y:
+        z_ = []
+        for x_ in x:
+            d = {qvarx: x_, qvary: y_}
+            if qvars is not None:
+                d.update(qvars)
+            z_.append(tree.pdf(tree.bind(d)))
+        Z.append(z_)
 
-    ).reshape(X.shape)
+    Z = np.array(Z)
 
     lbl = f'Some random label'
 
@@ -838,6 +877,74 @@ def test_plotexampleheatmap():
         data,
         title='plotexampleheatmap'
     )
+
+
+def plot_deltas_extract(
+        dt,
+        constraints,
+        limx=None,
+        limy=None,
+        save=None,
+        show=False
+):
+    df = pd.read_csv(
+        os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
+        delimiter=',',
+        header=0
+    )
+
+    if limx is None:
+        limx = [df['x_out'].min(), df['x_out'].max()]
+
+    if limy is None:
+        limy = [df['y_out'].min(), df['y_out'].max()]
+
+    # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+    s = ' & '.join([f'({var} {op} {num})' for var, op, num in constraints])
+    if s == "":
+        df_ = df
+    else:
+        df_ = df.query(s)
+
+    print('DF Shape:', df_.shape)
+
+    if df_.shape[0] == 0:
+        print('EMPTY DATAFRAME!')
+        return
+
+    fig_s = px.scatter(
+        df_,
+        x="x_out",
+        y="y_out",
+        size=[1]*len(df_),
+        size_max=5,
+        width=1700,
+        height=1000
+    )
+
+    fig_s.update_layout(
+        xaxis=dict(
+            range=limx
+        ),
+        yaxis=dict(
+            range=limy
+        ),
+    )
+
+    if show:
+        fig_s.show(config=defaultconfig)
+
+    if save:
+        if save.endswith('html'):
+            fig_s.write_html(
+                save,
+                config=defaultconfig,
+                include_plotlyjs="cdn"
+            )
+        else:
+            fig_s.write_image(save)
+
+    return fig_s
 
 
 def test_plot_start_goal():
