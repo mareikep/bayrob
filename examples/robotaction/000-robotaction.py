@@ -14,6 +14,7 @@ from calo.models.action import Move
 from calo.models.world import GridAgent, Grid
 from calo.utils import locs
 from calo.utils.constants import FILESTRFMT, calologger
+from calo.utils.dynamic_array import DynamicArray
 from calo.utils.plotlib import defaultconfig, plotly_sq
 from calo.utils.utils import recent_example
 from jpt import infer_from_dataframe, JPT
@@ -117,7 +118,7 @@ def robot_pos_random(dt):
 def robot_pos_semi_random(dt):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
-    limit = 100
+    limit = 5
     lrturns = 20
 
     logger.debug('Generating star-shaped robot data...')
@@ -132,11 +133,8 @@ def robot_pos_semi_random(dt):
     # write sample data for MOVEFORWARD and TURN action of robot (absolute positions)
     cnt = 0
 
-    # data_moveforward = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'x_in', 'y_in', 'x_out', 'y_out', 'collided'])
-    # data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
-
-    dm_ = []
-    dt_ = []
+    dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
+    dt_ = DynamicArray(shape=(int(7e6), 5), dtype=np.float32)
     for y in range(-limit, limit, 1):
 
         for x in range(-limit, limit, 1):
@@ -169,12 +167,12 @@ def robot_pos_semi_random(dt):
 
                 # turn and save new position/direction
                 Move.turndeg(a, degi)
-                dt_.append(
+                dt_.append(np.array(
                     [
                         *initdir,
                         degi,
                         *np.array(a.dir) - np.array(initdir)  # deltas!
-                    ]
+                    ])
                 )
 
                 curdir = a.dir
@@ -184,23 +182,23 @@ def robot_pos_semi_random(dt):
                 for randdeg in np.random.uniform(low=-20, high=20, size=10):
                     # turn and save new position/direction
                     Move.turndeg(a, randdeg)
-                    dt_.append(
+                    dt_.append(np.array(
                         [
                             *curdir,
                             randdeg,
                             *np.array(a.dir) - np.array(curdir)  # deltas!
-                        ]
+                        ])
                     )
 
                     # move forward and save new position/direction
                     Move.moveforward(a, 1)
-                    dm_.append(
+                    dm_.append(np.array(
                         [
                             *initpos,
                             *a.dir,
                             *np.array(a.pos) - np.array(initpos),  # deltas!
                             a.collided
-                        ]
+                        ])
                     )
 
                     # step back/reset position and direction
@@ -216,12 +214,12 @@ def robot_pos_semi_random(dt):
                 initdir = a.dir
 
                 Move.turndeg(a, degi)
-                dt_.append(
+                dt_.append(np.array(
                     [
                         *initdir,
                         degi,
                         *np.array(a.dir) - np.array(initdir)  # deltas!
-                    ]
+                    ])
                 )
 
                 curdir = a.dir
@@ -230,90 +228,50 @@ def robot_pos_semi_random(dt):
                 # in a -20/+20 degree range
                 for randdeg in np.random.uniform(low=-20, high=20, size=10):
                     Move.turndeg(a, randdeg)
-                    dt_.append(
+                    dt_.append(np.array(
                         [
                             *curdir,
                             randdeg,
                             *np.array(a.dir) - np.array(curdir)  # deltas!
-                        ]
+                        ])
                     )
 
                     Move.moveforward(a, 1)
 
-                    dm_.append(
+                    dm_.append(np.array(
                         [
                             *initpos,
                             *a.dir,
                             *np.array(a.pos) - np.array(initpos),  # deltas!
                             a.collided
-                        ]
+                        ])
                     )
 
                     # step back/reset position and direction
                     a.dir = curdir
                     a.pos = initpos
 
-        # data_moveforward = pd.DataFrame(
-        #     data=dm_,
-        #     columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out','collided']
-        # )
-        #
-        # # save data
-        # data_moveforward = data_moveforward.astype({
-        #     'x_in': np.float64,
-        #     'y_in': np.float64,
-        #     'xdir_in': np.float64,
-        #     'ydir_in': np.float64,
-        #     'x_out': np.float64,
-        #     'y_out': np.float64,
-        #     'collided': bool
-        # })
-        # data_moveforward.to_parquet(
-        #     os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
-        #     header=header,
-        #     index=False,
-        #     mode='a'
-        # )
-        #
-        # data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
-        #
-        # data_turn = data_turn.astype({
-        #     'xdir_in': np.float64,
-        #     'ydir_in': np.float64,
-        #     'xdir_out': np.float64,
-        #     'ydir_out': np.float64,
-        #     'angle': np.float64
-        # })
-        # data_turn.to_parquet(
-        #     os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'),
-        #     header=header,
-        #     index=False,
-        #     mode='a'
-        # )
-        #
-        # header = None
-
-    data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
-    data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+    data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
+    data_turn = pd.DataFrame(data=dt_.data, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
 
     # save data
     data_moveforward = data_moveforward.astype({
-        'x_in': np.float64,
-        'y_in': np.float64,
-        'xdir_in': np.float64,
-        'ydir_in': np.float64,
-        'x_out': np.float64,
-        'y_out': np.float64,
+        'x_in': np.float32,
+        'y_in': np.float32,
+        'xdir_in': np.float32,
+        'ydir_in': np.float32,
+        'x_out': np.float32,
+        'y_out': np.float32,
         'collided': bool
     })
     data_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
 
     data_turn = data_turn.astype({
-        'xdir_in': np.float64,
-        'ydir_in': np.float64,
-        'xdir_out': np.float64,
-        'ydir_out': np.float64,
-        'angle': np.float64
+        'xdir_in': np.float32,
+        'ydir_in': np.float32,
+        'xdir_out': np.float32,
+        'ydir_out': np.float32,
+        'angle': np.float32
     })
     data_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
 
@@ -489,8 +447,6 @@ def learn_jpt_moveforward(dt):
     # learn discriminative JPT from data generated by test_data_curation for MOVEFORWARD
     data_moveforward = pd.read_parquet(
         os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
-        delimiter=',',
-        header=0
     )
 
     # data_moveforward = data_moveforward[['x_in', 'y_in']]
@@ -521,8 +477,6 @@ def learn_jpt_turn(dt):
     # learn discriminative JPT from data generated by test_data_curation for TURN
     data_turn = pd.read_parquet(
         os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'),
-        delimiter=',',
-        header=0
     )
     turnvars = infer_from_dataframe(data_turn, scale_numeric_types=False)
 
