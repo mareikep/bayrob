@@ -541,7 +541,7 @@ def test_hm():
                 pd.DataFrame([x2, y2, z], columns=['x', 'y', 'z']),
                 pd.DataFrame([x5, y5, z], columns=['x', 'y', 'z'])
             ],
-            save=os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'testhm.html')
+            save=os.path.join(locs.logs, f'testhm.html')
         )
 
 

@@ -124,12 +124,12 @@ class ThesisPlotsTests(unittest.TestCase):
 
 
         mainfig.write_image(
-            os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'similarity_discrete.svg'),
+            os.path.join(locs.logs, f'similarity_discrete.svg'),
             scale=1
         )
 
         mainfig.write_html(
-            os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'similarity_discrete.html'),
+            os.path.join(locs.logs, f'similarity_discrete.html'),
             config=ThesisPlotsTests.defaultconfig,
             include_plotlyjs="cdn"
         )
@@ -197,12 +197,12 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         mainfig.write_image(
-            os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'addition_continuous.svg'),
+            os.path.join(locs.logs, f'addition_continuous.svg'),
             scale=1
         )
 
         mainfig.write_html(
-            os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'addition_continuous.html'),
+            os.path.join(locs.logs, f'addition_continuous.html'),
             config=ThesisPlotsTests.defaultconfig,
             include_plotlyjs="cdn"
         )
@@ -329,12 +329,12 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         mainfig.write_image(
-            os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'similarity_continuous.svg'),
+            os.path.join(locs.logs, f'similarity_continuous.svg'),
             scale=1
         )
 
         mainfig.write_html(
-            os.path.join(locs.examples, 'robotaction', 'tmp_plots', f'similarity_continuous.html'),
+            os.path.join(locs.logs, f'similarity_continuous.html'),
             config=ThesisPlotsTests.defaultconfig,
             include_plotlyjs="cdn"
         )
@@ -454,7 +454,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 for v_ in v:
                     for xd in dirs:
                         i += 1
-                        plotdir = os.path.join("/home", "mareike", "Desktop", "plots", f"pos{x_:+d}{y_:+d}")
+                        locs.logs
+
+                        plotdir = os.path.join(locs.logs, f"pos{x_:+d}{y_:+d}")
                         if not os.path.exists(plotdir):
                             os.mkdir(plotdir)
 
