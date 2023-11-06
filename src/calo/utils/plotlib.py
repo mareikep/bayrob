@@ -2,6 +2,7 @@ import os
 import random
 from typing import List, Tuple, Dict, Any
 
+import dnutils
 import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
@@ -11,11 +12,15 @@ from plotly.graph_objs import Figure
 import numpy as np
 import pandas as pd
 from calo.utils import locs
+from calo.utils.constants import calologger
 from calo.utils.utils import unit
 from dnutils import first, ifnone
 
 from jpt import JPT
 from jpt.distributions import Gaussian
+
+logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+
 
 defaultconfig = dict(
     displaylogo=False,
@@ -182,7 +187,7 @@ def gendata(
     lbl = f'Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"} ' \
           f'Action: {params.get("action")}, Params: {"angle=" if "angle" in params else ""}{params.get("angle", None)}'
 
-    return x, y, Z, lbl
+    return x, y, Z, np.full(x.shape, lbl)
 
 
 def plot_heatmap(
@@ -880,6 +885,8 @@ def test_plotexampleheatmap():
 
 def plot_deltas_extract(
         df,
+        xvar,
+        yvar,
         constraints,
         limx=None,
         limy=None,
@@ -887,28 +894,33 @@ def plot_deltas_extract(
         show=False
 ):
     if limx is None:
-        limx = [df['x_out'].min(), df['x_out'].max()]
+        limx = [df[xvar].min(), df[xvar].max()]
 
     if limy is None:
-        limy = [df['y_out'].min(), df['y_out'].max()]
+        limy = [df[yvar].min(), df[yvar].max()]
+
 
     # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+    constraints = [(var, op, v) for var, val in constraints.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
+
+    logger.debug('\nConstraints on dataset: ', constraints)
+
     s = ' & '.join([f'({var} {op} {num})' for var, op, num in constraints])
     if s == "":
         df_ = df
     else:
         df_ = df.query(s)
 
-    print('DF Shape:', df_.shape)
+    logger.debug('DF Shape:', df_.shape)
 
     if df_.shape[0] == 0:
-        print('EMPTY DATAFRAME!')
+        logger.warning('EMPTY DATAFRAME!')
         return
 
     fig_s = px.scatter(
         df_,
-        x="x_out",
-        y="y_out",
+        x=xvar,
+        y=yvar,
         size=[1]*len(df_),
         size_max=5,
         width=1700,

@@ -48,6 +48,7 @@ class ThesisPlotsTests(unittest.TestCase):
        )
 
        cls.recent = recent_example(os.path.join(locs.examples, 'robotaction'))
+       cls.recent = os.path.join(locs.examples, 'robotaction', '2023-11-02_14:50')
 
        cls.models = dict(
            [
@@ -342,7 +343,100 @@ class ThesisPlotsTests(unittest.TestCase):
             config=ThesisPlotsTests.defaultconfig
         )
 
+    def test_reproduce_data_find_limits(self) -> None:
+        # -> constrain target pos, plot feature pos
+
+        # load data and JPT that has been learnt from this data
+        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        print(f"Loading tree from {ThesisPlotsTests.recent}")
+
+        # set settings
+        limx = (-100, 100)
+        limy = (-100, 100)
+
+        x_out = 0
+        y_out = 0
+
+        # leave untouched
+        tolerance = .05
+
+        xoutmin = x_out - tolerance
+        xoutmax = x_out + tolerance
+        youtmin = y_out - tolerance
+        youtmax = y_out + tolerance
+
+        pdfvars = {
+            'x_out': ContinuousSet(xoutmin, xoutmax),
+            'y_out': ContinuousSet(youtmin, youtmax),
+        }
+
+        # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+        # constraints = [(var, op, v) for var, val in pdfvars.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
+        # print('\nConstraints on dataset: ', constraints)
+
+        # generate tree conditioned on given position and/or direction
+        cond = j.conditional_jpt(
+            evidence=j.bind(
+                {k: v for k, v in pdfvars.items() if k in j.varnames},
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+
+        # data generation
+        x = np.linspace(*limx, 50)
+        y = np.linspace(*limy, 50)
+
+        X, Y = np.meshgrid(x, y)
+        Z = np.array(
+            [
+                cond.pdf(
+                    cond.bind(
+                        {
+                            'x_in': x,
+                            'y_in': y
+                        }
+                    )
+                ) for x, y, in zip(X.ravel(), Y.ravel())
+            ]
+        ).reshape(X.shape)
+        lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
+
+        data = pd.DataFrame(
+            data=[[x, y, Z, lbl]],
+            columns=['x', 'y', 'z', 'lbl']
+        )
+
+        # plot JPT
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=data,
+            title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+            limx=limx,
+            limy=limy,
+            show=True,
+        )
+
+        # plot ground truth
+        df = pd.read_csv(
+            os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'),
+            delimiter=',',
+            header=0
+        )
+        plot_deltas_extract(
+            df,
+            xvar="x_in",
+            yvar="y_in",
+            constraints=pdfvars,
+            limx=limx,
+            limy=limy,
+            show=True
+        )
+
     def test_reproduce_data_single_jpt(self) -> None:
+        # -> constrain feature pos, plot target pos
+
         # load data and JPT that has been learnt from this data
         j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
         print(f"Loading tree from {ThesisPlotsTests.recent}")
@@ -351,10 +445,12 @@ class ThesisPlotsTests(unittest.TestCase):
         limx = (-3, 3)
         limy = (-3, 3)
 
-        x_in = -61
-        y_in = 61
+        x_in = 25
+        y_in = 25
         xdir_in = 0
-        ydir_in = 1
+        ydir_in = 0
+        x_out = 0
+        y_out = 0
 
         # leave untouched
         tolerance = .05
@@ -370,16 +466,28 @@ class ThesisPlotsTests(unittest.TestCase):
         ydirmin = ydir_in - tolerance
         ydirmax = ydir_in + tolerance
 
+        xoutmin = x_out - tolerance_
+        xoutmax = x_out + tolerance_
+        youtmin = y_out - tolerance_
+        youtmax = y_out + tolerance_
+
         pdfvars = {
             # 'x_in': ContinuousSet(xmin, xmax),
             # 'y_in': ContinuousSet(ymin, ymax),
-            # 'xdir_in': ContinuousSet(xdirmin, xdirmax),
+            'xdir_in': ContinuousSet(xdirmin, xdirmax),
             # 'ydir_in': ContinuousSet(ydirmin, ydirmax),
+            # 'x_out': ContinuousSet(xoutmin, xoutmax),
+            # 'y_out': ContinuousSet(youtmin, youtmax),
         }
 
-        # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
-        constraints = [(var, op, v) for var, val in pdfvars.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
-        print('\nConstraints on dataset: ', constraints)
+        # This will create the error "RuntimeError: This should never happen. JPT.conditional_jpt() seems to be
+        # broken :(" in jpt-dev/src/jpt/trees.py:2216
+        # pdfvars = {
+            # 'x_in': x_in,
+            # 'y_in': y_in,
+            # 'xdir_in': xdir_in,
+            # 'ydir_in': ydir_in,
+        # }
 
         # generate tree conditioned on given position and/or direction
         cond = j.conditional_jpt(
@@ -433,7 +541,9 @@ class ThesisPlotsTests(unittest.TestCase):
         )
         plot_deltas_extract(
             df,
-            constraints,
+            "x_out",
+            "y_out",
+            pdfvars,
             limx=limx,
             limy=limy,
             show=True

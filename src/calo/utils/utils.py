@@ -504,7 +504,8 @@ def pnt2line(
 
 def recent_example(
         p: str = '.',
-        pattern: str = None
+        pattern: str = None,
+        pos=-1
 ) -> str:
     '''Return the name of the folder most recently created (assuming the folders are
     named in the given pattern, which is used for training robot action data)'''
@@ -517,7 +518,9 @@ def recent_example(
         if a is not None:
             files.append((a.group(), abs(cdate-datetime.strptime(a.group(), FILESTRFMT))))
 
-    return os.path.join(os.path.abspath(p), min([(fd, fn) for fn, fd in files], key=lambda x: x[0])[1])
+    fi_ = [fn_ for _, fn_ in sorted([(fd, fn) for fn, fd in files], key=lambda x: x[0], reverse=True)]
+    return os.path.join(os.path.abspath(p), fi_[pos])
+    # return os.path.join(os.path.abspath(p), min([(fd, fn) for fn, fd in files], key=lambda x: x[0])[1])
 
 
 def fmt(val, prec=2):

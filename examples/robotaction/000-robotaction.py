@@ -201,23 +201,16 @@ def learn_jpt_moveforward(fp):
         scale_numeric_types=False
     )
 
-    movevars[0].precision = .001  # x_in
-    movevars[1].precision = .001  # y_in
-    movevars[2].precision = .001  # xdir_in
-    movevars[3].precision = .001  # ydir_in
-    movevars[4].precision = .001  # x_out
-    movevars[5].precision = .001  # y_out
-
     jpt_mf = JPT(
         variables=movevars,
-        targets=movevars[4:],
+        # targets=movevars[4:],
         min_impurity_improvement=None,
         min_samples_leaf=.01
     )
 
     jpt_mf.learn(data_moveforward)
-    jpt_mf = jpt_mf.prune(similarity_threshold=.77)
-    jpt_mf.postprocess_leaves()
+    # jpt_mf = jpt_mf.prune(similarity_threshold=.77)
+    # jpt_mf.postprocess_leaves()
 
     logger.debug(f'...done! saving to file {os.path.join(fp, f"000-MOVEFORWARD.tree")}')
 
@@ -519,7 +512,9 @@ if __name__ == '__main__':
     # use most recently created dataset or create from scratch
     if args.recent:
         DT = recent_example(os.path.join(locs.examples, 'robotaction'))
+        logger.debug(f'Using recent directory {DT}')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
+        logger.debug(f'Creating new directory {DT}')
 
     main(DT, recent=args.recent, showplots=args.showplots)
