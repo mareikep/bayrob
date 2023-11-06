@@ -36,13 +36,13 @@ defaultconfig = dict(
    # ]
 )
 
+
 def plot_pos(
         path: List,
         title: str = None,
         conf: float = None,
         limx: Tuple = None,
         limy: Tuple = None,
-        limz: Tuple = None,
         save: str = None,
         show: bool = True
 ) -> Figure:
@@ -86,7 +86,6 @@ def plot_pos(
         title=title,
         limx=limx,
         limy=limy,
-        limz=limz,
         save=save,
         show=show
     )
