@@ -3,14 +3,19 @@ import unittest
 
 import unittest
 from functools import reduce
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from matplotlib import pyplot as plt
 from pandas import DataFrame
 
 from calo.utils import locs
-from jpt import SymbolicType, NumericVariable
+from calo.utils.plotlib import plot_heatmap, plot_deltas_extract
+from calo.utils.utils import recent_example
+from jpt import SymbolicType, NumericVariable, JPT
+from jpt.base.intervals import ContinuousSet
 from jpt.distributions import Gaussian, Numeric
 
 def generate_gaussian_samples(gaussians, n):
@@ -40,6 +45,20 @@ class ThesisPlotsTests(unittest.TestCase):
                 width=700,
                 scale=1  # Multiply title/legend/axis/canvas sizes by this factor
             )
+       )
+
+       recent = recent_example(os.path.join(locs.examples, 'robotaction'))
+       # recent = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
+
+       cls.models = dict(
+           [
+               (
+                   treefile.name,
+                   JPT.load(str(treefile))
+               )
+               for p in [recent]
+               for treefile in Path(p).rglob('*.tree')
+           ]
        )
 
     def test_plot_dist_similarity_discrete(self) -> None:
@@ -204,6 +223,7 @@ class ThesisPlotsTests(unittest.TestCase):
         x = np.linspace(-9, 9, 300)
         pdfg1 = gauss1.pdf(x)
         pdfg2 = gauss2.pdf(x)
+        sumg1g2 = gauss3.pdf(x)
         mixture = [gauss1.pdf(d) + gauss2.pdf(d) for d in x]  # mixture
 
         # Act
@@ -322,6 +342,211 @@ class ThesisPlotsTests(unittest.TestCase):
         mainfig.show(
             config=ThesisPlotsTests.defaultconfig
         )
+
+    def test_reproduce_data_single_jpt(self) -> None:
+        # load data and JPT that has been learnt from this data
+        DT = recent_example(os.path.join(locs.examples, 'robotaction'))
+        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+
+        # set settings
+        limx = (-3, 3)
+        limy = (-3, 3)
+
+        x_in = -61
+        y_in = 61
+        xdir_in = 0
+        ydir_in = 1
+
+        # leave untouched
+        tolerance = .05
+        tolerance_ = 1
+
+        xmin = x_in - tolerance_
+        xmax = x_in + tolerance_
+        ymin = y_in - tolerance_
+        ymax = y_in + tolerance_
+
+        xdirmin = xdir_in - tolerance
+        xdirmax = xdir_in + tolerance
+        ydirmin = ydir_in - tolerance
+        ydirmax = ydir_in + tolerance
+
+        pdfvars = {
+            'x_in': ContinuousSet(xmin, xmax),
+            'y_in': ContinuousSet(ymin, ymax),
+            # 'xdir_in': ContinuousSet(xdirmin, xdirmax),
+            # 'ydir_in': ContinuousSet(ydirmin, ydirmax),
+        }
+
+        # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+        constraints = [(var, op, v) for var, val in pdfvars.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
+        print('\nConstraints on dataset: ', constraints)
+
+        # generate tree conditioned on given position and/or direction
+        cond = j.conditional_jpt(
+            evidence=j.bind(
+                {k: v for k, v in pdfvars.items() if k in j.varnames},
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+
+        # data generation
+        x = np.linspace(*limx, 50)
+        y = np.linspace(*limy, 50)
+
+        X, Y = np.meshgrid(x, y)
+        Z = np.array(
+            [
+                cond.pdf(
+                    cond.bind(
+                        {
+                            'x_out': x,
+                            'y_out': y
+                        }
+                    )
+                ) for x, y, in zip(X.ravel(), Y.ravel())
+            ]
+        ).reshape(X.shape)
+        lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
+
+        data = pd.DataFrame(
+            data=[[x, y, Z, lbl]],
+            columns=['x', 'y', 'z', 'lbl']
+        )
+
+        # plot JPT
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=data,
+            title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+            limx=limx,
+            limy=limy,
+            show=True,
+        )
+
+        # plot ground truth
+        plot_deltas_extract(
+            DT,
+            constraints,
+            limx=limx,
+            limy=limy,
+            show=True
+        )
+
+    def test_reproduce_data_obstacle_jpt(self) -> None:
+        # load data and JPT that has been learnt from this data
+        DT = recent_example(os.path.join(locs.examples, 'robotaction'))
+        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+
+        # set settings
+        limx = (-3, 3)
+        limy = (-3, 3)
+
+        v = ['xdir_in', 'ydir_in', None]
+        dirs = [-1, .5, 0, .5, 1]
+        ps = [25, 35, 50]
+
+        for y_ in ps:
+            for x_ in ps:
+                i = 0
+                for v_ in v:
+                    for xd in dirs:
+                        i += 1
+                        plotdir = os.path.join("/home", "mareike", "Desktop", "plots", f"pos{x_:+d}{y_:+d}")
+                        if not os.path.exists(plotdir):
+                            os.mkdir(plotdir)
+
+                        x_in = x_
+                        y_in = y_
+                        xdir_in = xd
+                        ydir_in = xd
+
+                        # leave untouched
+                        tolerance = .05
+                        tolerance_ = 1
+
+                        xmin = x_in - tolerance_
+                        xmax = x_in + tolerance_
+                        ymin = y_in - tolerance_
+                        ymax = y_in + tolerance_
+
+                        xdirmin = xdir_in - tolerance
+                        xdirmax = xdir_in + tolerance
+                        ydirmin = ydir_in - tolerance
+                        ydirmax = ydir_in + tolerance
+
+                        pdfvars = {
+                            'x_in': ContinuousSet(xmin, xmax),
+                            'y_in': ContinuousSet(ymin, ymax),
+                            # 'xdir_in': ContinuousSet(xdirmin, xdirmax),
+                            # 'ydir_in': ContinuousSet(ydirmin, ydirmax),
+                        }
+
+                        if v_ is not None:
+                            vmin = xd - tolerance
+                            vmax = xd + tolerance
+                            pdfvars[v_] = ContinuousSet(vmin, vmax)
+
+                        # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+                        constraints = [(var, op, v) for var, val in pdfvars.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
+                        print('\nConstraints on dataset: ', constraints)
+
+                        # generate tree conditioned on given position and/or direction
+                        cond = j.conditional_jpt(
+                            evidence=j.bind(
+                                {k: v for k, v in pdfvars.items() if k in j.varnames},
+                                allow_singular_values=False
+                            ),
+                            fail_on_unsatisfiability=False
+                        )
+
+                        # data generation
+                        x = np.linspace(*limx, 50)
+                        y = np.linspace(*limy, 50)
+
+                        X, Y = np.meshgrid(x, y)
+                        Z = np.array(
+                            [
+                                cond.pdf(
+                                    cond.bind(
+                                        {
+                                            'x_out': x,
+                                            'y_out': y
+                                        }
+                                    )
+                                ) for x, y, in zip(X.ravel(), Y.ravel())
+                            ]
+                        ).reshape(X.shape)
+                        lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
+
+                        data = pd.DataFrame(
+                            data=[[x, y, Z, lbl]],
+                            columns=['x', 'y', 'z', 'lbl']
+                        )
+
+                        # plot JPT
+                        plot_heatmap(
+                            xvar='x',
+                            yvar='y',
+                            data=data,
+                            title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                            limx=limx,
+                            limy=limy,
+                            show=False,
+                            save=os.path.join(plotdir, f"{i}-{v_}{xd:+.0f}.svg")
+                        )
+
+                        # plot ground truth
+                        plot_deltas_extract(
+                            DT,
+                            constraints,
+                            limx=limx,
+                            limy=limy,
+                            save=os.path.join(plotdir, f"{i}-{v_}{xd:+.0f}-gt.svg"),
+                            show=False
+                        )
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)
