@@ -5,23 +5,19 @@ from random import randint
 import dnutils
 import numpy as np
 import pandas as pd
-
-from calo.utils.plotlib import defaultconfig, plotly_sq, plot_tree_dist
-from calo.utils.utils import recent_example
-from jpt.distributions import Gaussian
-from matplotlib import pyplot as plt, patches
 import plotly.express as px
-import plotly.figure_factory as ff
 import plotly.graph_objects as go
-from _plotly_utils.colors import sample_colorscale
-
+from matplotlib import pyplot as plt, patches
 
 from calo.logs.logs import init_loggers
 from calo.models.action import Move
 from calo.models.world import GridAgent, Grid
 from calo.utils import locs
 from calo.utils.constants import FILESTRFMT, calologger
+from calo.utils.plotlib import defaultconfig, plotly_sq
+from calo.utils.utils import recent_example
 from jpt import infer_from_dataframe, JPT
+from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -38,8 +34,8 @@ def robot_pos_random(dt):
     w.obstacle(-25, -50, -15, -75)
 
     # set uncertainty
-    Move.DEG_U = .01
-    Move.DIST_U = .01
+    # Move.DEG_U = .01
+    # Move.DIST_U = .01
 
     gaussian_deg = Gaussian(0, 360)
 
@@ -69,10 +65,10 @@ def robot_pos_random(dt):
         turns.append(a.dir + (0,))
 
         df_moveforward = pd.DataFrame(poses, columns=['x', 'y', 'xdir', 'ydir', 'numsteps', 'collided'])
-        df_moveforward.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{j}-MOVEFORWARD.csv'), index=False)
+        df_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{j}-MOVEFORWARD.csv'), index=False)
 
         df_turn = pd.DataFrame(turns, columns=['xdir', 'ydir', 'angle'])
-        df_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{j}-TURN.csv'), index=False)
+        df_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{j}-TURN.csv'), index=False)
 
         # plot trajectories and highlight start and end points
         ax.plot(df_moveforward['x'], df_moveforward['y'], c='cornflowerblue')
@@ -121,23 +117,16 @@ def robot_pos_random(dt):
 def robot_pos_semi_random(dt):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
+    limit = 100
+    lrturns = 20
+
     logger.debug('Generating star-shaped robot data...')
-
-    # init agent and world
-    w = Grid()
-    w.obstacle(25, 25, 50, 50)
-    w.obstacle(-10, 10, 0, 40)
-    w.obstacle(50, -30, 20, 10)
-    w.obstacle(-75, -10, -50, -40)
-    w.obstacle(-25, -50, -15, -75)
-
-    # fig, ax = plt.subplots(num=1, clear=True)
 
     # init agent at left lower corner facing right
     a = GridAgent(
         world=w
     )
-    deg_i = 360/16  # intended degree of turn
+    deg_i = 360/lrturns  # intended degree of turn
     g_deg_i = Gaussian(deg_i, 5)
 
     # write sample data for MOVEFORWARD and TURN action of robot (absolute positions)
@@ -145,16 +134,17 @@ def robot_pos_semi_random(dt):
 
     # data_moveforward = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'x_in', 'y_in', 'x_out', 'y_out', 'collided'])
     # data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
-    dm_ = []
-    dt_ = []
 
-    limit = 100
-
+    header = True
     for y in range(-limit, limit, 1):
+        dm_ = []
+        dt_ = []
+
         for x in range(-limit, limit, 1):
             if x == -limit:
                 print(f'x/y: {x}/{y}')
 
+            # sample around x/y position to add some gaussian noise
             npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
 
             # do not position agent on obstacles
@@ -162,139 +152,216 @@ def robot_pos_semi_random(dt):
                 continue
 
             a.pos = npos
+            # initially, agent always faces right
             a.dir = (1., 0.)
             initpos = a.pos
+            idir = a.dir
 
-            # for each position, turn 16 times in positive and negative direction
-            for _ in range(16):
+            # for each position, turn lrturns times in positive and negative direction;
+            # after each turn, turn again 30 times uniformly distributed in a -20/20 degree range
+            # and make one step forward, respectively, save datapoint
+            # and step back to initpos (i.e. the sampled pos around x/y)
+
+            # turn to the right
+            for _ in range(lrturns):
 
                 degi = g_deg_i.sample(1)
+                initdir = a.dir  # save dir before update
 
-                adir = a.dir  # save dir before update
+                # turn and save new position/direction
                 Move.turndeg(a, degi)
                 dt_.append(
                     [
-                        *adir,
+                        *initdir,
                         degi,
-                        *np.array(a.dir) - np.array(adir)  # deltas!
+                        *np.array(a.dir) - np.array(initdir)  # deltas!
                     ]
                 )
 
-                Move.moveforward(a, 1)
-                dm_.append(
-                    [
-                        *initpos,
-                        *a.dir,
-                        *np.array(a.pos) - np.array(initpos),  # deltas!
-                        a.collided
-                    ]
-                )
+                curdir = a.dir
 
-                # reset position
-                a.pos = initpos
-                cnt += 1
+                # make 30 additional turns uniformly distributed to the left and right
+                # in a -20/+20 degree range
+                for randdeg in np.random.uniform(low=-20, high=20, size=10):
+                    # turn and save new position/direction
+                    Move.turndeg(a, randdeg)
+                    dt_.append(
+                        [
+                            *curdir,
+                            randdeg,
+                            *np.array(a.dir) - np.array(curdir)  # deltas!
+                        ]
+                    )
 
-            for _ in range(16):
+                    # move forward and save new position/direction
+                    Move.moveforward(a, 1)
+                    dm_.append(
+                        [
+                            *initpos,
+                            *a.dir,
+                            *np.array(a.pos) - np.array(initpos),  # deltas!
+                            a.collided
+                        ]
+                    )
+
+                    # step back/reset position and direction
+                    a.dir = curdir
+                    a.pos = initpos
+
+            a.dir = idir
+
+            # turn to the left
+            for _ in range(lrturns):
 
                 degi = -g_deg_i.sample(1)
+                initdir = a.dir
 
-                adir = a.dir  # save dir before update
                 Move.turndeg(a, degi)
                 dt_.append(
                     [
-                        *adir,
+                        *initdir,
                         degi,
-                        *np.array(a.dir) - np.array(adir)  # deltas!
+                        *np.array(a.dir) - np.array(initdir)  # deltas!
                     ]
                 )
 
-                Move.moveforward(a, 1)
+                curdir = a.dir
 
-                dm_.append(
-                    [
-                        *initpos,
-                        *a.dir,
-                        *np.array(a.pos) - np.array(initpos),  # deltas!
-                        a.collided
-                    ]
-                )
+                # make 30 additional turns uniformly distributed to the left and right
+                # in a -20/+20 degree range
+                for randdeg in np.random.uniform(low=-20, high=20, size=10):
+                    Move.turndeg(a, randdeg)
+                    dt_.append(
+                        [
+                            *curdir,
+                            randdeg,
+                            *np.array(a.dir) - np.array(curdir)  # deltas!
+                        ]
+                    )
 
-                # reset position
-                a.pos = initpos
-                cnt += 1
+                    Move.moveforward(a, 1)
 
-    data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
-    data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+                    dm_.append(
+                        [
+                            *initpos,
+                            *a.dir,
+                            *np.array(a.pos) - np.array(initpos),  # deltas!
+                            a.collided
+                        ]
+                    )
 
-    # save data
-    data_moveforward = data_moveforward.astype({
-        'x_in': np.float64,
-        'y_in': np.float64,
-        'xdir_in': np.float64,
-        'ydir_in': np.float64,
-        'x_out': np.float64,
-        'y_out': np.float64,
-        'collided': bool
-    })
-    data_moveforward.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
+                    # step back/reset position and direction
+                    a.dir = curdir
+                    a.pos = initpos
 
-    data_turn = data_turn.astype({
-        'xdir_in': np.float64,
-        'ydir_in': np.float64,
-        'xdir_out': np.float64,
-        'ydir_out': np.float64,
-        'angle': np.float64
-    })
-    data_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
+        data_moveforward = pd.DataFrame(
+            data=dm_,
+            columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out','collided']
+        )
+
+        # save data
+        data_moveforward = data_moveforward.astype({
+            'x_in': np.float64,
+            'y_in': np.float64,
+            'xdir_in': np.float64,
+            'ydir_in': np.float64,
+            'x_out': np.float64,
+            'y_out': np.float64,
+            'collided': bool
+        })
+        data_moveforward.to_parquet(
+            os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
+            header=header,
+            index=False,
+            mode='a'
+        )
+
+        data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+
+        data_turn = data_turn.astype({
+            'xdir_in': np.float64,
+            'ydir_in': np.float64,
+            'xdir_out': np.float64,
+            'ydir_out': np.float64,
+            'angle': np.float64
+        })
+        data_turn.to_parquet(
+            os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'),
+            header=header,
+            index=False,
+            mode='a'
+        )
+
+        header = None
+
+    # data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
+    # data_turn = pd.DataFrame(data=dt_, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+
+    # # save data
+    # data_moveforward = data_moveforward.astype({
+    #     'x_in': np.float64,
+    #     'y_in': np.float64,
+    #     'xdir_in': np.float64,
+    #     'ydir_in': np.float64,
+    #     'x_out': np.float64,
+    #     'y_out': np.float64,
+    #     'collided': bool
+    # })
+    # data_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
+
+    # data_turn = data_turn.astype({
+    #     'xdir_in': np.float64,
+    #     'ydir_in': np.float64,
+    #     'xdir_out': np.float64,
+    #     'ydir_out': np.float64,
+    #     'angle': np.float64
+    # })
+    # data_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
 
     logger.debug('...done! Saving plots...')
 
-    # plot trajectories and highlight start and end points
-    colors_discr = sample_colorscale(
-        px.colors.sequential.dense,
-        max(2, data_moveforward.shape[0]),
-        low=.1,  # the first few values are very light and not easy to see on a plot, so we start higher up
-        high=1.,
-        colortype="rgb"
-    )
-    colors_discr = colors_discr[:min(len(data_moveforward), len(colors_discr))]
+    return data_moveforward, data_turn
 
-    mainfig = go.Figure()
+
+def plot_data(dt) -> go.Figure:
+
+    df = pd.read_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'))
+
     fig_s = px.scatter(
-        data_moveforward,
+        df,
         x="x_in",
         y="y_in",
-        color_discrete_sequence=colors_discr,
-        opacity=0.005,
-        size=[1]*len(data_moveforward),
+        color_continuous_scale=px.colors.sequential.dense,
+        color=[1]*df.shape[0],#range(df.shape[0]),
+        size=[1]*df.shape[0],
+        size_max=5,
         width=1700,
         height=1000
     )
 
-    mainfig.add_traces(
-        data=fig_s.data
-    )
+    fig_s.update_layout(coloraxis_showscale=False)
 
-    mainfig.update_coloraxes(showscale=False)
-
-    mainfig.write_html(
+    fig_s.write_html(
         os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE.html'),
         config=defaultconfig,
         include_plotlyjs="cdn"
     )
-    mainfig.write_image(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE.svg'))
 
     # plot annotated rectangles representing the obstacles
     for i, o in enumerate(w.obstacles):
-        mainfig.add_trace(
+        fig_s.add_trace(
             plotly_sq(o, lbl=f'O{i+1}', color="60,60,60", legend=False))
 
-    mainfig.write_html(
+    fig_s.write_html(
         os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE_annotated.html'),
         config=defaultconfig,
         include_plotlyjs="cdn"
     )
-    mainfig.write_image(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE_annotated.svg'))
+
+    fig_s.write_image(os.path.join(locs.examples, 'robotaction', dt, 'plots', f'000-TRAJECTORIES-MOVE_annotated.png'))
+
+    fig_s.show(config=defaultconfig)
+    return fig_s
 
 
 def data_curation(dt, usedeltas=False):
@@ -311,7 +378,7 @@ def data_curation(dt, usedeltas=False):
     for i in range(RUNS):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-MOVEFORWARD.csv'), 'r') as f:
             logger.debug(f"Reading {os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-MOVEFORWARD.csv')}...")
-            d = pd.read_csv(f, delimiter=',', header=0)
+            d = pd.read_parquet(f, delimiter=',', header=0)
             for idx, row in d.iterrows():
                 if idx == d.index.max(): break
 
@@ -335,14 +402,14 @@ def data_curation(dt, usedeltas=False):
                         d.iloc[idx + 1]['y']-row['y'] if usedeltas else d.iloc[idx + 1]['y']
                     ]
 
-    data_moveforward.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
+    data_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
 
     logger.debug('...done! curating robot TURN data...')
     data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     for i in range(RUNS):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-TURN.csv'), 'r') as f:
             logger.debug(f"Reading {os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-TURN.csv')}...")
-            d = pd.read_csv(f, delimiter=',', header=0)
+            d = pd.read_parquet(f, delimiter=',', header=0)
             for idx, row in d.iterrows():
                 if idx == d.index.max(): continue
                 # store data of two consecuting steps
@@ -354,7 +421,7 @@ def data_curation(dt, usedeltas=False):
                     d.iloc[idx + 1]['ydir']-row['ydir'] if usedeltas else d.iloc[idx + 1]['ydir']
                 ]
 
-    data_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
+    data_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
     logger.debug('...done!')
 
 
@@ -371,7 +438,7 @@ def data_curation_semi(dt):
 
     for i in range(1):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-MOVEFORWARD.csv'), 'r') as f:
-            d = pd.read_csv(f, delimiter=',', header=0)
+            d = pd.read_parquet(f, delimiter=',', header=0)
             for idx, row in d.iterrows():
                 if idx == d.index.max(): break
 
@@ -395,13 +462,13 @@ def data_curation_semi(dt):
                         row['y']
                     ]
 
-    data_moveforward.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
+    data_moveforward.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'), index=False)
 
     logger.debug('...done! curating semi robot TURN data...')
     data_turn = pd.DataFrame(columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     for i in range(RUNS):
         with open(os.path.join(locs.examples, 'robotaction', dt, 'data', f'{i}-TURN.csv'), 'r') as f:
-            d = pd.read_csv(f, delimiter=',', header=0)
+            d = pd.read_parquet(f, delimiter=',', header=0)
             for idx, row in d.iterrows():
                 if idx == d.index.max(): continue
                 # store data of two consecuting steps
@@ -413,7 +480,7 @@ def data_curation_semi(dt):
                     d.iloc[idx + 1]['ydir']
                 ]
 
-    data_turn.to_csv(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
+    data_turn.to_parquet(os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'), index=False)
     logger.debug('...done!')
 
 
@@ -421,7 +488,7 @@ def learn_jpt_moveforward(dt):
     logger.debug('learning MOVEFORWARD JPT...')
 
     # learn discriminative JPT from data generated by test_data_curation for MOVEFORWARD
-    data_moveforward = pd.read_csv(
+    data_moveforward = pd.read_parquet(
         os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
         delimiter=',',
         header=0
@@ -429,32 +496,18 @@ def learn_jpt_moveforward(dt):
 
     # data_moveforward = data_moveforward[['x_in', 'y_in']]
     # data_moveforward = data_moveforward[['x_in', 'y_in', 'x_out', 'y_out']]
-    # data_moveforward = data_moveforward[['x_in', 'y_in', 'x_out', 'y_out', 'collided']]
-    # data_moveforward = data_moveforward[['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out']]
-    # data_moveforward = data_moveforward[['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out']]
-    # data_moveforward = data_moveforward[['x_in', 'y_in', 'xdir_in', 'x_out']]
     movevars = infer_from_dataframe(data_moveforward, scale_numeric_types=False)
 
     jpt_mf = JPT(
         variables=movevars,
-        # targets=movevars[4:],
+        targets=movevars[4:],
         min_impurity_improvement=None,  # IMP_IMP,
         min_samples_leaf=.01
     )
 
     jpt_mf.learn(data_moveforward)
+    jpt_mf = jpt_mf.prune(similarity_threshold=.77)
     jpt_mf.postprocess_leaves()
-
-    plot_tree_dist(
-        tree=jpt_mf,
-        qvarx=jpt_mf.varnames['x_in'],
-        qvary=jpt_mf.varnames['y_in'],
-        title='Initial distribution P(x,y)',
-        limx=(-100, 100),
-        limy=(-100, 100),
-        save=os.path.join(os.path.join(dt, 'plots', '000-init-dist.html')),
-        show=True
-    )
 
     logger.debug(f'...done! saving to file {os.path.join(locs.examples, "robotaction", dt, f"000-MOVEFORWARD.tree")}')
 
@@ -463,12 +516,11 @@ def learn_jpt_moveforward(dt):
     logger.debug('...done.')
 
 
-
 def learn_jpt_turn(dt):
     logger.debug('learning TURN JPT...')
 
     # learn discriminative JPT from data generated by test_data_curation for TURN
-    data_turn = pd.read_csv(
+    data_turn = pd.read_parquet(
         os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-TURN.csv'),
         delimiter=',',
         header=0
@@ -524,7 +576,7 @@ def plot_jpt_turn(dt):
     logger.debug('plotting TURN tree...')
     jpt_t.plot(
         title='TURN',
-        plotvars=list(jpt_t.variables),
+        # plotvars=list(jpt_t.variables),
         filename=f'000-TURN',
         directory=os.path.join(locs.examples, 'robotaction', dt, 'plots'),
         leaffill='#CCDAFF',
@@ -532,6 +584,7 @@ def plot_jpt_turn(dt):
         alphabet=True,
         view=SHOWPLOTS
     )
+
 
 # params
 RUNS = 1000
@@ -541,9 +594,16 @@ SMPL_LEAF = 1
 COLLIDED = True  # use collided (symbolic) variable
 SEMI = True  # semi = True: randomly select position and move around in circles, semi = False: generate paths
 USEDELTAS = True
-USE_RECENT = True
+USE_RECENT = False
 SHOWPLOTS = False
 
+# init agent and world
+w = Grid()
+w.obstacle(25, 25, 50, 50)
+w.obstacle(-10, 10, 0, 40)
+w.obstacle(50, -30, 20, 10)
+w.obstacle(-75, -10, -50, -40)
+w.obstacle(-25, -50, -15, -75)
 
 if __name__ == '__main__':
     init_loggers(level='debug')
@@ -551,7 +611,6 @@ if __name__ == '__main__':
     # use most recently created dataset or create from scratch
     if USE_RECENT:
         DT = recent_example(os.path.join(locs.examples, 'robotaction'))
-        # DT = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
 
@@ -569,9 +628,12 @@ if __name__ == '__main__':
         else:
             robot_pos_random(DT)
             data_curation(DT, usedeltas=USEDELTAS)
-
+    #
     learn_jpt_moveforward(DT)
-    # learn_jpt_turn(DT)
+    learn_jpt_turn(DT)
 
-    # plot_jpt_moveforward(DT)
-    # plot_jpt_turn(DT)
+    plot_jpt_moveforward(DT)
+    plot_jpt_turn(DT)
+    #
+    # plot_data(DT)
+
