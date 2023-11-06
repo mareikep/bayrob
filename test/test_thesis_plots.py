@@ -47,8 +47,7 @@ class ThesisPlotsTests(unittest.TestCase):
             )
        )
 
-       recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-       # recent = os.path.join(locs.examples, 'robotaction', '2023-08-02_14:23')
+       cls.recent = recent_example(os.path.join(locs.examples, 'robotaction'))
 
        cls.models = dict(
            [
@@ -56,7 +55,7 @@ class ThesisPlotsTests(unittest.TestCase):
                    treefile.name,
                    JPT.load(str(treefile))
                )
-               for p in [recent]
+               for p in [cls.recent]
                for treefile in Path(p).rglob('*.tree')
            ]
        )
@@ -345,8 +344,8 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_reproduce_data_single_jpt(self) -> None:
         # load data and JPT that has been learnt from this data
-        DT = recent_example(os.path.join(locs.examples, 'robotaction'))
         j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        print(f"Loading tree from {ThesisPlotsTests.recent}")
 
         # set settings
         limx = (-3, 3)
@@ -372,8 +371,8 @@ class ThesisPlotsTests(unittest.TestCase):
         ydirmax = ydir_in + tolerance
 
         pdfvars = {
-            'x_in': ContinuousSet(xmin, xmax),
-            'y_in': ContinuousSet(ymin, ymax),
+            # 'x_in': ContinuousSet(xmin, xmax),
+            # 'y_in': ContinuousSet(ymin, ymax),
             # 'xdir_in': ContinuousSet(xdirmin, xdirmax),
             # 'ydir_in': ContinuousSet(ydirmin, ydirmax),
         }
@@ -427,8 +426,13 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         # plot ground truth
+        df = pd.read_csv(
+            os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'),
+            delimiter=',',
+            header=0
+        )
         plot_deltas_extract(
-            DT,
+            df,
             constraints,
             limx=limx,
             limy=limy,
@@ -437,7 +441,6 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_reproduce_data_obstacle_jpt(self) -> None:
         # load data and JPT that has been learnt from this data
-        DT = recent_example(os.path.join(locs.examples, 'robotaction'))
         j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
 
         # set settings
@@ -541,8 +544,13 @@ class ThesisPlotsTests(unittest.TestCase):
                         )
 
                         # plot ground truth
+                        df = pd.read_csv(
+                            os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'),
+                            delimiter=',',
+                            header=0
+                        )
                         plot_deltas_extract(
-                            DT,
+                            df,
                             constraints,
                             limx=limx,
                             limy=limy,

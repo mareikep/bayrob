@@ -879,19 +879,13 @@ def test_plotexampleheatmap():
 
 
 def plot_deltas_extract(
-        dt,
+        df,
         constraints,
         limx=None,
         limy=None,
         save=None,
         show=False
 ):
-    df = pd.read_csv(
-        os.path.join(locs.examples, 'robotaction', dt, 'data', f'000-ALL-MOVEFORWARD.csv'),
-        delimiter=',',
-        header=0
-    )
-
     if limx is None:
         limx = [df['x_out'].min(), df['x_out'].max()]
 
