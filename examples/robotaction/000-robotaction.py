@@ -205,10 +205,10 @@ def learn_jpt_moveforward(fp):
         variables=movevars,
         # targets=movevars[4:],
         min_impurity_improvement=None,
-        min_samples_leaf=.01
+        min_samples_leaf=2000#.005
     )
 
-    jpt_mf.learn(data_moveforward)
+    jpt_mf.learn(data_moveforward, close_convex_gaps=False)
     # jpt_mf = jpt_mf.prune(similarity_threshold=.77)
     # jpt_mf.postprocess_leaves()
 
@@ -312,6 +312,8 @@ def plot_data(fp) -> go.Figure:
         include_plotlyjs="cdn"
     )
 
+    fig_s.to_json(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE.json'))
+
     # plot annotated rectangles representing the obstacles
     for i, o in enumerate(w.obstacles):
         fig_s.add_trace(
@@ -336,9 +338,9 @@ def robot_pos_random(fp, runs, nactions):
     w = Grid()
     w.obstacle(25, 25, 50, 50)
     w.obstacle(-10, 10, 0, 40)
-    w.obstacle(50, -30, 20, 10)
-    w.obstacle(-75, -10, -50, -40)
-    w.obstacle(-25, -50, -15, -75)
+    w.obstacle(20, -30, 50, 10)
+    w.obstacle(-75, -40, -50, -10)
+    w.obstacle(-25, -75, -15, -50)
 
     # set uncertainty
     # Move.DEG_U = .01
