@@ -552,6 +552,7 @@ class ThesisPlotsTests(unittest.TestCase):
             title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
             limx=limx,
             limy=limy,
+            # limz=[0, 0.0002],
             show=True,
         )
 

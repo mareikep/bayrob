@@ -184,6 +184,7 @@ def plot_heatmap(
         title: str = None,
         limx: Tuple = None,
         limy: Tuple = None,
+        limz: Tuple = None,
         save: str = None,
         show: bool = True,
         fun: str = "heatmap"
@@ -227,7 +228,7 @@ def plot_heatmap(
             data=fun(
                 x=d[xvar],
                 y=d[yvar].T,
-                z=np.clip(d['z'],0,0.0002),
+                z=d['z'] if limz is None else np.clip(d['z'], *limz),
                 customdata=d["lbl"] if "lbl" in data.columns and d["lbl"].shape == d["z"].shape else np.full(d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
