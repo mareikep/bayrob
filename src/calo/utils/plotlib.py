@@ -245,10 +245,10 @@ def plot_heatmap(
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
                     title=f"P({xvar},{yvar})",
-                    orientation='h',
+                    orientation='v',
                     titleside="top",
-                    x=.5,
-                    y=-.3
+                    # x=.5,
+                    # y=-.3
                 ),
                 hovertemplate='x: %{x}<br>'
                               'y: %{y}<br>'
@@ -264,102 +264,122 @@ def plot_heatmap(
         frames=frames,
     )
 
-    def frame_args(duration):
-        return dict(
-            frame=dict(
-                duration=duration,
-                redraw=True
-            ),
-            mode="immediate",
-            fromcurrent=True,
-            transition=dict(
-                duration=0,
-                redraw=True
-            )
-        )
+    if len(frames) > 1:
+        # if there are multiple datasets in the Dataframe, create buttons for an animation, otherwise,
+        # generate single plot
 
-    steps = []
-    for i, f in enumerate(fig.frames):
-        step = dict(
-            args=[
-                [f.name],
-                frame_args(0)
-            ],
-            label=f.name,
-            method="animate"
-        )
-        steps.append(step)
-
-    sliders = [
-        dict(
-            currentvalue=dict(
-                prefix="Step: "
-            ),
-            steps=steps
-        )
-    ]
-
-    fig.update_layout(
-        updatemenus=[
-            dict(
-                type="buttons",
-                x=-.05,
-                y=-.225,
-                direction="right",
-                yanchor="top",
-                buttons=list(
-                    [
-                        dict(
-                            args=[
-                                None,
-                                frame_args(100)
-                            ],
-                            label=f'{"&#9654;":{" "}{"^"}{20}}',
-                            method="animate"
-                        ),
-                        dict(
-                            args=[
-                                [
-                                    None
-                                ],
-                                dict(
-                                    frame=dict(
-                                        duration=0,
-                                        redraw=False
-                                    ),
-                                    mode="immediate",
-                                    transition=dict(
-                                        duration=0
-                                    )
-                                )
-                            ],
-                            label=f'{"&#9208;":{" "}{"^"}{20}}',
-                            method="animate"
-                        ),
-                    ]
+        def frame_args(duration):
+            return dict(
+                frame=dict(
+                    duration=duration,
+                    redraw=True
+                ),
+                mode="immediate",
+                fromcurrent=True,
+                transition=dict(
+                    duration=0,
+                    redraw=True
                 )
-            ),
-            dict(
-                type="buttons",
-                x=-.05,
-                y=-.3,
-                direction="right",
-                yanchor="top",
-                buttons=list([
-                    dict(
-                        args=["type", "surface"],
-                        label=f'{"3D Surface":{" "}{"^"}{15}}',
-                        method="restyle"
-                    ),
-                    dict(
-                        args=["type", "heatmap"],
-                        label=f'{"Heatmap":{" "}{"^"}{15}}',
-                        method="restyle"
-                    )
-                ])
             )
-        ],
-        sliders=sliders,
+
+        steps = []
+        for i, f in enumerate(fig.frames):
+            step = dict(
+                args=[
+                    [f.name],
+                    frame_args(0)
+                ],
+                label=f.name,
+                method="animate"
+            )
+            steps.append(step)
+
+        sliders = [
+            dict(
+                currentvalue=dict(
+                    prefix="Step: "
+                ),
+                steps=steps
+            )
+        ]
+
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    x=-.05,
+                    y=-.225,
+                    direction="right",
+                    yanchor="top",
+                    buttons=list(
+                        [
+                            dict(
+                                args=[
+                                    None,
+                                    frame_args(100)
+                                ],
+                                label=f'{"&#9654;":{" "}{"^"}{20}}',
+                                method="animate"
+                            ),
+                            dict(
+                                args=[
+                                    [
+                                        None
+                                    ],
+                                    dict(
+                                        frame=dict(
+                                            duration=0,
+                                            redraw=False
+                                        ),
+                                        mode="immediate",
+                                        transition=dict(
+                                            duration=0
+                                        )
+                                    )
+                                ],
+                                label=f'{"&#9208;":{" "}{"^"}{20}}',
+                                method="animate"
+                            ),
+                        ]
+                    )
+                ),
+                dict(
+                    type="buttons",
+                    x=-.05,
+                    y=-.3,
+                    direction="right",
+                    yanchor="top",
+                    buttons=list([
+                        dict(
+                            args=["type", "surface"],
+                            label=f'{"3D Surface":{" "}{"^"}{15}}',
+                            method="restyle"
+                        ),
+                        dict(
+                            args=["type", "heatmap"],
+                            label=f'{"Heatmap":{" "}{"^"}{15}}',
+                            method="restyle"
+                        )
+                    ])
+                )
+            ],
+            sliders=sliders
+            # height=1000,
+            # width=1000,
+            # xaxis=dict(
+            #     title=xvar,
+            #     tickangle=-45,
+            #     side='top',
+            #     range=[*limx]
+            # ),
+            # yaxis=dict(
+            #     title=yvar,
+            #     range=[*limy]
+            # ),
+            # title=title
+        )
+    # else:
+    fig.update_layout(
         height=1000,
         width=1000,
         xaxis=dict(
