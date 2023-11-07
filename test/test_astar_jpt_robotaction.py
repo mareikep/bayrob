@@ -13,7 +13,7 @@ from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal
 from calo.utils import locs
-from calo.utils.plotlib import plot_pos, plot_path, gendata, plot_heatmap, plot_deltas_extract
+from calo.utils.plotlib import plot_pos, plot_path, gendata, plot_heatmap, plot_data_subset
 from calo.utils.utils import recent_example
 from jpt import JPT
 from jpt.distributions import Numeric, Gaussian
