@@ -17,6 +17,7 @@ from calo.utils.utils import unit
 from dnutils import first, ifnone
 
 from jpt import JPT
+from jpt.base.intervals import ContinuousSet
 from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
@@ -27,10 +28,11 @@ defaultconfig = dict(
     toImageButtonOptions=dict(
         format='svg',  # one of png, svg, jpeg, webp
         filename='calo_plot',
-        height=500,
-        width=700,
         scale=1  # Multiply title/legend/axis/canvas sizes by this factor
     ),
+    # autosizable=True,
+    # responsive=True,
+    # fillFrame=True,
    #  modeBarButtonsToAdd=[  # allow drawing tools to highlight important regions before downloading snapshot
    #      'drawline',
    #      'drawopenpath',
@@ -102,7 +104,6 @@ def plot_dir(
         conf: float = None,
         limx: Tuple = None,
         limy: Tuple = None,
-        limz: Tuple = None,
         save: str = None,
         show: bool = True
 ) -> Figure:
@@ -111,8 +112,7 @@ def plot_dir(
         title = f'Direction xdir/ydir'
 
     # generate datapoints
-    data = [
-        pd.DataFrame(
+    data = pd.DataFrame(
             data=[
                 gendata(
                     'xdir_in',
@@ -120,22 +120,10 @@ def plot_dir(
                     s,
                     p,
                     conf=conf
-                )
+                ) for i, (s, p) in enumerate(path)
             ],
             columns=['xdir_in', 'ydir_in', 'z', 'lbl']
-        ) for s, p in path
-    ]
-
-    # # generate datapoints
-    # data = [
-    #     gendata(
-    #         'xdir_in',
-    #         'ydir_in',
-    #         s,
-    #         p,
-    #         conf=conf
-    #     ) for s, p in path
-    # ]
+        )
 
     return plot_heatmap(
         xvar='xdir',
@@ -144,7 +132,6 @@ def plot_dir(
         title=title,
         limx=limx,
         limy=limy,
-        limz=limz,
         save=save,
         show=show
     )
@@ -240,7 +227,7 @@ def plot_heatmap(
             data=fun(
                 x=d[xvar],
                 y=d[yvar].T,
-                z=d['z'],
+                z=np.clip(d['z'],0,0.0002),
                 customdata=d["lbl"] if "lbl" in data.columns and d["lbl"].shape == d["z"].shape else np.full(d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
@@ -364,19 +351,6 @@ def plot_heatmap(
                 )
             ],
             sliders=sliders
-            # height=1000,
-            # width=1000,
-            # xaxis=dict(
-            #     title=xvar,
-            #     tickangle=-45,
-            #     side='top',
-            #     range=[*limx]
-            # ),
-            # yaxis=dict(
-            #     title=yvar,
-            #     range=[*limy]
-            # ),
-            # title=title
         )
     # else:
     fig.update_layout(
@@ -486,88 +460,6 @@ def plot_tree_dist(
         save=save,
         show=show
     )
-
-    # dfX = pd.DataFrame(data=X)
-    # dfX.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfX.csv", index=False)
-    #
-    # dfY = pd.DataFrame(data=Y)
-    # dfY.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfY.csv", index=False)
-    #
-    # dfZ = pd.DataFrame(data=Z)
-    # dfZ.to_csv("/home/mareike/work/projects/calo-dev/examples/robotaction/dfZ.csv", index=False)
-    #
-    # fig = go.Figure(data=[go.Surface(x=X, y=Y, z=Z)])
-    # fig.update_traces(contours_z=dict(show=True, usecolormap=True,
-    #                                   highlightcolor="limegreen", project_z=True))
-    #
-    # fig.update_layout(title=title, autosize=True,
-    #                   width=500, height=500,
-    #                   margin=dict(l=65, r=50, b=65, t=90))
-    #
-    # if save is not None:
-    #     fig.write_image(
-    #         save,
-    #         scale=1
-    #     )
-    #
-    # if show:
-    #     fig.show(config=defaultconfig)
-    #
-    # return fig
-
-
-def gaussian(
-        mean1,
-        cov1,
-        mean2,
-        cov2,
-        i=1
-):
-    gauss1 = Gaussian(mean1, cov1)
-    gauss2 = Gaussian(mean2, cov2)
-
-    gaussians = [gauss1, gauss2]
-
-    x = np.linspace(-2, 2, 30)
-    y = np.linspace(-2, 2, 30)
-    X, Y = np.meshgrid(x, y)
-
-    xy = np.column_stack([X.flat, Y.flat])
-    Z = np.zeros(shape=xy.shape[0])
-    for gaussian in gaussians:
-        Z += 1 / len(gaussians) * gaussian.pdf(xy)
-    Z = Z.reshape(X.shape)
-
-    return x, y, Z, f"test {i}"
-
-
-def test_hm():
-    """plot difference between M(N) and M+1(N+1),
-    cmp. https://plotly.com/javascript/reference/heatmap/
-    """
-
-    x = np.array([[1, 2, 3, 4, 5]])
-    y = np.array([[-1, -2, -3]]).T
-    x2 = np.array([[0, 1, 2, 3, 4, 5]])
-    y2 = np.array([[0, -1, -2, -3]]).T
-    x5 = np.array([[1, 2, 3, 4, 5, 6]])
-    y5 = np.array([[-1, -2, -3, -4]]).T
-    z = np.array([
-        [0, 0.25, 0.25, 0.25, 0],
-        [0, 0.25, 0.5, 0.25, 0],
-        [0, 0.5, 1, 0.5, 0]
-    ])
-
-    plot_heatmap(
-            'x',
-            'y',
-            [
-                pd.DataFrame([x, y, z], columns=['x', 'y', 'z']),
-                pd.DataFrame([x2, y2, z], columns=['x', 'y', 'z']),
-                pd.DataFrame([x5, y5, z], columns=['x', 'y', 'z'])
-            ],
-            save=os.path.join(locs.logs, f'testhm.html')
-        )
 
 
 def plot_path(
@@ -739,7 +631,7 @@ def plot_scatter_quiver(
         color="step",
         labels=[f'Step {i}' for i in data['step']],
         size='size' if 'size' in data.columns else [1]*len(data),
-        width=1700,
+        width=1000,
         height=1000
     )
 
@@ -809,13 +701,145 @@ def plot_scatter_quiver(
     return mainfig
 
 
+def plot_data_subset(
+        df,
+        xvar,
+        yvar,
+        constraints,
+        limx=None,
+        limy=None,
+        save=None,
+        show=False
+):
+    if limx is None:
+        limx = [df[xvar].min(), df[xvar].max()]
+
+    if limy is None:
+        limy = [df[yvar].min(), df[yvar].max()]
+
+    # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+    constraints = [(var, op, v) for var, val in constraints.items() for v, op in ([(val.lower, ">="), (val.upper, "<=")] if isinstance(val, ContinuousSet) else [(val, "==")])]
+
+    s = ' & '.join([f'({var} {op} {num})' for var, op, num in constraints])
+    logger.debug('\nExtracting dataset using query: ', s)
+
+    if s == "":
+        df_ = df
+    else:
+        df_ = df.query(s)
+
+    logger.debug('Returned subset of shape:', df_.shape)
+
+    if df_.shape[0] == 0:
+        logger.warning('EMPTY DATAFRAME!')
+        return
+
+    fig_s = px.scatter(
+        df_,
+        x=xvar,
+        y=yvar,
+        size=[1]*len(df_),
+        size_max=5,
+        width=1000,
+        height=1000
+    )
+
+    fig_s.update_layout(
+        xaxis=dict(
+            range=limx
+        ),
+        yaxis=dict(
+            range=limy
+        ),
+    )
+
+    if show:
+        fig_s.show(config=defaultconfig)
+
+    if save:
+        if save.endswith('html'):
+            fig_s.write_html(
+                save,
+                config=defaultconfig,
+                include_plotlyjs="cdn"
+            )
+        else:
+            fig_s.write_image(save)
+
+    return fig_s
+
+
+# ==================================== TESTS ===========================================================================
+
+def test_plot_start_goal():
+    start = [10, 10, 1, 0]
+    goal = [3, 3, 6, 7]
+
+    f = plot_pt_sq(start, goal)
+    f.show(config=defaultconfig)
+
+
+def gaussian(
+        mean1,
+        cov1,
+        mean2,
+        cov2,
+        i=1
+):
+    gauss1 = Gaussian(mean1, cov1)
+    gauss2 = Gaussian(mean2, cov2)
+
+    gaussians = [gauss1, gauss2]
+
+    x = np.linspace(-2, 2, 30)
+    y = np.linspace(-2, 2, 30)
+    X, Y = np.meshgrid(x, y)
+
+    xy = np.column_stack([X.flat, Y.flat])
+    Z = np.zeros(shape=xy.shape[0])
+    for gaussian in gaussians:
+        Z += 1 / len(gaussians) * gaussian.pdf(xy)
+    Z = Z.reshape(X.shape)
+
+    return x, y, Z, f"test {i}"
+
+
+def test_hm():
+    """plot difference between M(N) and M+1(N+1),
+    cmp. https://plotly.com/javascript/reference/heatmap/
+    """
+
+    x = np.array([[1, 2, 3, 4, 5]])
+    y = np.array([[-1, -2, -3]]).T
+    x2 = np.array([[0, 1, 2, 3, 4, 5]])
+    y2 = np.array([[0, -1, -2, -3]]).T
+    x5 = np.array([[1, 2, 3, 4, 5, 6]])
+    y5 = np.array([[-1, -2, -3, -4]]).T
+    z = np.array([
+        [0, 0.25, 0.25, 0.25, 0],
+        [0, 0.25, 0.5, 0.25, 0],
+        [0, 0.5, 1, 0.5, 0]
+    ])
+
+    plot_heatmap(
+        'x',
+        'y',
+        [
+            pd.DataFrame([x, y, z], columns=['x', 'y', 'z']),
+            pd.DataFrame([x2, y2, z], columns=['x', 'y', 'z']),
+            pd.DataFrame([x5, y5, z], columns=['x', 'y', 'z'])
+        ],
+        save=os.path.join(locs.logs, f'testhm.html')
+    )
+
+
 def test_plotexamplepath():
     d = []
     for i in range(30):
         d.append(
             [
                 i,
-                random.randint(i-3, i+3),
+                random.randint(i - 3, i + 3),
                 1,
                 random.randint(-1, 1),
                 f'Step {i}',
@@ -825,9 +849,9 @@ def test_plotexamplepath():
         )
 
         data = pd.DataFrame(
-        data=d,
-        columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
-    )
+            data=d,
+            columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
+        )
 
     # draw path
     fig = plot_scatter_quiver(
@@ -864,25 +888,25 @@ def test_plotexampleheatmap():
             [-.5, 1],
             [[.2, .07], [.07, .05]],
             1
-        ],[
+        ], [
             [-.25, -.5],
             [[.2, -.07], [-.07, .1]],
             [0., 1],
             [[.2, .07], [.07, .05]],
             2
-        ],[
+        ], [
             [-.25, -1],
             [[.2, -.07], [-.07, .1]],
             [.5, 1],
             [[.2, .07], [.07, .05]],
             3
-        ],[
+        ], [
             [-.25, -1.5],
             [[.2, -.07], [-.07, .1]],
             [1, 1],
             [[.2, .07], [.07, .05]],
             4
-        ],[
+        ], [
             [-.25, -2],
             [[.2, -.07], [-.07, .1]],
             [1.5, 1],
@@ -901,83 +925,6 @@ def test_plotexampleheatmap():
         data,
         title='plotexampleheatmap'
     )
-
-
-def plot_deltas_extract(
-        df,
-        xvar,
-        yvar,
-        constraints,
-        limx=None,
-        limy=None,
-        save=None,
-        show=False
-):
-    if limx is None:
-        limx = [df[xvar].min(), df[xvar].max()]
-
-    if limy is None:
-        limy = [df[yvar].min(), df[yvar].max()]
-
-
-    # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
-    constraints = [(var, op, v) for var, val in constraints.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
-
-    logger.debug('\nConstraints on dataset: ', constraints)
-
-    s = ' & '.join([f'({var} {op} {num})' for var, op, num in constraints])
-    if s == "":
-        df_ = df
-    else:
-        df_ = df.query(s)
-
-    logger.debug('DF Shape:', df_.shape)
-
-    if df_.shape[0] == 0:
-        logger.warning('EMPTY DATAFRAME!')
-        return
-
-    fig_s = px.scatter(
-        df_,
-        x=xvar,
-        y=yvar,
-        size=[1]*len(df_),
-        size_max=5,
-        width=1700,
-        height=1000
-    )
-
-    fig_s.update_layout(
-        xaxis=dict(
-            range=limx
-        ),
-        yaxis=dict(
-            range=limy
-        ),
-    )
-
-    if show:
-        fig_s.show(config=defaultconfig)
-
-    if save:
-        if save.endswith('html'):
-            fig_s.write_html(
-                save,
-                config=defaultconfig,
-                include_plotlyjs="cdn"
-            )
-        else:
-            fig_s.write_image(save)
-
-    return fig_s
-
-
-def test_plot_start_goal():
-    start = [10, 10, 1, 0]
-    goal = [3, 3, 6, 7]
-
-    f = plot_pt_sq(start, goal)
-    f.show(config=defaultconfig)
 
 
 if __name__ == '__main__':
