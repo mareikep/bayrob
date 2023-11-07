@@ -434,6 +434,31 @@ class ThesisPlotsTests(unittest.TestCase):
             show=True
         )
 
+    def test_rterror_conditional_jpt(self) -> None:
+        # load data and JPT that has been learnt from this data
+        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        print(f"Loading tree from {ThesisPlotsTests.recent}")
+
+        # minimal set of preconditions that cause runtime error
+        xdir_in = 0
+        ydir_in = 1
+
+        # This will create the error "RuntimeError: This should never happen. JPT.conditional_jpt() seems to be
+        # broken :(" in jpt-dev/src/jpt/trees.py:2216
+        pdfvars = {
+            'xdir_in': xdir_in,
+            'ydir_in': ydir_in,
+        }
+
+        # generate tree conditioned on given position and/or direction
+        cond = j.conditional_jpt(
+            evidence=j.bind(
+                {k: v for k, v in pdfvars.items() if k in j.varnames},
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+
     def test_reproduce_data_single_jpt(self) -> None:
         # -> constrain feature pos, plot target pos
 
@@ -448,7 +473,7 @@ class ThesisPlotsTests(unittest.TestCase):
         x_in = 25
         y_in = 25
         xdir_in = 0
-        ydir_in = 0
+        ydir_in = 1
         x_out = 0
         y_out = 0
 
@@ -482,12 +507,12 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # This will create the error "RuntimeError: This should never happen. JPT.conditional_jpt() seems to be
         # broken :(" in jpt-dev/src/jpt/trees.py:2216
-        # pdfvars = {
-            # 'x_in': x_in,
-            # 'y_in': y_in,
-            # 'xdir_in': xdir_in,
-            # 'ydir_in': ydir_in,
-        # }
+        pdfvars = {
+            'x_in': x_in,
+            'y_in': y_in,
+            'xdir_in': xdir_in,
+            'ydir_in': ydir_in,
+        }
 
         # generate tree conditioned on given position and/or direction
         cond = j.conditional_jpt(
