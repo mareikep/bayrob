@@ -24,7 +24,7 @@ from jpt.distributions import Gaussian
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
-def robot_pos_semi_random(fp, limit=100, lrturns=20):
+def robot_pos_semi_random(fp, limit=100, lrturns=30):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
     logger.debug('Generating star-shaped robot data...')
@@ -33,11 +33,6 @@ def robot_pos_semi_random(fp, limit=100, lrturns=20):
     a = GridAgent(
         world=w
     )
-    deg_i = 360/lrturns  # intended degree of turn
-    g_deg_i = Gaussian(deg_i, 5)
-
-    # write sample data for MOVEFORWARD and TURN action of robot (absolute positions)
-    cnt = 0
 
     dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
     dt_ = DynamicArray(shape=(int(7e6), 5), dtype=np.float32)
@@ -60,27 +55,15 @@ def robot_pos_semi_random(fp, limit=100, lrturns=20):
             initpos = a.pos
             idir = a.dir
 
-            # for each position, turn lrturns times in positive and negative direction;
-            # after each turn, turn again 30 times uniformly distributed in a -20/20 degree range
+            # for each position, uniformly sample lrturns angles from -180 to 180;
+            # after each turn, turn again 10 times uniformly distributed in a -20/20 degree range
             # and make one step forward, respectively, save datapoint
             # and step back to initpos (i.e. the sampled pos around x/y)
-
             # turn to the right
-            for _ in range(lrturns):
+            for degi in np.random.uniform(low=-180, high=180, size=lrturns):
 
-                degi = g_deg_i.sample(1)
-                initdir = a.dir  # save dir before update
-
-                # turn and save new position/direction
+                # turn to new starting direction
                 Move.turndeg(a, degi)
-                dt_.append(np.array(
-                    [
-                        *initdir,
-                        degi,
-                        *np.array(a.dir) - np.array(initdir)  # deltas!
-                    ])
-                )
-
                 curdir = a.dir
 
                 # make 30 additional turns uniformly distributed to the left and right
@@ -111,51 +94,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=20):
                     a.dir = curdir
                     a.pos = initpos
 
-            a.dir = idir
-
-            # turn to the left
-            for _ in range(lrturns):
-
-                degi = -g_deg_i.sample(1)
-                initdir = a.dir
-
-                Move.turndeg(a, degi)
-                dt_.append(np.array(
-                    [
-                        *initdir,
-                        degi,
-                        *np.array(a.dir) - np.array(initdir)  # deltas!
-                    ])
-                )
-
-                curdir = a.dir
-
-                # make 30 additional turns uniformly distributed to the left and right
-                # in a -20/+20 degree range
-                for randdeg in np.random.uniform(low=-20, high=20, size=10):
-                    Move.turndeg(a, randdeg)
-                    dt_.append(np.array(
-                        [
-                            *curdir,
-                            randdeg,
-                            *np.array(a.dir) - np.array(curdir)  # deltas!
-                        ])
-                    )
-
-                    Move.moveforward(a, 1)
-
-                    dm_.append(np.array(
-                        [
-                            *initpos,
-                            *a.dir,
-                            *np.array(a.pos) - np.array(initpos),  # deltas!
-                            a.collided
-                        ])
-                    )
-
-                    # step back/reset position and direction
-                    a.dir = curdir
-                    a.pos = initpos
+                a.dir = idir
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
     data_turn = pd.DataFrame(data=dt_.data, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
@@ -203,9 +142,9 @@ def learn_jpt_moveforward(fp):
 
     jpt_mf = JPT(
         variables=movevars,
-        # targets=movevars[4:],
+        targets=movevars[4:],
         min_impurity_improvement=None,
-        min_samples_leaf=2000#.005
+        min_samples_leaf=2000  # .005
     )
 
     jpt_mf.learn(data_moveforward, close_convex_gaps=False)
@@ -238,7 +177,6 @@ def learn_jpt_turn(fp):
     )
 
     jpt_t.learn(data_turn)
-    jpt_t.postprocess_leaves()
 
     logger.debug(f'...done! saving to file {os.path.join(fp, f"000-TURN.tree")}')
 
@@ -300,7 +238,7 @@ def plot_data(fp) -> go.Figure:
         color=[1]*df.shape[0],#range(df.shape[0]),
         size=[1]*df.shape[0],
         size_max=5,
-        width=1700,
+        width=1000,
         height=1000
     )
 
@@ -484,21 +422,22 @@ def main(DT, recent=False, showplots=False):
         os.mkdir(os.path.join(fp, 'plots'))
         os.mkdir(os.path.join(fp, 'data'))
 
-    w.obstacle(25, 25, 50, 50)
+    w.obstacle(-75, -40, -50, -10)
+    w.obstacle(-25, -75, -15, -50)
     w.obstacle(-10, 10, 0, 40)
-    w.obstacle(50, -30, 20, 10)
-    w.obstacle(-75, -10, -50, -40)
-    w.obstacle(-25, -50, -15, -75)
+    w.obstacle(20, -30, 50, 10)
+    w.obstacle(25, 25, 50, 50)
 
     if not recent:
         robot_pos_semi_random(fp)
 
     learn_jpt_moveforward(fp)
-    # learn_jpt_turn(fp)
+    learn_jpt_turn(fp)
 
     plot_jpt_moveforward(fp, showplots)
-    # plot_jpt_turn(fp, showplots)
-    # plot_data(fp)
+    plot_jpt_turn(fp, showplots)
+
+    plot_data(fp)
 
 
 if __name__ == '__main__':
