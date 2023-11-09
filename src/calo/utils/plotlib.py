@@ -11,6 +11,8 @@ from plotly.graph_objs import Figure
 
 import numpy as np
 import pandas as pd
+
+from calo.logs.logs import init_loggers
 from calo.utils import locs
 from calo.utils.constants import calologger
 from calo.utils.utils import unit
@@ -802,7 +804,7 @@ def gaussian(
         Z += 1 / len(gaussians) * gaussian.pdf(xy)
     Z = Z.reshape(X.shape)
 
-    return x, y, Z, f"test {i}"
+    return x, y, Z, np.full(x.shape, f"test {i}")
 
 
 def test_hm():
@@ -823,13 +825,9 @@ def test_hm():
     ])
 
     plot_heatmap(
-        'x',
-        'y',
-        [
-            pd.DataFrame([x, y, z], columns=['x', 'y', 'z']),
-            pd.DataFrame([x2, y2, z], columns=['x', 'y', 'z']),
-            pd.DataFrame([x5, y5, z], columns=['x', 'y', 'z'])
-        ],
+        xvar='x',
+        yvar='y',
+        data=pd.DataFrame([[x, y, z], [x2, y2, z], [x5, y5, z]], columns=['x', 'y', 'z']),
         save=os.path.join(locs.logs, f'testhm.html')
     )
 
@@ -849,16 +847,16 @@ def test_plotexamplepath():
             ]
         )
 
-        data = pd.DataFrame(
-            data=d,
-            columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
-        )
+    data = pd.DataFrame(
+        data=d,
+        columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
+    )
 
     # draw path
     fig = plot_scatter_quiver(
-        'x',
-        'y',
-        data,
+        xvar='x',
+        yvar='y',
+        data=data,
         title="plotexamplepath",
         show=False,
         save=os.path.join('/home/mareike/Downloads/test.svg')
@@ -931,5 +929,5 @@ def test_plotexampleheatmap():
 if __name__ == '__main__':
     f = test_plotexamplepath()
     f.show(config=defaultconfig)
-    # test_plotexampleheatmap()
-    # test_plot_start_goal()
+    test_plotexampleheatmap()
+    test_plot_start_goal()
