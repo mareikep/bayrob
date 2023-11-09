@@ -517,8 +517,8 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         # data generation
-        x = np.linspace(*limx, 400)
-        y = np.linspace(*limy, 400)
+        x = np.linspace(*limx, 50)
+        y = np.linspace(*limy, 50)
 
         X, Y = np.meshgrid(x, y)
         Z = np.array(
@@ -705,8 +705,8 @@ class ThesisPlotsTests(unittest.TestCase):
                 )
 
                 # data generation
-                x = np.linspace(*limx, 400)
-                y = np.linspace(*limy, 400)
+                x = np.linspace(*limx, 50)
+                y = np.linspace(*limy, 50)
 
                 X, Y = np.meshgrid(x, y)
                 Z = np.array(
