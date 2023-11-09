@@ -22,7 +22,8 @@ def init_loggers(level='info') -> None:
 
         loggers = {
             calologger: dnutils.newlogger(dnutils.logs.console,
-                                          dnutils.logs.MongoHandler(connection.logs.calologdebug, checkkeys=False), level=LEVELS.get(level)),
+                                          dnutils.logs.MongoHandler(connection.logs.calologdebug, checkkeys=False),
+                                          level=LEVELS.get(level)),
             calojsonlogger: dnutils.newlogger(dnutils.logs.MongoHandler(connection.logs.calolog, checkkeys=False), level=LEVELS.get(level)),
             calofileloggerr: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, resultlog.format(datetime.datetime.now().strftime(FILESTRFMT)))), level=LEVELS.get(level)),
             calofileloggerv: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, resultlog.format(datetime.datetime.now().strftime(FILESTRFMT)))), level=LEVELS.get(level)),
@@ -30,10 +31,12 @@ def init_loggers(level='info') -> None:
         }
     else:
         loggers = {
-            calologger: dnutils.newlogger(dnutils.logs.console, level=LEVELS.get(level)),
-            calojsonlogger: dnutils.newlogger(dnutils.logs.console, level=LEVELS.get(level)),
-            calofileloggerr: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))), level=LEVELS.get(level)),
-            calofileloggerv: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))), level=LEVELS.get(level)),
-            'datalogger': dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, f'{logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME))}.csv')), level=LEVELS.get(level))
+            calologger: dnutils.newlogger(dnutils.logs.console,
+                                          dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))),
+                                          level=LEVELS.get(level)),
+            # calojsonlogger: dnutils.newlogger(dnutils.logs.console, level=LEVELS.get(level)),
+            # calofileloggerr: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))), level=LEVELS.get(level)),
+            # calofileloggerv: dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME)))), level=LEVELS.get(level)),
+            # 'datalogger': dnutils.newlogger(dnutils.logs.FileHandler(os.path.join(locs.logs, f'{logs.format(datetime.datetime.now().strftime(FILESTRFMT_NOTIME))}.csv')), level=LEVELS.get(level))
         }
     dnutils.loggers(loggers)
