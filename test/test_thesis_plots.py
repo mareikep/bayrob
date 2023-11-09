@@ -49,7 +49,6 @@ class ThesisPlotsTests(unittest.TestCase):
 
        cls.recent = recent_example(os.path.join(locs.examples, 'robotaction'))
        cls.recent = os.path.join(locs.examples, 'robotaction', '2023-11-02_14:50')
-
        cls.models = dict(
            [
                (
@@ -74,21 +73,21 @@ class ThesisPlotsTests(unittest.TestCase):
 
         d1fig = d1.plot(
             title="$\\text{dist}_1$",
-            color="0,104,180",
+            color="rgb(0,104,180)",
             view=False,
             horizontal=False
         )
 
         d2fig = d2.plot(
             title="$\\text{dist}_2$",
-            color="134, 129, 177",
+            color="rgb(134, 129, 177)",
             view=False,
             horizontal=False
         )
 
         d3fig = d3.plot(
             title="$\\text{dist}_3$",
-            color="138, 203, 183",
+            color="rgb(138, 203, 183)",
             view=False,
             horizontal=False
         )
@@ -445,15 +444,12 @@ class ThesisPlotsTests(unittest.TestCase):
             title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
             limx=limx,
             limy=limy,
+            limz=(0, 0.0002),
             show=True,
         )
 
         # plot ground truth
-        df = pd.read_csv(
-            os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'),
-            delimiter=',',
-            header=0
-        )
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.parquet'))
         plot_data_subset(
             df,
             xvar="x_in",
@@ -521,8 +517,8 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         # data generation
-        x = np.linspace(*limx, 50)
-        y = np.linspace(*limy, 50)
+        x = np.linspace(*limx, 400)
+        y = np.linspace(*limy, 400)
 
         X, Y = np.meshgrid(x, y)
         Z = np.array(
@@ -552,16 +548,12 @@ class ThesisPlotsTests(unittest.TestCase):
             title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
             limx=limx,
             limy=limy,
-            # limz=[0, 0.0002],
+            limz=(0, 0.0002),
             show=True,
         )
 
         # plot ground truth
-        df = pd.read_csv(
-            os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'),
-            delimiter=',',
-            header=0
-        )
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'))
         plot_data_subset(
             df,
             "x_out",
@@ -572,125 +564,208 @@ class ThesisPlotsTests(unittest.TestCase):
             show=True
         )
 
+    def test_plot_kaleido(self) -> None:
+        # small values around 0 (i.e. values smaller
+        # than abs(num.e-306)) will break plotting of
+        # distributions with plotly/kaleido
+        X_ = [0.e+000, - 5.e-324,  0.e+000,  0.e+000]
+        Y = [1., 0., 1., 1.]
+
+        mainfig = go.Figure()
+
+        # plot dashed CDF
+        mainfig.add_trace(
+            go.Scatter(
+                x=X_,
+                y=Y,
+                mode='lines',
+                name='Piecewise linear CDF from bounds',
+                line=dict(
+                    color=f'rgba(15,21,110,1.0)',
+                    width=4,
+                    dash='dash'
+                )
+            )
+        )
+
+        mainfig.update_layout(
+            xaxis=dict(
+                title='x',
+                side='bottom'
+            ),
+            yaxis=dict(
+                title='%'
+            ),
+            title=f'Distribution'
+        )
+
+        mainfig.write_image(
+            os.path.join(locs.logs, 'testimg.png'),
+            scale=1
+        )
+
     def test_reproduce_data_multiple_jpt(self) -> None:
         # load data and JPT that has been learnt from this data
         j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.parquet'))
 
         # set settings
         limx = (-3, 3)
         limy = (-3, 3)
 
-        v = ['xdir_in', 'ydir_in', None]
-        dirs = [-1, .5, 0, .5, 1]
-        psx = [-75, -50, -25, -15, -10, 0, 20, 25, 50]
-        psy = [-75, -50, -40, -30, -10, 10, 25, 40, 50]
+        o1 = (-75, -40, -50, -10)
+        o2 = (-25, -75, -15, -50)
+        o3 = (-10, 10, 0, 40)
+        o4 = (20, -30, 50, 10)
+        o5 = (25, 25, 50, 50)
 
-        for y_ in psy:
-            for x_ in psx:
-                i = 0
-                for v_ in v:
-                    for xd in dirs:
-                        i += 1
-                        locs.logs
+        ox1, oy1, ox2, oy2 = o1
 
-                        plotdir = os.path.join(locs.logs, f"pos{x_:+d}{y_:+d}")
-                        if not os.path.exists(plotdir):
-                            os.mkdir(plotdir)
+        # constraints/query values
+        positions = {
+            # "no-pos": [  # all directions without given pos
+            #     (None, None, 0, -1),
+            #     (None, None, 0, 1),
+            #     (None, None, .5, -.5),
+            #     (None, None, .5, .5),
+            #     (None, None, -.5, -.5),
+            #     (None, None, -.5, .5),
+            #     (None, None, 1, 0),
+            #     (None, None, -1, 0),
+            #     (None, None, -1, None),
+            #     (None, None, 1, None),
+            #     (None, None, None, -1),
+            #     (None, None, None, 1),
+            # ],
+            # "grid-corners": [  # all corners of gridworld
+            #     (-100, -100, None, None),
+            #     (-100, 100, None, None),
+            #     (100, -100, None, None),
+            #     (100, 100, None, None)
+            # ],
+            # "grid-edges": [  # all edges of gridworld (center)
+            #     (-100, 0, None, None),
+            #     (100, 0, None, None),
+            #     (0, -100, None, None),
+            #     (0, 100, None, None)
+            # ],
+            "obstacle-corners": [  # all corners of one obstacle
+                (ox1, oy1, None, None),
+                (ox2, oy2, None, None),
+                (ox1, oy2, None, None),
+                (ox2, oy1, None, None)
+            ],
+            "obstacle-edges": [  # all edges of one obstacle
+                (ox1, oy1+(oy2-oy1)/2, None, None),
+                (ox2, oy1+(oy2-oy1)/2, None, None),
+                (ox1+(ox2-ox1)/2, oy1, None, None),
+                (ox1+(ox2-ox1)/2, oy2, None, None)
+            ],
+            # "free-pos": [  # random position in obstacle-free area
+            #     (None, None, None, None),
+            #     (-60, 60, None, None),
+            # ]
+        }
 
-                        x_in = x_
-                        y_in = y_
-                        xdir_in = xd
-                        ydir_in = xd
+        for postype, pos in positions.items():
 
-                        # leave untouched
-                        tolerance = .05
-                        tolerance_ = 1
+            plotdir = os.path.join(locs.logs, f"{postype}")
+            if not os.path.exists(plotdir):
+                os.mkdir(plotdir)
 
-                        xmin = x_in - tolerance_
-                        xmax = x_in + tolerance_
-                        ymin = y_in - tolerance_
-                        ymax = y_in + tolerance_
+            for i, (x_, y_, xd, yd) in enumerate(pos):
 
-                        xdirmin = xdir_in - tolerance
-                        xdirmax = xdir_in + tolerance
-                        ydirmin = ydir_in - tolerance
-                        ydirmax = ydir_in + tolerance
+                # leave untouched
+                tolerance = .3
+                tolerance_ = 1
 
-                        pdfvars = {
-                            'x_in': ContinuousSet(xmin, xmax),
-                            'y_in': ContinuousSet(ymin, ymax),
-                            # 'xdir_in': ContinuousSet(xdirmin, xdirmax),
-                            # 'ydir_in': ContinuousSet(ydirmin, ydirmax),
-                        }
+                pdfvars = {}
 
-                        if v_ is not None:
-                            vmin = xd - tolerance
-                            vmax = xd + tolerance
-                            pdfvars[v_] = ContinuousSet(vmin, vmax)
+                if x_ is not None:
+                    pdfvars['x_in'] = ContinuousSet(x_ - tolerance_, x_ + tolerance_)
 
-                        # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
-                        constraints = [(var, op, v) for var, val in pdfvars.items() for v, op in [(val.lower, ">="), (val.upper, "<=")]]
-                        print('\nConstraints on dataset: ', constraints)
+                if y_ is not None:
+                    pdfvars['y_in'] = ContinuousSet(y_ - tolerance_, y_ + tolerance_)
 
-                        # generate tree conditioned on given position and/or direction
-                        cond = j.conditional_jpt(
-                            evidence=j.bind(
-                                {k: v for k, v in pdfvars.items() if k in j.varnames},
-                                allow_singular_values=False
-                            ),
-                            fail_on_unsatisfiability=False
-                        )
+                if xd is not None:
+                    pdfvars['xdir_in'] = ContinuousSet(xd - tolerance, xd + tolerance)
 
-                        # data generation
-                        x = np.linspace(*limx, 50)
-                        y = np.linspace(*limy, 50)
+                if yd is not None:
+                    pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
 
-                        X, Y = np.meshgrid(x, y)
-                        Z = np.array(
-                            [
-                                cond.pdf(
-                                    cond.bind(
-                                        {
-                                            'x_out': x,
-                                            'y_out': y
-                                        }
-                                    )
-                                ) for x, y, in zip(X.ravel(), Y.ravel())
-                            ]
-                        ).reshape(X.shape)
-                        lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
+                print("PDFVARS:", pdfvars)
 
-                        data = pd.DataFrame(
-                            data=[[x, y, Z, lbl]],
-                            columns=['x', 'y', 'z', 'lbl']
-                        )
+                # generate tree conditioned on given position and/or direction
+                cond = j.conditional_jpt(
+                    evidence=j.bind(
+                        {k: v for k, v in pdfvars.items() if k in j.varnames},
+                        allow_singular_values=False
+                    ),
+                    fail_on_unsatisfiability=False
+                )
 
-                        # plot JPT
-                        plot_heatmap(
-                            xvar='x',
-                            yvar='y',
-                            data=data,
-                            title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                            limx=limx,
-                            limy=limy,
-                            show=False,
-                            save=os.path.join(plotdir, f"{i}-{v_}{xd:+.0f}.svg")
-                        )
+                # data generation
+                x = np.linspace(*limx, 400)
+                y = np.linspace(*limy, 400)
 
-                        # plot ground truth
-                        df = pd.read_csv(
-                            os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'),
-                            delimiter=',',
-                            header=0
-                        )
-                        plot_data_subset(
-                            df,
-                            constraints,
-                            limx=limx,
-                            limy=limy,
-                            save=os.path.join(plotdir, f"{i}-{v_}{xd:+.0f}-gt.svg"),
-                            show=False
-                        )
+                X, Y = np.meshgrid(x, y)
+                Z = np.array(
+                    [
+                        cond.pdf(
+                            cond.bind(
+                                {
+                                    'x_out': x,
+                                    'y_out': y
+                                }
+                            )
+                        ) for x, y, in zip(X.ravel(), Y.ravel())
+                    ]
+                ).reshape(X.shape)
+                lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
+
+                data = pd.DataFrame(
+                    data=[[x, y, Z, lbl]],
+                    columns=['x', 'y', 'z', 'lbl']
+                )
+
+                prefix = f'POS({x_:{"+.1f" if x_ is not None else ""}},{y_:{"+.1f" if y_ is not None else ""}})_DIR({xd:{"+.1f" if xd is not None else ""}},{yd:{"+.1f" if yd is not None else ""}})'
+
+                # plot JPT Heatmap
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    show=False,
+                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg")
+                )
+
+                # plot JPT 3D-Surface
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    show=False,
+                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
+                    fun="surface"
+                )
+
+                # plot ground truth
+                plot_data_subset(
+                    df,
+                    xvar='x_out',
+                    yvar='y_out',
+                    constraints=pdfvars,
+                    limx=limx,
+                    limy=limy,
+                    save=os.path.join(plotdir, f"{prefix}-ground-truth.svg"),
+                    show=False
+                )
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)

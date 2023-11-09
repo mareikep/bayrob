@@ -310,11 +310,14 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             var: ContinuousSet(s0[var].ppf(.05), s0[var].ppf(.95)) for var in s0.keys()
         }
         print('evidence', evidence)
-        tm_ = self.generate_steps(evidence, tm)
-        dist_u1 = tm_.posterior(variables=tm_.targets)
-
-        for v, d in dist_u1.items():
-            d.plot(view=True, title=v.name)
+        tm_ = tm.conditional_jpt(
+            evidence=tm.bind(
+                {k: v for k, v in evidence.items() if k in tm.varnames},
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+        dist_u1 = tm_.posterior(variables=tm.targets)
 
         # plot position update distribution
         d = pd.DataFrame(
@@ -332,30 +335,30 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # update pos
         # create successor state
-        # s1 = State_()
-        # s1.update({k: v for k, v in s0.items()})
-        #
-        # nx = min(10, len(s1['x_in'].cdf.functions))
-        # s1['x_in'] = s1['x_in'] + dist_u1['x_out']
-        # s1['x_in'] = s1['x_in'].approximate(n_segments=nx)
-        #
-        # ny = min(10, len(s1['y_in'].cdf.functions))
-        # s1['y_in'] = s1['y_in'] + dist_u1['y_out']
-        # s1['y_in'] = s1['y_in'].approximate(n_segments=ny)
-        #
-        # # plot result
-        # d = pd.DataFrame(
-        #     data=[gendata('x_in', 'y_in', s1)],
-        #     columns=['x', 'y', 'z', 'lbl'])
-        # plot_heatmap(
-        #     xvar='x',
-        #     yvar='y',
-        #     data=d,
-        #     title="$\\text{Init} + \delta$",
-        #     limx=(-65, -55),
-        #     limy=(55, 65),
-        #     show=True
-        # )
+        s1 = State_()
+        s1.update({k: v for k, v in s0.items()})
+
+        nx = min(10, len(s1['x_in'].cdf.functions))
+        s1['x_in'] = s1['x_in'] + dist_u1['x_out']
+        s1['x_in'] = s1['x_in'].approximate(n_segments=nx)
+
+        ny = min(10, len(s1['y_in'].cdf.functions))
+        s1['y_in'] = s1['y_in'] + dist_u1['y_out']
+        s1['y_in'] = s1['y_in'].approximate(n_segments=ny)
+
+        # plot result
+        d = pd.DataFrame(
+            data=[gendata('x_in', 'y_in', s1)],
+            columns=['x', 'y', 'z', 'lbl'])
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\\text{Init} + \delta$",
+            limx=(-65, -55),
+            limy=(55, 65),
+            show=True
+        )
 
         # ACTION II: TURN ==============================================================
         # evidence['angle'] = -9
