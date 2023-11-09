@@ -24,6 +24,58 @@ from jpt.distributions import Gaussian
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
+def robot_dir_data(fp, lrturns=1000):
+    logger.debug('Generating direction robot data...')
+
+    # init agent at left lower corner facing right
+    a = GridAgent(
+        world=w
+    )
+
+    # set initial position and facing direction
+    a.pos = (0, 0)
+    a.dir = (1, 0)
+    initdir = a.dir
+
+    dt_ = DynamicArray(shape=(int(7e6), 5), dtype=np.float32)
+
+    for degi in np.random.uniform(low=-180, high=180, size=lrturns):
+
+        # turn to new starting direction
+        Move.turndeg(a, degi)
+        curdir = a.dir
+
+        # make 30 additional turns uniformly distributed to the left and right
+        # in a -20/+20 degree range
+        for randdeg in np.random.uniform(low=-20, high=20, size=100):
+            # turn and save new direction
+            Move.turndeg(a, randdeg)
+            dt_.append(np.array(
+                [
+                    *curdir,
+                    randdeg,
+                    *np.array(a.dir) - np.array(curdir)  # deltas!
+                ])
+            )
+
+            a.dir = curdir
+        a.dir = initdir
+
+    data_turn = pd.DataFrame(data=dt_.data, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
+    data_turn = data_turn.astype({
+        'xdir_in': np.float32,
+        'ydir_in': np.float32,
+        'xdir_out': np.float32,
+        'ydir_out': np.float32,
+        'angle': np.float32
+    })
+
+    logger.debug(f"...done! Saving data to {os.path.join(fp, 'data', f'000-ALL-TURN.parquet')}...")
+    data_turn.to_parquet(os.path.join(fp, 'data', f'000-ALL-TURN.parquet'), index=False)
+
+    return data_turn
+
+
 def robot_pos_semi_random(fp, limit=100, lrturns=30):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
@@ -35,7 +87,6 @@ def robot_pos_semi_random(fp, limit=100, lrturns=30):
     )
 
     dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
-    dt_ = DynamicArray(shape=(int(7e6), 5), dtype=np.float32)
     for y in range(-limit, limit, 1):
 
         for x in range(-limit, limit, 1):
@@ -69,17 +120,9 @@ def robot_pos_semi_random(fp, limit=100, lrturns=30):
                 # make 30 additional turns uniformly distributed to the left and right
                 # in a -20/+20 degree range
                 for randdeg in np.random.uniform(low=-20, high=20, size=10):
-                    # turn and save new position/direction
-                    Move.turndeg(a, randdeg)
-                    dt_.append(np.array(
-                        [
-                            *curdir,
-                            randdeg,
-                            *np.array(a.dir) - np.array(curdir)  # deltas!
-                        ])
-                    )
 
-                    # move forward and save new position/direction
+                    # turn, move forward and save new position/direction
+                    Move.turndeg(a, randdeg)
                     Move.moveforward(a, 1)
                     dm_.append(np.array(
                         [
@@ -97,7 +140,6 @@ def robot_pos_semi_random(fp, limit=100, lrturns=30):
                 a.dir = idir
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
-    data_turn = pd.DataFrame(data=dt_.data, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
 
     # save data
     data_moveforward = data_moveforward.astype({
@@ -109,20 +151,11 @@ def robot_pos_semi_random(fp, limit=100, lrturns=30):
         'y_out': np.float32,
         'collided': bool
     })
+
+    logger.debug(f"...done! Saving data to {os.path.join(fp, 'data', f'000-ALL-MOVEFORWARD.parquet')}...")
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-ALL-MOVEFORWARD.parquet'), index=False)
 
-    data_turn = data_turn.astype({
-        'xdir_in': np.float32,
-        'ydir_in': np.float32,
-        'xdir_out': np.float32,
-        'ydir_out': np.float32,
-        'angle': np.float32
-    })
-    data_turn.to_parquet(os.path.join(fp, 'data', f'000-ALL-TURN.parquet'), index=False)
-
-    logger.debug(f'...done! Saving data to {fp}...')
-
-    return data_moveforward, data_turn
+    return data_moveforward
 
 
 def learn_jpt_moveforward(fp):
@@ -430,6 +463,7 @@ def main(DT, recent=False, showplots=False):
 
     if not recent:
         robot_pos_semi_random(fp)
+        robot_dir_data(fp)
 
     learn_jpt_moveforward(fp)
     learn_jpt_turn(fp)
