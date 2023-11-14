@@ -24,7 +24,7 @@ from jpt.distributions import Gaussian
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
-def robot_dir_data(fp, lrturns=1000):
+def robot_dir_data(fp, lrturns=300):
     logger.debug('Generating direction robot data...')
 
     # init agent at left lower corner facing right
@@ -47,7 +47,7 @@ def robot_dir_data(fp, lrturns=1000):
 
         # make 30 additional turns uniformly distributed to the left and right
         # in a -20/+20 degree range
-        for randdeg in np.random.uniform(low=-20, high=20, size=100):
+        for randdeg in np.random.uniform(low=-20, high=20, size=50):
             # turn and save new direction
             Move.turndeg(a, randdeg)
             dt_.append(np.array(
@@ -76,7 +76,7 @@ def robot_dir_data(fp, lrturns=1000):
     return data_turn
 
 
-def robot_pos_semi_random(fp, limit=100, lrturns=30):
+def robot_pos_semi_random(fp, limit=100, lrturns=300):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
     logger.debug('Generating star-shaped robot data...')
@@ -119,7 +119,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=30):
 
                 # make 30 additional turns uniformly distributed to the left and right
                 # in a -20/+20 degree range
-                for randdeg in np.random.uniform(low=-20, high=20, size=10):
+                for randdeg in np.random.uniform(low=-20, high=20, size=50):
 
                     # turn, move forward and save new position/direction
                     Move.turndeg(a, randdeg)
@@ -462,16 +462,16 @@ def main(DT, recent=False, showplots=False):
     w.obstacle(25, 25, 50, 50)
 
     if not recent:
-        robot_pos_semi_random(fp)
         robot_dir_data(fp)
+        robot_pos_semi_random(fp)
 
-    learn_jpt_moveforward(fp)
     learn_jpt_turn(fp)
+    learn_jpt_moveforward(fp)
 
-    plot_jpt_moveforward(fp, showplots)
     plot_jpt_turn(fp, showplots)
+    plot_jpt_moveforward(fp, showplots)
 
-    plot_data(fp)
+    # plot_data(fp)
 
 
 if __name__ == '__main__':
