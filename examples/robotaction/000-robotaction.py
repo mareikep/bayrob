@@ -1,5 +1,6 @@
 import datetime
 import os
+from itertools import product
 from random import randint
 
 import argparse
@@ -76,7 +77,7 @@ def robot_dir_data(fp, lrturns=300):
     return data_turn
 
 
-def robot_pos_semi_random(fp, limit=100, lrturns=300):
+def robot_pos_semi_random(fp, limit=100, lrturns=200):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
     logger.debug('Generating star-shaped robot data...')
@@ -87,57 +88,55 @@ def robot_pos_semi_random(fp, limit=100, lrturns=300):
     )
 
     dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
-    for y in range(-limit, limit, 1):
+    for y, x in product(range(-limit, limit, 2), repeat=2):
+        if x == -limit:
+            print(f'x/y: {x}/{y}')
 
-        for x in range(-limit, limit, 1):
-            if x == -limit:
-                print(f'x/y: {x}/{y}')
+        # sample around x/y position to add some gaussian noise
+        npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
 
-            # sample around x/y position to add some gaussian noise
+        # do not position agent on obstacles
+        while w.collides(npos):
             npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
 
-            # do not position agent on obstacles
-            if w.collides(npos):
-                continue
+        # initially, agent always faces right
+        a.pos = npos
+        a.dir = (1., 0.)
+        initpos = a.pos
+        idir = a.dir
 
-            a.pos = npos
-            # initially, agent always faces right
-            a.dir = (1., 0.)
-            initpos = a.pos
-            idir = a.dir
+        # for each position, uniformly sample lrturns angles from -180 to 180;
+        # after each turn, turn again 10 times uniformly distributed in a -20/20 degree range
+        # and make one step forward, respectively, save datapoint
+        # and step back to initpos (i.e. the sampled pos around x/y)
+        # turn to the right
+        for degi in np.random.uniform(low=-180, high=180, size=lrturns):
 
-            # for each position, uniformly sample lrturns angles from -180 to 180;
-            # after each turn, turn again 10 times uniformly distributed in a -20/20 degree range
-            # and make one step forward, respectively, save datapoint
-            # and step back to initpos (i.e. the sampled pos around x/y)
-            # turn to the right
-            for degi in np.random.uniform(low=-180, high=180, size=lrturns):
+            # turn to new starting direction
+            Move.turndeg(a, degi)
+            curdir = a.dir
 
-                # turn to new starting direction
-                Move.turndeg(a, degi)
-                curdir = a.dir
+            # make 30 additional turns uniformly distributed to the left and right
+            # in a -20/+20 degree range
+            for randdeg in np.random.uniform(low=-20, high=20, size=40):
 
-                # make 30 additional turns uniformly distributed to the left and right
-                # in a -20/+20 degree range
-                for randdeg in np.random.uniform(low=-20, high=20, size=50):
+                # turn, move forward and save new position/direction
+                Move.turndeg(a, randdeg)
+                Move.moveforward(a, 1)
+                dm_.append(np.array(
+                    [
+                        *initpos,
+                        *a.dir,
+                        *np.array(a.pos) - np.array(initpos),  # deltas!
+                        a.collided
+                    ])
+                )
 
-                    # turn, move forward and save new position/direction
-                    Move.turndeg(a, randdeg)
-                    Move.moveforward(a, 1)
-                    dm_.append(np.array(
-                        [
-                            *initpos,
-                            *a.dir,
-                            *np.array(a.pos) - np.array(initpos),  # deltas!
-                            a.collided
-                        ])
-                    )
+                # step back/reset position and direction
+                a.dir = curdir
+                a.pos = initpos
 
-                    # step back/reset position and direction
-                    a.dir = curdir
-                    a.pos = initpos
-
-                a.dir = idir
+            a.dir = idir
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
