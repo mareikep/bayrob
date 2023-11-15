@@ -159,8 +159,10 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]
         # initx, inity, initdirx, initdiry = [-61, 61, -1, 0]  # OK
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # OK
-        initx, inity, initdirx, initdiry = [-61, 61, 0, -1]  # NICHT OK
+        # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # NICHT OK
         # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]  # NICHT OK
+        initx, inity, initdirx, initdiry = [-61, 61, .9, -.2]
+
         tolerance = .01
 
         dx = Gaussian(initx, tolerance).sample(50)
@@ -293,7 +295,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # plot init position distribution
         d = pd.DataFrame(
             data=[gendata('x_in', 'y_in', s0)],
-            columns=['x', 'y', 'z', 'lbl'])
+            columns=['x', 'y', 'z', 'lbl']
+        )
         plot_heatmap(
             xvar='x',
             yvar='y',
@@ -328,8 +331,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             yvar='y',
             data=d,
             title="$\delta\\text{-Distribution } P(x_{out},y_{out})$",
-            limx=(-2, 2),
-            limy=(-2, 2),
+            limx=(-3, 3),
+            limy=(-3, 3),
             show=True
         )
 
@@ -339,10 +342,12 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         s1.update({k: v for k, v in s0.items()})
 
         nx = min(10, len(s1['x_in'].cdf.functions))
+        dist_u1['x_out'] = dist_u1['x_out'].approximate(.3)
         s1['x_in'] = s1['x_in'] + dist_u1['x_out']
         s1['x_in'] = s1['x_in'].approximate(n_segments=nx)
 
         ny = min(10, len(s1['y_in'].cdf.functions))
+        dist_u1['y_out'] = dist_u1['y_out'].approximate(.3)
         s1['y_in'] = s1['y_in'] + dist_u1['y_out']
         s1['y_in'] = s1['y_in'].approximate(n_segments=ny)
 
@@ -364,48 +369,62 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # evidence['angle'] = -9
 
     def test_astar_cram_path(self) -> None:
+        # cmds = [
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+        # ]
+
         cmds = [
             {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -15)}},
             {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(30, 32)}},
             {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(30, 32)}},
+            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
         ]
 
         # VARIANT I
@@ -415,6 +434,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         s = AStarRobotActionJPTTests.initstate
         p = [[s, {}]]
         for cmd in cmds:
+            print('cmd', cmd)
             t = AStarRobotActionJPTTests.models[cmd['tree']]
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -425,18 +445,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             if cmd["params"] is not None:
                 evidence.update(cmd["params"])
 
-            # candidates are all the leaves from the conditional tree
+            # candidate is the conditional tree
             t_ = self.generate_steps(evidence, t)
-
-            # the "best" candidate is the one with the maximum similarity to the evidence state
-            # best = None
-            # sim = -1
-            # for c in candidates:
-            #     # type(self[vn]).jaccard_similarity(val, other[vn])
-            #     sim_ = min([type(d).jaccard_similarity(s[v.name], d) for v, d in c.distributions.items() if v.name in s])
-            #     if sim_ > sim:
-            #         best = c
-            #         sim = sim_
             best = t_.posterior(variables=t_.targets)
 
             # create successor state
@@ -456,17 +466,19 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                         # if the _in variable is already contained in the state, update it by adding the delta
                         # from the leaf distribution
                         nsegments = len(s_[vn.name].cdf.functions)
+                        best[vn.name.replace('_in', '_out')] = best[vn.name.replace('_in', '_out')].approximate(.2)
                         s_[vn.name] = s_[vn.name] + best[vn.name.replace('_in', '_out')]
                     else:
                         nsegments = len(d.pdf.functions)
                         # else save the result of the _in from the leaf distribution shifted by its delta (_out)
+                        best[vn.name.replace('_in', '_out')] = best[vn.name.replace('_in', '_out')].approximate(.2)
                         s_[vn.name] = d + best[vn.name.replace('_in', '_out')]
 
                     if hasattr(s_[vn.name], 'approximate'):
                         nsegments = min(10, nsegments)
                         s_[vn.name] = s_[vn.name].approximate(
-                            n_segments=nsegments,
-                            # error_max=.1
+                            # n_segments=nsegments,
+                            error_max=.2
                         )
 
             p.append([s_, cmd['params']])
@@ -504,7 +516,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         #     save=f'test_astar_cram_path_posxy',
         #     show=False
         # )
-
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)
