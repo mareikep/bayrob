@@ -91,15 +91,15 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
 
     dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
     for y, x in product(range(-limit, limit, 2), repeat=2):
-        if x == -limit:
-            print(f'x/y: {x}/{y}')
-
         # sample around x/y position to add some gaussian noise
         npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
 
         # do not position agent on obstacles
         while w.collides(npos):
             npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
+
+        if x == -limit:
+            logger.debug(f'Position : {npos[0]}/{npos[1]}')
 
         # initially, agent always faces right
         a.pos = initpos = npos
