@@ -91,12 +91,21 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
 
     dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
     for y, x in product(range(-limit, limit, 2), repeat=2):
+        # if the xy pos is inside an obstacle, sampling around it does not make
+        # sense, so skip it
+        if w.collides([x,y]): continue
+
         # sample around x/y position to add some gaussian noise
         npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
 
-        # do not position agent on obstacles
-        while w.collides(npos):
+        # do not position agent on obstacles (retry 3 times, then skip)
+        tries = 0
+        while w.collides(npos) and tries <= 5:
             npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
+            tries += 1
+
+        # if the sampled position still collides, skip
+        if w.collides(npos): continue
 
         if x == -limit:
             logger.debug(f'Position : {npos[0]}/{npos[1]}')
