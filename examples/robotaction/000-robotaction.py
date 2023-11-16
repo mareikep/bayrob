@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 from itertools import product
 from random import randint
@@ -78,10 +79,10 @@ def robot_dir_data(fp, lrturns=500):
     return data_turn
 
 
-def robot_pos_semi_random(fp, limit=100, lrturns=35):
+def robot_pos_semi_random(fp, limit=100, lrturns=200):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
-    logger.debug('Generating star-shaped robot data...')
+    logger.debug(f'Generating {math.pow(limit*2,2)*lrturns} star-shaped robot data points...')
 
     # init agent at left lower corner facing right
     a = GridAgent(
@@ -101,10 +102,8 @@ def robot_pos_semi_random(fp, limit=100, lrturns=35):
             npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
 
         # initially, agent always faces right
-        a.pos = npos
-        a.dir = (1., 0.)
-        initpos = a.pos
-        idir = a.dir
+        a.pos = initpos = npos
+        a.dir = initdir = (1., 0.)
 
         # for each position, uniformly sample lrturns angles from -180 to 180;
         # after each turn, turn again 10 times uniformly distributed in a -20/20 degree range
@@ -115,29 +114,21 @@ def robot_pos_semi_random(fp, limit=100, lrturns=35):
 
             # turn to new starting direction
             Move.turndeg(a, degi)
-            curdir = a.dir
 
-            # make 20 additional turns uniformly distributed to the left and right
-            # in a -10/+10 degree range
-            for randdeg in np.random.uniform(low=-10, high=10, size=10):
+            # move forward and save new position/direction
+            Move.moveforward(a, 1)
+            dm_.append(np.array(
+                [
+                    *initpos,
+                    *a.dir,
+                    *np.array(a.pos) - np.array(initpos),  # deltas!
+                    a.collided
+                ])
+            )
 
-                # turn, move forward and save new position/direction
-                Move.turndeg(a, randdeg)
-                Move.moveforward(a, 1)
-                dm_.append(np.array(
-                    [
-                        *initpos,
-                        *a.dir,
-                        *np.array(a.pos) - np.array(initpos),  # deltas!
-                        a.collided
-                    ])
-                )
-
-                # step back/reset position and direction
-                a.dir = curdir
-                a.pos = initpos
-
-            a.dir = idir
+            # step back/reset position and direction
+            a.dir = initdir
+            a.pos = initpos
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
