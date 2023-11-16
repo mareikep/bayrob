@@ -15,15 +15,15 @@ datalogger = dnutils.getlogger('datalogger')
 
 class Move:
     # uncertainty for degrees and distance
-    DEG_U = .05
+    DEG_U = .01
     DIST_U = .05
 
     # desired distance moved in one step
-    STEPSIZE = 2
+    STEPSIZE = 1
 
     def __init__(
             self,
-            degu: float = .05,
+            degu: float = .01,
             distu: float = .05
     ):
         Move.DEG_U = degu
@@ -56,7 +56,7 @@ class Move:
             agent,
             deg=45
     ) -> None:
-        g = Gaussian(deg, Move.DEG_U * 180)
+        g = Gaussian(deg, math.pow(Move.DEG_U * deg,2))
         agent.dir = Move.rotate(agent.dirx, agent.diry, g.sample(1))
 
     @staticmethod
