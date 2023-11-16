@@ -78,7 +78,7 @@ def robot_dir_data(fp, lrturns=500):
     return data_turn
 
 
-def robot_pos_semi_random(fp, limit=100, lrturns=200):
+def robot_pos_semi_random(fp, limit=100, lrturns=35):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
     logger.debug('Generating star-shaped robot data...')
@@ -119,7 +119,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
 
             # make 20 additional turns uniformly distributed to the left and right
             # in a -10/+10 degree range
-            for randdeg in np.random.uniform(low=-10, high=10, size=20):
+            for randdeg in np.random.uniform(low=-10, high=10, size=10):
 
                 # turn, move forward and save new position/direction
                 Move.turndeg(a, randdeg)
