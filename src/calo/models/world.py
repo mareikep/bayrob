@@ -26,13 +26,15 @@ class Grid(World):
         super().__init__()
         self.coords = -x, -y, x, y
         self._obstacles = []
+        self._obstaclenames = []
 
     def obstacle(
             self,
             x0,
             y0,
             x1,
-            y1
+            y1,
+            name: str = None
     ) -> None:
         # make sure x0/y0 are bottom left corner, x1/y1 upper right for collision check
         if x1 < x0:
@@ -44,6 +46,7 @@ class Grid(World):
             y1 = y0
             y0 = tmp
         self._obstacles.append([x0, y0, x1, y1])
+        self._obstaclenames.append(name)
 
     @property
     def obstacles(self) -> List[List[float]]:

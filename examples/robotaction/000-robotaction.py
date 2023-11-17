@@ -90,10 +90,10 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
     )
 
     dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
-    for y, x in product(range(-limit, limit, 2), repeat=2):
+    for y, x in product(range(0, limit, 2), repeat=2):
         # if the xy pos is inside an obstacle, sampling around it does not make
         # sense, so skip it
-        if w.collides([x,y]): continue
+        if w.collides([x, y]): continue
 
         # sample around x/y position to add some gaussian noise
         npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
@@ -233,9 +233,9 @@ def learn_jpt_moveforward_constrained(
     # jpt_mf = jpt_mf.prune(similarity_threshold=.77)
     # jpt_mf.postprocess_leaves()
 
-    logger.debug(f'...done! saving to file {os.path.join(fp, f"000-MOVEFORWARD.tree")}')
+    logger.debug(f'...done! saving to file {os.path.join(fp, name)}')
 
-    jpt_mf.save(os.path.join(fp, f'000-MOVEFORWARD-collided.tree'))
+    jpt_mf.save(os.path.join(fp, name))
 
     logger.debug('...done.')
 
@@ -298,6 +298,16 @@ def plot_jpt_turn(fp, showplots=False):
     logger.debug('plotting TURN tree...')
     jpt_t.plot(
         title='TURN',
+        filename=f'000-TURN-nodist',
+        directory=os.path.join(fp, 'plots'),
+        leaffill='#CCDAFF',
+        nodefill='#768ABE',
+        alphabet=True,
+        view=showplots
+    )
+
+    jpt_t.plot(
+        title='TURN',
         plotvars=list(jpt_t.variables),
         filename=f'000-TURN',
         directory=os.path.join(fp, 'plots'),
@@ -333,6 +343,7 @@ def plot_data(fp) -> go.Figure:
     )
 
     fig_s.to_json(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE.json'))
+    fig_s.write_image(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE.svg'))
 
     # plot annotated rectangles representing the obstacles
     for i, o in enumerate(w.obstacles):
@@ -346,6 +357,7 @@ def plot_data(fp) -> go.Figure:
     )
 
     fig_s.write_image(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE_annotated.png'))
+    fig_s.write_image(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE_annotated.svg'))
 
     fig_s.show(config=defaultconfig)
     return fig_s
@@ -500,11 +512,12 @@ def main(DT, args):
         os.mkdir(os.path.join(fp, 'plots'))
         os.mkdir(os.path.join(fp, 'data'))
 
-    w.obstacle(-75, -40, -50, -10)
-    w.obstacle(-25, -75, -15, -50)
-    w.obstacle(-10, 10, 0, 40)
-    w.obstacle(20, -30, 50, 10)
-    w.obstacle(25, 25, 50, 50)
+    w.obstacle(10, 10, 20, 20, name="chair1")
+    w.obstacle(30, 10, 40, 20, name="chair2")
+    w.obstacle(10, 30, 50, 30, name="kitchen_island")
+    w.obstacle(80, 30, 100, 70, name="stove")
+    w.obstacle(10, 80, 50, 100, name="kitchen_unit")
+    w.obstacle(60, 80, 80, 100, name="fridge")
 
     if not args.recent:
         robot_dir_data(fp)
@@ -530,7 +543,7 @@ def main(DT, args):
     plot_jpt_turn(fp, args.showplots)
     plot_jpt_moveforward(fp, args.showplots)
 
-    # plot_data(fp)
+    plot_data(fp)
 
 
 if __name__ == '__main__':

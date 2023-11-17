@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 from pandas import DataFrame
 
 from calo.utils import locs
-from calo.utils.plotlib import plot_heatmap, plot_data_subset
+from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet
@@ -48,7 +48,7 @@ class ThesisPlotsTests(unittest.TestCase):
        )
 
        cls.recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-       cls.recent = os.path.join(locs.examples, 'robotaction', '2023-11-02_14:50')
+       # cls.recent = os.path.join(locs.examples, 'robotaction', '2023-11-02_14:50')
        cls.models = dict(
            [
                (
@@ -60,13 +60,39 @@ class ThesisPlotsTests(unittest.TestCase):
            ]
        )
 
+    def test_plot_init_dist(self) -> None:
+        t = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        plot_tree_dist(
+            tree=t,
+            qvarx=t.varnames['x_in'],
+            qvary=t.varnames['y_in'],
+            title='Initial distribution P(x,y)',
+            limx=(-100, 100),
+            limy=(-100, 100),
+            save=os.path.join(os.path.join(locs.logs, 'init-dist.html')),
+            show=True
+        )
+
     def test_plot_dist_similarity_discrete(self) -> None:
         # Arrange
         DistA = SymbolicType('DistA', labels=['A', 'B', 'C'])
         DistB = SymbolicType('DistB', labels=['D', 'E', 'F'])
+        DistC = SymbolicType('DistC', labels=['C', 'D', 'E'])
         d1 = DistA().set(params=[.5, .25, .25])
         d2 = DistB().set(params=[.5, .25, .25])
         d3 = DistA().set(params=[.2, .1, .7])
+        d4 = DistC().set(params=[.25, .1, .65])
+
+        from jpt.distributions import Multinomial
+        d12 = Multinomial.jaccard_similarity(d1, d2)
+        d13 = Multinomial.jaccard_similarity(d1, d3)
+        d14 = Multinomial.jaccard_similarity(d1, d4)
+        d23 = Multinomial.jaccard_similarity(d2, d3)
+        d24 = Multinomial.jaccard_similarity(d2, d4)
+        d34 = Multinomial.jaccard_similarity(d3, d4)
+
+
+        print(d12, d13, d14, d23, d24, d34)
 
         # Act
         mainfig = go.Figure()
@@ -107,7 +133,10 @@ class ThesisPlotsTests(unittest.TestCase):
         mainfig.update_layout(
             xaxis=dict(
                 title='$\\text{label}$',
-                range=None #  ['A', 'B', 'C', 'D', 'E', 'F']
+                range=None, #  ['A', 'B', 'C', 'D', 'E', 'F'],
+                ticks="outside",
+                tickson="boundaries",
+                ticklen=20
             ),
             yaxis=dict(
                 title='$P(\\text{label})$',
@@ -564,46 +593,6 @@ class ThesisPlotsTests(unittest.TestCase):
             show=True
         )
 
-    def test_plot_kaleido(self) -> None:
-        # small values around 0 (i.e. values smaller
-        # than abs(num.e-306)) will break plotting of
-        # distributions with plotly/kaleido
-        X_ = [0.e+000, - 5.e-324,  0.e+000,  0.e+000]
-        Y = [1., 0., 1., 1.]
-
-        mainfig = go.Figure()
-
-        # plot dashed CDF
-        mainfig.add_trace(
-            go.Scatter(
-                x=X_,
-                y=Y,
-                mode='lines',
-                name='Piecewise linear CDF from bounds',
-                line=dict(
-                    color=f'rgba(15,21,110,1.0)',
-                    width=4,
-                    dash='dash'
-                )
-            )
-        )
-
-        mainfig.update_layout(
-            xaxis=dict(
-                title='x',
-                side='bottom'
-            ),
-            yaxis=dict(
-                title='%'
-            ),
-            title=f'Distribution'
-        )
-
-        mainfig.write_image(
-            os.path.join(locs.logs, 'testimg.png'),
-            scale=1
-        )
-
     def test_reproduce_data_multiple_jpt(self) -> None:
         # load data and JPT that has been learnt from this data
         j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
@@ -623,32 +612,36 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values
         positions = {
-            # "no-pos": [  # all directions without given pos
-            #     (None, None, 0, -1),
-            #     (None, None, 0, 1),
-            #     (None, None, .5, -.5),
-            #     (None, None, .5, .5),
-            #     (None, None, -.5, -.5),
-            #     (None, None, -.5, .5),
-            #     (None, None, 1, 0),
-            #     (None, None, -1, 0),
-            #     (None, None, -1, None),
-            #     (None, None, 1, None),
-            #     (None, None, None, -1),
-            #     (None, None, None, 1),
+            # "free-pos": [  # random position in obstacle-free area
+            #     (None, None, None, None),
+            #     (-60, 60, None, None),
             # ],
-            # "grid-corners": [  # all corners of gridworld
-            #     (-100, -100, None, None),
-            #     (-100, 100, None, None),
-            #     (100, -100, None, None),
-            #     (100, 100, None, None)
-            # ],
-            # "grid-edges": [  # all edges of gridworld (center)
-            #     (-100, 0, None, None),
-            #     (100, 0, None, None),
-            #     (0, -100, None, None),
-            #     (0, 100, None, None)
-            # ],
+            "no-pos": [  # all directions without given pos
+                # (None, None, 0, -1),
+                # (None, None, 0, 1),
+                # (None, None, .5, -.5),
+                # (None, None, .5, .5),
+                # (None, None, -.5, -.5),
+                # (None, None, -.5, .5),
+                # (None, None, 1, 0),
+                # (None, None, -1, 0),
+                # (None, None, -1, None),
+                (None, None, 1, None),
+                (None, None, None, -1),
+                (None, None, None, 1),
+            ],
+            "grid-corners": [  # all corners of gridworld
+                (-100, -100, None, None),
+                (-100, 100, None, None),
+                (100, -100, None, None),
+                (100, 100, None, None)
+            ],
+            "grid-edges": [  # all edges of gridworld (center)
+                (-100, 0, None, None),
+                (100, 0, None, None),
+                (0, -100, None, None),
+                (0, 100, None, None)
+            ],
             "obstacle-corners": [  # all corners of one obstacle
                 (ox1, oy1, None, None),
                 (ox2, oy2, None, None),
@@ -661,13 +654,10 @@ class ThesisPlotsTests(unittest.TestCase):
                 (ox1+(ox2-ox1)/2, oy1, None, None),
                 (ox1+(ox2-ox1)/2, oy2, None, None)
             ],
-            # "free-pos": [  # random position in obstacle-free area
-            #     (None, None, None, None),
-            #     (-60, 60, None, None),
-            # ]
         }
 
         for postype, pos in positions.items():
+            print("POSTYPE:", postype)
 
             plotdir = os.path.join(locs.logs, f"{postype}")
             if not os.path.exists(plotdir):
@@ -677,7 +667,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = 1
+                tolerance_ = .5
 
                 pdfvars = {}
 
@@ -735,11 +725,12 @@ class ThesisPlotsTests(unittest.TestCase):
                     xvar='x',
                     yvar='y',
                     data=data,
-                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
                     limx=limx,
                     limy=limy,
                     show=False,
-                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg")
+                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg"),
+                    showbuttons=False
                 )
 
                 # plot JPT 3D-Surface
@@ -766,6 +757,183 @@ class ThesisPlotsTests(unittest.TestCase):
                     save=os.path.join(plotdir, f"{prefix}-ground-truth.svg"),
                     show=False
                 )
+
+    def test_reproduce_data_turn(self) -> None:
+        # load data and JPT that has been learnt from this data
+        j = ThesisPlotsTests.models['000-TURN.tree']
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-TURN.parquet'))
+
+        # set settings
+        limx = (-1, 1)
+        limy = (-1, 1)
+
+        # constraints/query values
+        dirs = {
+            "no-dir": [
+                (None, None, None),
+                (0, None, None),
+                (None, 0, None)
+            ],
+            "dir": [  # all directions
+                (-1, None, None),
+                (-1, 0, None),
+                (1, None, None),
+                (1, 0, None),
+                (-.5, None, None),
+                (-.5, .5, None),
+                (-.5, -.5, None),
+                (.5, None, None),
+                (.5, .5, None),
+                (.5, -.5, None),
+                (0, 1, None),
+                (0, -1, None),
+                (None, 1, None),
+                (None, .5, None),
+                (None, -1, None),
+                (None, -.5, None),
+            ],
+            "angle": [
+                (-1, None, None),
+
+            ]
+        }
+
+        for dirtype, pos in dirs.items():
+
+            plotdir = os.path.join(locs.logs, f"{dirtype}")
+            if not os.path.exists(plotdir):
+                os.mkdir(plotdir)
+
+            for i, (xd, yd, angle) in enumerate(pos):
+
+                # leave untouched
+                tolerance = .3
+                tolerance_ = 3
+
+                pdfvars = {}
+
+                if xd is not None:
+                    pdfvars['xdir_in'] = ContinuousSet(xd - tolerance, xd + tolerance)
+
+                if yd is not None:
+                    pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
+
+                if angle is not None:
+                    pdfvars['angle'] = ContinuousSet(angle - tolerance_, angle + tolerance_)
+
+                print("PDFVARS:", pdfvars)
+
+                # generate tree conditioned on given position and/or direction
+                cond = j.conditional_jpt(
+                    evidence=j.bind(
+                        {k: v for k, v in pdfvars.items() if k in j.varnames},
+                        allow_singular_values=False
+                    ),
+                    fail_on_unsatisfiability=False
+                )
+
+                # data generation
+                x = np.linspace(*limx, 50)
+                y = np.linspace(*limy, 50)
+
+                X, Y = np.meshgrid(x, y)
+                Z = np.array(
+                    [
+                        cond.pdf(
+                            cond.bind(
+                                {
+                                    'xdir_out': x,
+                                    'ydir_out': y
+                                }
+                            )
+                        ) for x, y, in zip(X.ravel(), Y.ravel())
+                    ]
+                ).reshape(X.shape)
+                lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
+
+                data = pd.DataFrame(
+                    data=[[x, y, Z, lbl]],
+                    columns=['x', 'y', 'z', 'lbl']
+                )
+
+                prefix = f'DIR({xd:{"+.1f" if xd is not None else ""}},{yd:{"+.1f" if yd is not None else ""}})_{angle:{"+.1f" if angle is not None else ""}}°'
+
+                # plot JPT Heatmap
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    show=False,
+                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg")
+                )
+
+                # plot JPT 3D-Surface
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    show=False,
+                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
+                    fun="surface"
+                )
+
+                # plot ground truth
+                plot_data_subset(
+                    df,
+                    xvar='xdir_out',
+                    yvar='ydir_out',
+                    constraints=pdfvars,
+                    limx=limx,
+                    limy=limy,
+                    save=os.path.join(plotdir, f"{prefix}-ground-truth.svg"),
+                    show=False
+                )
+
+    def test_plot_kaleido_error(self) -> None:
+        # small values around 0 (i.e. values smaller
+        # than abs(num.e-306)) will break plotting of
+        # distributions with plotly/kaleido
+        X_ = [0.e+000, - 5.e-324,  0.e+000,  0.e+000]
+        Y = [1., 0., 1., 1.]
+
+        mainfig = go.Figure()
+
+        # plot dashed CDF
+        mainfig.add_trace(
+            go.Scatter(
+                x=X_,
+                y=Y,
+                mode='lines',
+                name='Piecewise linear CDF from bounds',
+                line=dict(
+                    color=f'rgba(15,21,110,1.0)',
+                    width=4,
+                    dash='dash'
+                )
+            )
+        )
+
+        mainfig.update_layout(
+            xaxis=dict(
+                title='x',
+                side='bottom'
+            ),
+            yaxis=dict(
+                title='%'
+            ),
+            title=f'Distribution'
+        )
+
+        mainfig.write_image(
+            os.path.join(locs.logs, 'testimg.png'),
+            scale=1
+        )
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)

@@ -189,7 +189,8 @@ def plot_heatmap(
         limz: Tuple = None,
         save: str = None,
         show: bool = True,
-        fun: str = "heatmap"
+        fun: str = "heatmap",
+        showbuttons: bool = True
 ) -> Figure:
     """Plot heatmap (animation) or 3D surface plot with plotly.
 
@@ -355,7 +356,32 @@ def plot_heatmap(
             ],
             sliders=sliders
         )
-    # else:
+    else:
+        if showbuttons:
+            fig.update_layout(
+                updatemenus=[
+                    dict(
+                        type="buttons",
+                        x=-.05,
+                        y=-.3,
+                        direction="right",
+                        yanchor="top",
+                        buttons=list([
+                            dict(
+                                args=["type", "surface"],
+                                label=f'{"3D Surface":{" "}{"^"}{15}}',
+                                method="restyle"
+                            ),
+                            dict(
+                                args=["type", "heatmap"],
+                                label=f'{"Heatmap":{" "}{"^"}{15}}',
+                                method="restyle"
+                            )
+                        ])
+                    )
+                ]
+            )
+
     fig.update_layout(
         height=1000,
         width=1000,
@@ -419,19 +445,6 @@ def plot_tree_dist(
     y = np.linspace(limy[0], limy[1], 50)
 
     X, Y = np.meshgrid(x, y)
-    # Z = np.array(
-    #     [
-    #         tree.pdf(
-    #             tree.bind(
-    #                 {
-    #                     qvarx: x,
-    #                     qvary: y
-    #                 }
-    #             )
-    #         ) for x, y, in zip(X.ravel(), Y.ravel())
-    #     ]
-    #
-    # ).reshape(X.shape)
     Z = []
     for y_ in y:
         z_ = []
@@ -444,7 +457,7 @@ def plot_tree_dist(
 
     Z = np.array(Z)
 
-    lbl = f'Some random label'
+    lbl = np.full(Z.shape, f'Some random label')
 
     # show only values above a certain threshold, consider lower values as high-uncertainty areas
     if conf is not None:
@@ -635,13 +648,18 @@ def plot_scatter_quiver(
         labels=[f'Step {i}' for i in data['step']],
         size='size' if 'size' in data.columns else [1]*len(data),
         width=1000,
-        height=1000
+        height=1000,
     )
 
     fig_s.update_traces(
         hovertemplate='pos: (%{x:.2f},%{y:.2f})<br>'
                       'dir: (%{customdata[0]:.2f},%{customdata[1]:.2f})<br>'
                       '<extra>%{customdata[2]}</extra>'
+    )
+
+    # align x- and y-axis (scale ticks)
+    fig_s.update_layout(
+        yaxis=dict(scaleanchor="x", scaleratio=1)
     )
 
     mainfig.add_traces(
@@ -688,6 +706,7 @@ def plot_scatter_quiver(
 
     # do not draw colorax and legend
     mainfig.layout = fig_s.layout
+
     mainfig.update_coloraxes(
         showscale=False,
     )
@@ -724,7 +743,7 @@ def plot_data_subset(
     constraints = [(var, op, v) for var, val in constraints.items() for v, op in ([(val.lower, ">="), (val.upper, "<=")] if isinstance(val, ContinuousSet) else [(val, "==")])]
 
     s = ' & '.join([f'({var} {op} {num})' for var, op, num in constraints])
-    logger.debug('\nExtracting dataset using query: ', s)
+    logger.debug('Extracting dataset using query: ', s)
 
     if s == "":
         df_ = df
