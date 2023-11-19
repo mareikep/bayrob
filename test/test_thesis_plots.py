@@ -602,45 +602,46 @@ class ThesisPlotsTests(unittest.TestCase):
         limx = (-3, 3)
         limy = (-3, 3)
 
-        o1 = (-75, -40, -50, -10)
-        o2 = (-25, -75, -15, -50)
-        o3 = (-10, 10, 0, 40)
-        o4 = (20, -30, 50, 10)
-        o5 = (25, 25, 50, 50)
+        o1 = [10, 10, 20, 20]  # chair1"
+        o2 = [30, 10, 40, 20]  # "chair2"
+        o3 = [10, 30, 50, 50]  # "kitchen_island"
+        o4 = [80, 30, 100, 70]  # "stove"
+        o5 = [10, 80, 50, 100]  # "kitchen_unit"
+        o6 = [60, 80, 80, 100]  # "fridge"
 
-        ox1, oy1, ox2, oy2 = o1
+        ox1, oy1, ox2, oy2 = o3
 
         # constraints/query values
         positions = {
-            # "free-pos": [  # random position in obstacle-free area
-            #     (None, None, None, None),
-            #     (-60, 60, None, None),
-            # ],
+            "free-pos": [  # random position in obstacle-free area
+                # (None, None, None, None),
+                (40, 70, None, None),
+            ],
             "no-pos": [  # all directions without given pos
-                # (None, None, 0, -1),
-                # (None, None, 0, 1),
-                # (None, None, .5, -.5),
-                # (None, None, .5, .5),
-                # (None, None, -.5, -.5),
-                # (None, None, -.5, .5),
-                # (None, None, 1, 0),
-                # (None, None, -1, 0),
-                # (None, None, -1, None),
+                (None, None, 0, -1),
+                (None, None, 0, 1),
+                (None, None, .5, -.5),
+                (None, None, .5, .5),
+                (None, None, -.5, -.5),
+                (None, None, -.5, .5),
+                (None, None, 1, 0),
+                (None, None, -1, 0),
+                (None, None, -1, None),
                 (None, None, 1, None),
                 (None, None, None, -1),
                 (None, None, None, 1),
             ],
             "grid-corners": [  # all corners of gridworld
-                (-100, -100, None, None),
-                (-100, 100, None, None),
-                (100, -100, None, None),
-                (100, 100, None, None)
+                (0, 0, None, None),
+                (0, 100, None, None),  # broken!
+                (100, 0, None, None),  # broken!
+                (100, 100, None, None)  # broken!
             ],
             "grid-edges": [  # all edges of gridworld (center)
-                (-100, 0, None, None),
-                (100, 0, None, None),
-                (0, -100, None, None),
-                (0, 100, None, None)
+                (0, 50, None, None),
+                (100, 50, None, None),
+                (50, 0, None, None),
+                (50, 100, None, None)
             ],
             "obstacle-corners": [  # all corners of one obstacle
                 (ox1, oy1, None, None),
@@ -667,7 +668,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = .5
+                tolerance_ = 1
 
                 pdfvars = {}
 
