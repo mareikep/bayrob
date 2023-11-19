@@ -79,18 +79,22 @@ def robot_dir_data(fp, lrturns=500):
     return data_turn
 
 
-def robot_pos_semi_random(fp, limit=100, lrturns=200):
+def robot_pos_semi_random(fp, lrturns=200):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
-    logger.debug(f'Generating up to {math.pow(limit,2)*lrturns} move data points...')
+    xl, yl, xu, yu = w.coords
+    xu = xu+1
+    yu = yu+1
+
+    logger.debug(f'Generating up to {((xu-xl)*(yu-yl))*lrturns} move data points...')
 
     # init agent at left lower corner facing right
     a = GridAgent(
         world=w
     )
 
-    dm_ = DynamicArray(shape=(int(math.pow(limit,2)*lrturns), 7), dtype=np.float32)
-    for y, x in product(range(0, limit, 1), repeat=2):
+    dm_ = DynamicArray(shape=(int(((xu-xl)*(yu-yl))*lrturns), 7), dtype=np.float32)
+    for y, x in product(range(xl, xu, 1), repeat=2):
         # if the xy pos is inside an obstacle, sampling around it does not make
         # sense, so skip it
         if w.collides([x, y]): continue
@@ -107,7 +111,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
         # if the sampled position still collides, skip
         if w.collides(npos): continue
 
-        if x == -limit:
+        if x == -xl:
             logger.debug(f'Position : {npos[0]}/{npos[1]}')
 
         # initially, agent always faces right
@@ -177,7 +181,7 @@ def learn_jpt_moveforward(fp):
         variables=movevars,
         targets=movevars[4:],
         min_impurity_improvement=None,
-        min_samples_leaf=2000  # .005
+        min_samples_leaf=400  # .005
     )
 
     jpt_mf.learn(data_moveforward, close_convex_gaps=False)
@@ -226,7 +230,7 @@ def learn_jpt_moveforward_constrained(
         variables=movevars,
         targets=movevars[tgtidx:],
         min_impurity_improvement=None,
-        min_samples_leaf=2000  # .005
+        min_samples_leaf=400  # .005
     )
 
     jpt_mf.learn(df, close_convex_gaps=False)
@@ -521,7 +525,10 @@ def data_curation(fp, runs, usedeltas=False):
 
 
 # init agent and world
-w = Grid()
+w = Grid(
+    x=[0, 100],
+    y=[0, 100]
+)
 
 
 def main(DT, args):
@@ -543,7 +550,7 @@ def main(DT, args):
             ((10, 80, 50, 100), "kitchen_unit"),
             ((60, 80, 80, 100), "fridge"),
         ]
-    
+
         for o, n in obstacles:
             w.obstacle(*o, name=n)
 
@@ -559,20 +566,20 @@ def main(DT, args):
 
     if args.move:
         learn_jpt_moveforward(fp)
-        learn_jpt_moveforward_constrained(
-            fp,
-            constraints={'collided': True},
-            vars=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out'],
-            tgtidx=4,
-            name="000-MOVEFORWARD-collided.tree"
-        )
-        learn_jpt_moveforward_constrained(
-            fp,
-            constraints={'collided': False},
-            vars=['xdir_in', 'ydir_in', 'x_out', 'y_out'],
-            tgtidx=2,
-            name="000-MOVEFORWARD-nocollided.tree"
-        )
+        # learn_jpt_moveforward_constrained(
+        #     fp,
+        #     constraints={'collided': True},
+        #     vars=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out'],
+        #     tgtidx=4,
+        #     name="000-MOVEFORWARD-collided.tree"
+        # )
+        # learn_jpt_moveforward_constrained(
+        #     fp,
+        #     constraints={'collided': False},
+        #     vars=['xdir_in', 'ydir_in', 'x_out', 'y_out'],
+        #     tgtidx=2,
+        #     name="000-MOVEFORWARD-nocollided.tree"
+        # )
         plot_jpt_moveforward(fp, args.showplots)
 
     if args.data:
