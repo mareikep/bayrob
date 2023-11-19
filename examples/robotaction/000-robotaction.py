@@ -73,7 +73,7 @@ def robot_dir_data(fp, lrturns=500):
         'angle': np.float32
     })
 
-    logger.debug(f"...done! Saving data to {os.path.join(fp, 'data', f'000-ALL-TURN.parquet')}...")
+    logger.debug(f"...done! Saving {data_turn.shape[0]} data points to {os.path.join(fp, 'data', f'000-ALL-TURN.parquet')}...")
     data_turn.to_parquet(os.path.join(fp, 'data', f'000-ALL-TURN.parquet'), index=False)
 
     return data_turn
@@ -82,15 +82,15 @@ def robot_dir_data(fp, lrturns=500):
 def robot_pos_semi_random(fp, limit=100, lrturns=200):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
-    logger.debug(f'Generating {math.pow(limit*2,2)*lrturns} star-shaped robot data points...')
+    logger.debug(f'Generating up to {math.pow(limit,2)*lrturns} star-shaped robot data points...')
 
     # init agent at left lower corner facing right
     a = GridAgent(
         world=w
     )
 
-    dm_ = DynamicArray(shape=(int(7e6), 7), dtype=np.float32)
-    for y, x in product(range(0, limit, 2), repeat=2):
+    dm_ = DynamicArray(shape=(int(math.pow(limit,2)*lrturns), 7), dtype=np.float32)
+    for y, x in product(range(0, limit, 1), repeat=2):
         # if the xy pos is inside an obstacle, sampling around it does not make
         # sense, so skip it
         if w.collides([x, y]): continue
@@ -152,7 +152,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
         'collided': bool
     })
 
-    logger.debug(f"...done! Saving data to {os.path.join(fp, 'data', f'000-ALL-MOVEFORWARD.parquet')}...")
+    logger.debug(f"...done! Saving {data_moveforward.shape[0]} data points to {os.path.join(fp, 'data', f'000-ALL-MOVEFORWARD.parquet')}...")
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-ALL-MOVEFORWARD.parquet'), index=False)
 
     return data_moveforward
@@ -512,9 +512,9 @@ def main(DT, args):
         os.mkdir(os.path.join(fp, 'plots'))
         os.mkdir(os.path.join(fp, 'data'))
 
-    w.obstacle(10, 10, 20, 20, name="chair1")
-    w.obstacle(30, 10, 40, 20, name="chair2")
-    w.obstacle(10, 30, 50, 30, name="kitchen_island")
+    w.obstacle(15, 10, 25, 20, name="chair1")
+    w.obstacle(35, 10, 45, 20, name="chair2")
+    w.obstacle(10, 30, 50, 50, name="kitchen_island")
     w.obstacle(80, 30, 100, 70, name="stove")
     w.obstacle(10, 80, 50, 100, name="kitchen_unit")
     w.obstacle(60, 80, 80, 100, name="fridge")
