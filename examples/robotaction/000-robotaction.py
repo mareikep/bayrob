@@ -40,7 +40,7 @@ def robot_dir_data(fp, lrturns=500):
     a.dir = (1, 0)
     initdir = a.dir
 
-    dt_ = DynamicArray(shape=(int(7e6), 5), dtype=np.float32)
+    dt_ = DynamicArray(shape=(lrturns*100, 5), dtype=np.float32)
 
     for degi in np.random.uniform(low=-180, high=180, size=lrturns):
 
@@ -54,11 +54,11 @@ def robot_dir_data(fp, lrturns=500):
             # turn and save new direction
             Move.turndeg(a, randdeg)
             dt_.append(np.array(
-                [
+                [[
                     *curdir,
                     randdeg,
                     *np.array(a.dir) - np.array(curdir)  # deltas!
-                ])
+                ]])
             )
 
             a.dir = curdir
@@ -96,7 +96,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
         if w.collides([x, y]): continue
 
         # sample around x/y position to add some gaussian noise
-        npos = [x, y]  # (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))  # TODO: use noisy position?
+        npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))  # TODO: use noisy position?
 
         # do not position agent on obstacles (retry 3 times, then skip)
         tries = 0
@@ -127,12 +127,12 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
             # move forward and save new position/direction
             Move.moveforward(a, 1)
             dm_.append(np.array(
-                [
+                [[
                     *npos,
                     *a.dir,
                     *np.array(a.pos) - np.array(npos),  # deltas!
                     a.collided
-                ])
+                ]])
             )
 
             # step back/reset position and direction
