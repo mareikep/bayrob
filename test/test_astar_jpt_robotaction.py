@@ -14,109 +14,13 @@ from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal
 from calo.utils import locs
 from calo.utils.plotlib import plot_pos, plot_path, gendata, plot_heatmap, plot_data_subset, plot_tree_dist, \
-    plotly_animation
+    plotly_animation, plotly_sq, defaultconfig
 from calo.utils.utils import recent_example
 from jpt import JPT
 from jpt.distributions import Numeric, Gaussian
 
 
 class AStarRobotActionJPTTests(unittest.TestCase):
-
-    @staticmethod
-    def plot(
-            tree: JPT,
-            qvarx: Any = None,
-            qvary: Any = None,
-            title: str = None,
-            conf: float = None,
-            limx: Tuple = None,
-            limy: Tuple = None,
-            limz: Tuple = None,
-            save: str = None,
-            show: bool = True
-    ) -> None:
-        """Plots a heatmap representing the belief state for the agents' position, i.e. the joint
-        probability of the x and y variables: P(x, y).
-
-        :param title: The plot title
-        :param conf:  A confidence value. Values below this threshold are set to 0. (= equal color for lowest value in plot)
-        :param limx: The limits for the x-variable; determined from boundaries if not given
-        :param limy: The limits for the y-variable; determined from boundaries if not given
-        :param limz: The limits for the z-variable; determined from data if not given
-        :param save: The location where the plot is saved (if given)
-        :param show: Whether the plot is shown
-        :return: None
-        """
-        # generate datapoints
-        x = np.linspace(limx[0], limx[1], 50)
-        y = np.linspace(limy[0], limy[1], 50)
-
-        X, Y = np.meshgrid(x, y)
-        Z = np.array(
-            [
-                tree.pdf(
-                    tree.bind(
-                        {
-                            qvarx: x,
-                            qvary: y,
-                            # tree.varnames['collided']: False
-                        }
-                    )
-                ) for x, y, in zip(X.ravel(), Y.ravel())
-                # tree.pdf(
-                #     tree.bind(
-                #         {
-                #             qvarx: x,
-                #             qvary: y,
-                #             tree.varnames['collided']: False
-                #         }
-                #     )
-                # ) for x, y, in zip(X.ravel(), Y.ravel())
-            ]
-        ).reshape(X.shape)
-
-        # determine limits
-        xmin = ifnone(limx, min(x) - 15, lambda l: l[0])
-        xmax = ifnone(limx, max(x) + 15, lambda l: l[1])
-        ymin = ifnone(limy, min(y) - 15, lambda l: l[0])
-        ymax = ifnone(limy, max(y) + 15, lambda l: l[1])
-
-        # show only values above a certain threshold, consider lower values as high-uncertainty areas
-        if conf is not None:
-            Z[Z < conf] = 0.
-
-        # remove or replace by eliminating values > median
-        # Z[Z > np.median(Z)] = np.median(Z)
-
-        zmin = ifnone(limz, Z.min(), lambda l: l[0])
-        zmax = ifnone(limz, Z.max(), lambda l: l[1])
-
-        # init plot
-        fig, ax = plt.subplots(num=1, clear=True)
-        fig.patch.set_facecolor('#D6E7F8')  # set bg color around the plot area (royal purple)
-        ax.set_facecolor('white')  # set bg color of plot area (dark purple)
-        cmap = 'BuPu'  # viridis, Blues, PuBu, 0rRd, BuPu
-
-        # generate heatmap
-        # c = ax.pcolormesh(X, Y, Z, cmap=cmap, vmin=zmin, vmax=zmax)
-        ax = plt.axes(projection='3d')
-        ax.plot_surface(X, Y, Z, cmap=cmap, edgecolor='none')
-        ax.set_title(f'P(x,y)')
-
-        # setting the limits of the plot to the limits of the data
-        ax.axis([xmin, xmax, ymin, ymax])
-        # ax.axis([-100, 100, -100, 100])
-        ax.set_xlabel(r'$x$')
-        ax.set_ylabel(r'$y$')
-        # fig.colorbar(c, ax=ax)
-        fig.suptitle(title)
-        fig.canvas.manager.set_window_title(f'Initial distribution: P(x/y)')
-
-        if save:
-            plt.savefig(save)
-
-        if show:
-            plt.show()
 
     # assumes trees MOVEFORWARD and TURN generated previously from functions in calo-dev/test/test_robotpos.py,
     # executed in the following order:
@@ -130,6 +34,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         recent = recent_example(os.path.join(locs.examples, 'robotaction'))
         # recent = os.path.join(locs.examples, 'robotaction', '2023-11-18_15:24')
+        print("loading example", recent)
+        cls.recent = recent
 
         cls.models = dict(
             [
@@ -162,7 +68,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # OK
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # NICHT OK
         # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]  # NICHT OK
-        initx, inity, initdirx, initdiry = [77, 52, 1, 0]
+        initx, inity, initdirx, initdiry = [30, 78, 0, -1]
 
         tolerance = .01
 
@@ -521,12 +427,15 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # )
 
     def test_move_till_collision(self) -> None:
+        import plotly.graph_objects as go
+
+        print("loading example", AStarRobotActionJPTTests.recent)
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = AStarRobotActionJPTTests.initstate
         p = [[s, {}]]
         t = AStarRobotActionJPTTests.models['000-MOVEFORWARD.tree']
-        for step in range(6):
+        for step in range(3):
             print("Step", step)
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -565,6 +474,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                         s_[invar] = s_[invar].approximate(.2)
                     if len(best[outvar].cdf.functions) > 20:
                         best[outvar] = best[outvar].approximate(.2)
+
+                    print("adding", best[outvar], best[outvar].expectation(), "to", s_[invar], s_[invar].expectation())
                     s_[invar] = s_[invar] + best[outvar]
                 else:
                     s_[invar] = d
@@ -578,24 +489,45 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             s = State_()
             s.update({k: v for k, v in s_.items()})
 
-        # plot_path(
-        #     'x_in',
-        #     'y_in',
-        #     p,
-        #     title="Path A to B",
-        #     save=os.path.join(locs.logs, f'path.svg')
-        # )
-        #
-        # plot_pos(
-        #     path=p,
-        #     save=os.path.join(locs.logs, f'posxy.html'),
-        #     show=True
-        # )
+        # plot annotated rectangles representing the obstacles and world boundaries
+        obstacles = [
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
 
+        fig = plot_path(
+            'x_in',
+            'y_in',
+            p,
+            title="Path A to B",
+            save=os.path.join(locs.logs, f'path.svg'),
+            obstacles=obstacles,
+            show=True
+        )
+
+        fig.write_html(
+            os.path.join(locs.logs, f'path.html'),
+            config=defaultconfig,
+            include_plotlyjs="cdn"
+        )
+
+        fig.show(config=defaultconfig)
+
+        # print heatmap representing position distribution update
+        plot_pos(
+            path=p,
+            save=os.path.join(locs.logs, f'posxy.html'),
+            show=True
+        )
+
+        # plot animation of collision bar chart representing change of collision status
         frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
         plotly_animation(
             data=frames,
-            title="Collision",
             save=os.path.join(locs.logs, f'collision.html'),
             show=True
         )

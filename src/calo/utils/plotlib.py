@@ -631,8 +631,10 @@ def plot_path(
         xvar,
         yvar,
         p: List,
+        obstacles: List = None,
         title: str = None,
-        save: str = None
+        save: str = None,
+        show: bool = False,
 ) -> Figure:
 
     # generate data points
@@ -663,13 +665,36 @@ def plot_path(
         columns=[xvar, yvar, 'dx', 'dy', 'step', 'lbl', 'size']
     )
 
-    return plot_scatter_quiver(
+    fig = go.Figure()
+    if obstacles is not None:
+        for (o, on) in obstacles:
+            fig.add_trace(
+                plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
+
+        fig.add_trace(
+            plotly_sq(
+                (0, 1, 100, 100),
+                lbl="kitchen_boundaries",
+                color='rgb(15,21,110)',
+                legend=False)
+        )
+
+
+    fig_ = plot_scatter_quiver(
         xvar,
         yvar,
         data,
         title=title,
-        save=save
+        save=save,
     )
+
+    fig.add_traces(fig_.data)
+    fig.layout = fig_.layout
+
+    if show:
+        fig.show(config=defaultconfig)
+
+    return fig
 
 
 def plotly_pt(
@@ -774,7 +799,7 @@ def plot_scatter_quiver(
         data: pd.DataFrame,
         title: str = None,
         save: str = None,
-        show: bool = True,
+        show: bool = False,
 ) -> Figure:
     """Plot heatmap or 3D surface plot with plotly
     """

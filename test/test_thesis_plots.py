@@ -613,48 +613,48 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values
         positions = {
-            "free-pos": [  # random position in obstacle-free area
-                # (None, None, None, None),
-                (40, 70, None, None),
-            ],
-            "no-pos": [  # all directions without given pos
-                (None, None, 0, -1),
-                (None, None, 0, 1),
-                (None, None, .5, -.5),
-                (None, None, .5, .5),
-                (None, None, -.5, -.5),
-                (None, None, -.5, .5),
-                (None, None, 1, 0),
-                (None, None, -1, 0),
-                (None, None, -1, None),
-                (None, None, 1, None),
-                (None, None, None, -1),
-                (None, None, None, 1),
-            ],
+            # "free-pos": [  # random position in obstacle-free area
+            #     # (None, None, None, None),
+            #     (40, 70, None, None),
+            # ],
+            # "no-pos": [  # all directions without given pos
+            #     (None, None, 0, -1),
+            #     (None, None, 0, 1),
+            #     (None, None, .5, -.5),
+            #     (None, None, .5, .5),
+            #     (None, None, -.5, -.5),
+            #     (None, None, -.5, .5),
+            #     (None, None, 1, 0),
+            #     (None, None, -1, 0),
+            #     (None, None, -1, None),
+            #     (None, None, 1, None),
+            #     (None, None, None, -1),
+            #     (None, None, None, 1),
+            # ],
             "grid-corners": [  # all corners of gridworld
                 (0, 0, None, None),
                 (0, 100, None, None),  # broken!
                 (100, 0, None, None),  # broken!
                 (100, 100, None, None)  # broken!
             ],
-            "grid-edges": [  # all edges of gridworld (center)
-                (0, 50, None, None),
-                (100, 50, None, None),
-                (50, 0, None, None),
-                (50, 100, None, None)
-            ],
-            "obstacle-corners": [  # all corners of one obstacle
-                (ox1, oy1, None, None),
-                (ox2, oy2, None, None),
-                (ox1, oy2, None, None),
-                (ox2, oy1, None, None)
-            ],
-            "obstacle-edges": [  # all edges of one obstacle
-                (ox1, oy1+(oy2-oy1)/2, None, None),
-                (ox2, oy1+(oy2-oy1)/2, None, None),
-                (ox1+(ox2-ox1)/2, oy1, None, None),
-                (ox1+(ox2-ox1)/2, oy2, None, None)
-            ],
+            # "grid-edges": [  # all edges of gridworld (center)
+            #     (0, 50, None, None),
+            #     (100, 50, None, None),
+            #     (50, 0, None, None),
+            #     (50, 100, None, None)
+            # ],
+            # "obstacle-corners": [  # all corners of one obstacle
+            #     (ox1, oy1, None, None),
+            #     (ox2, oy2, None, None),
+            #     (ox1, oy2, None, None),
+            #     (ox2, oy1, None, None)
+            # ],
+            # "obstacle-edges": [  # all edges of one obstacle
+            #     (ox1, oy1+(oy2-oy1)/2, None, None),
+            #     (ox2, oy1+(oy2-oy1)/2, None, None),
+            #     (ox1+(ox2-ox1)/2, oy1, None, None),
+            #     (ox1+(ox2-ox1)/2, oy2, None, None)
+            # ],
         }
 
         for postype, pos in positions.items():
@@ -668,7 +668,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = 1
+                tolerance_ = 1.5
 
                 pdfvars = {}
 
@@ -684,6 +684,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 if yd is not None:
                     pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
 
+                # pdfvars = {}
+                # pdfvars['x_in'] = ContinuousSet(79, 80)
+                # pdfvars['y_in'] = ContinuousSet(55, 56)
                 print("PDFVARS:", pdfvars)
 
                 # generate tree conditioned on given position and/or direction
