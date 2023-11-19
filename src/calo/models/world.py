@@ -52,6 +52,10 @@ class Grid(World):
     def obstacles(self) -> List[List[float]]:
         return self._obstacles
 
+    @property
+    def obstaclenames(self) -> List[List[float]]:
+        return self._obstaclenames
+
     def collides_obstacle(
             self,
             pos: Tuple[float, float]

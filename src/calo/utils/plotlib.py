@@ -45,6 +45,31 @@ defaultconfig = dict(
    # ]
 )
 
+def hextorgb(col):
+    h = col.strip("#")
+    l = len(h)
+    if l == 3 or l == 4:  # e.g. "#fff"
+        return hextorgb(f'{"".join([(v) * 2 for v in h], )}')
+    if l == 6:  # e.g. "#2D6E0F"
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    if l == 8:  # e.g. "#2D6E0F33"
+        return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) + (round(int(h[6:8], 16) / 255, 2),)
+
+
+def to_rgb(color, opacity=.6):
+    if color.startswith('#'):
+        color = hextorgb(color)
+        if len(color) == 4:
+            opacity = color[-1]
+            color = color[:-1]
+    elif color.startswith('rgba'):
+        color = tuple(map(float, color[5:-1].split(',')))
+        opacity = color[-1]
+        color = color[:-1]
+    elif color.startswith('rgb'):
+        color = tuple(map(float, color[4:-1].split(',')))
+    return f'rgb{*color,}', f'rgba{*color + (opacity,),}'
+
 
 def plot_pos(
         path: List,
@@ -688,22 +713,28 @@ def plotly_pt(
 def plotly_sq(
         area: Tuple,
         lbl: str = "Goal",
-        color: str = "0,125,0",
+        color: str = "rgb(15,21,110)",
         legend: bool = True
 ) -> Any:
     gxl, gyl, gxu, gyu = area
+    rgb, rgba = to_rgb(color, opacity=0.4)
+    _, rgba1 = to_rgb(color, opacity=0.1)
 
     return go.Scatter(
             x=[gxl, gxl, gxu, gxu, gxl],
             y=[gyl, gyu, gyu, gyl, gyl],
             fill="toself",
+            textposition='top right',
+            textfont=dict(color=rgb),
             marker=dict(
-                symbol='star',
-                color=f'rgba({color},0.4)'
+                symbol='circle',
+                color=rgba
             ),
-            fillcolor=f'rgba({color},0.1)',
+            fillcolor=rgba1,
             name=lbl,
-            showlegend=legend
+            showlegend=legend,
+            mode="lines+text",
+            text=[lbl, None, None, None, None]
         )
 
 

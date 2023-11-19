@@ -18,7 +18,7 @@ from calo.models.world import GridAgent, Grid
 from calo.utils import locs
 from calo.utils.constants import FILESTRFMT, calologger
 from calo.utils.dynamic_array import DynamicArray
-from calo.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset
+from calo.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, to_rgb
 from calo.utils.utils import recent_example
 from jpt import infer_from_dataframe, JPT
 from jpt.base.intervals import ContinuousSet
@@ -96,7 +96,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
         if w.collides([x, y]): continue
 
         # sample around x/y position to add some gaussian noise
-        npos = (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))
+        npos = [x, y]  # (Gaussian(x, .3).sample(1), Gaussian(y, .3).sample(1))  # TODO: use noisy position?
 
         # do not position agent on obstacles (retry 3 times, then skip)
         tries = 0
@@ -111,7 +111,7 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
             logger.debug(f'Position : {npos[0]}/{npos[1]}')
 
         # initially, agent always faces right
-        a.pos = initpos = npos
+        a.pos = npos
         a.dir = initdir = (1., 0.)
 
         # for each position, uniformly sample lrturns angles from -180 to 180;
@@ -128,16 +128,16 @@ def robot_pos_semi_random(fp, limit=100, lrturns=200):
             Move.moveforward(a, 1)
             dm_.append(np.array(
                 [
-                    *initpos,
+                    *npos,
                     *a.dir,
-                    *np.array(a.pos) - np.array(initpos),  # deltas!
+                    *np.array(a.pos) - np.array(npos),  # deltas!
                     a.collided
                 ])
             )
 
             # step back/reset position and direction
             a.dir = initdir
-            a.pos = initpos
+            a.pos = npos
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
@@ -322,7 +322,7 @@ def plot_data(fp) -> go.Figure:
 
     df = pd.read_parquet(os.path.join(fp, 'data', f'000-ALL-MOVEFORWARD.parquet'))
 
-    fig_s = px.scatter(
+    fig_d = px.scatter(
         df,
         x="x_in",
         y="y_in",
@@ -334,33 +334,52 @@ def plot_data(fp) -> go.Figure:
         height=1000
     )
 
-    fig_s.update_layout(coloraxis_showscale=False)
+    fig_d.update_layout(
+        coloraxis_showscale=False,
+    )
 
-    fig_s.write_html(
-        os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE.html'),
+    fig_d.write_html(
+        os.path.join(fp, 'plots', f'000-DATA-MOVE.html'),
         config=defaultconfig,
         include_plotlyjs="cdn"
     )
 
-    fig_s.to_json(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE.json'))
-    fig_s.write_image(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE.svg'))
+    fig_d.to_json(os.path.join(fp, 'plots', f'000-DATA-MOVE.json'))
+    fig_d.to_json(os.path.join(fp, 'plots', f'000-DATA-MOVE.png'))
+    fig_d.write_image(os.path.join(fp, 'plots', f'000-DATA-MOVE.svg'))
 
-    # plot annotated rectangles representing the obstacles
-    for i, o in enumerate(w.obstacles):
-        fig_s.add_trace(
-            plotly_sq(o, lbl=f'O{i+1}', color="60,60,60", legend=False))
+    fig_d.show(config=defaultconfig)
 
-    fig_s.write_html(
-        os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE_annotated.html'),
+    return fig_d
+
+
+def plot_world(fp, limit) -> go.Figure:
+
+    # plot annotated rectangles representing the obstacles and world boundaries
+    fig_o = go.Figure()
+    fig_o.update_layout(
+        coloraxis_showscale=False,
+        width=1000,
+        height=1000
+    )
+    for i, (o, on) in enumerate(zip(w.obstacles, w.obstaclenames)):
+        fig_o.add_trace(
+            plotly_sq(o, lbl=on if on else f'O{i+1}', color='rgb(15,21,110)', legend=False))
+
+    fig_o.add_trace(
+        plotly_sq((limit[0], limit[0], limit[1], limit[1]), lbl="kitchen_boundaries", color='rgb(15,21,110)', legend=False))
+
+    fig_o.write_html(
+        os.path.join(fp, 'plots', f'000-MOVE-OBSTACLES.html'),
         config=defaultconfig,
         include_plotlyjs="cdn"
     )
 
-    fig_s.write_image(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE_annotated.png'))
-    fig_s.write_image(os.path.join(fp, 'plots', f'000-TRAJECTORIES-MOVE_annotated.svg'))
+    fig_o.write_image(os.path.join(fp, 'plots', f'000-MOVE-OBSTACLES.png'))
+    fig_o.write_image(os.path.join(fp, 'plots', f'000-MOVE-OBSTACLES.svg'))
 
-    fig_s.show(config=defaultconfig)
-    return fig_s
+    fig_o.show(config=defaultconfig)
+    return fig_o
 
 
 def robot_pos_random(fp, runs, nactions):
@@ -520,30 +539,36 @@ def main(DT, args):
     w.obstacle(60, 80, 80, 100, name="fridge")
 
     if not args.recent:
-        robot_dir_data(fp)
-        robot_pos_semi_random(fp)
+        if args.turn:
+            robot_dir_data(fp)
+        if args.move:
+            robot_pos_semi_random(fp)
 
-    learn_jpt_turn(fp)
-    learn_jpt_moveforward(fp)
-    learn_jpt_moveforward_constrained(
-        fp,
-        constraints={'collided': True},
-        vars=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out'],
-        tgtidx=4,
-        name="000-MOVEFORWARD-collided.tree"
-    )
-    learn_jpt_moveforward_constrained(
-        fp,
-        constraints={'collided': False},
-        vars=['xdir_in', 'ydir_in', 'x_out', 'y_out'],
-        tgtidx=2,
-        name="000-MOVEFORWARD-nocollided.tree"
-    )
+    if args.turn:
+        learn_jpt_turn(fp)
+        plot_jpt_turn(fp, args.showplots)
 
-    plot_jpt_turn(fp, args.showplots)
-    plot_jpt_moveforward(fp, args.showplots)
+    if args.move:
+        learn_jpt_moveforward(fp)
+        learn_jpt_moveforward_constrained(
+            fp,
+            constraints={'collided': True},
+            vars=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out'],
+            tgtidx=4,
+            name="000-MOVEFORWARD-collided.tree"
+        )
+        learn_jpt_moveforward_constrained(
+            fp,
+            constraints={'collided': False},
+            vars=['xdir_in', 'ydir_in', 'x_out', 'y_out'],
+            tgtidx=2,
+            name="000-MOVEFORWARD-nocollided.tree"
+        )
+        plot_jpt_moveforward(fp, args.showplots)
 
-    plot_data(fp)
+    if args.data:
+        plot_world(fp, limit=[0, 100])
+        plot_data(fp)
 
 
 if __name__ == '__main__':
@@ -551,10 +576,13 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", dest="verbose", default='info', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
     parser.add_argument('-r', '--recent', default=False, action='store_true', help='use most recent folder greated', required=False)
     parser.add_argument('-s', '--showplots', default=False, action='store_true', help='show plots', required=False)
+    parser.add_argument('-t', '--turn', default=False, action='store_true', help='trigger generating turn data/learning turn model', required=False)
+    parser.add_argument('-m', '--move', default=False, action='store_true', help='trigger generating move data/learning move model', required=False)
+    parser.add_argument('-d', '--data', default=False, action='store_true', help='trigger generating data/world plots', required=False)
     parser.add_argument('--min-samples-leaf', type=float, default=.01, help='min_samples_leaf parameter', required=False)
     args = parser.parse_args()
 
-    init_loggers(level='debug')
+    init_loggers(level=args.verbose)
 
     # use most recently created dataset or create from scratch
     if args.recent:
