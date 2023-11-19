@@ -179,6 +179,130 @@ def gendata(
     return x, y, Z, np.full(x.shape, lbl)
 
 
+def plotly_animation(
+        data: List[Any],
+        title: str = None,
+        save: str = None,
+        show: bool = True,
+) -> Figure:
+    # generate the frames
+    frames = [
+        go.Frame(
+            data=fig_,
+            name=f'Step {i}'
+        ) for i, fig_ in enumerate(data)
+    ]
+
+    fig = go.Figure(
+        data=frames[0].data,
+        frames=frames,
+    )
+
+    if len(frames) > 1:
+        # if there are multiple datasets in the Dataframe, create buttons for an animation, otherwise,
+        # generate single plot
+
+        def frame_args(duration):
+            return dict(
+                frame=dict(
+                    duration=duration,
+                    redraw=True
+                ),
+                mode="immediate",
+                fromcurrent=True,
+                transition=dict(
+                    duration=0,
+                    redraw=True
+                )
+            )
+
+        steps = []
+        for i, f in enumerate(fig.frames):
+            step = dict(
+                args=[
+                    [f.name],
+                    frame_args(0)
+                ],
+                label=f.name,
+                method="animate"
+            )
+            steps.append(step)
+
+        sliders = [
+            dict(
+                currentvalue=dict(
+                    prefix="Step: "
+                ),
+                steps=steps
+            )
+        ]
+
+        fig.update_layout(
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    x=-.05,
+                    y=-.225,
+                    direction="right",
+                    yanchor="top",
+                    buttons=list(
+                        [
+                            dict(
+                                args=[
+                                    None,
+                                    frame_args(100)
+                                ],
+                                label=f'{"&#9654;":{" "}{"^"}{20}}',
+                                method="animate"
+                            ),
+                            dict(
+                                args=[
+                                    [
+                                        None
+                                    ],
+                                    dict(
+                                        frame=dict(
+                                            duration=0,
+                                            redraw=False
+                                        ),
+                                        mode="immediate",
+                                        transition=dict(
+                                            duration=0
+                                        )
+                                    )
+                                ],
+                                label=f'{"&#9208;":{" "}{"^"}{20}}',
+                                method="animate"
+                            ),
+                        ]
+                    )
+                )
+            ],
+            sliders=sliders
+        )
+
+    fig.update_layout(
+        height=1000,
+        width=1000,
+        title=title
+    )
+
+    if save:
+        if save.endswith('html'):
+            fig.write_html(
+                save,
+                config=defaultconfig,
+                include_plotlyjs="cdn"
+            )
+        else:
+            fig.write_image(save)
+
+    if show:
+        fig.show(config=defaultconfig)
+
+    return fig
+
+
 def plot_heatmap(
         xvar: str,
         yvar: str,
