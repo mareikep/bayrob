@@ -534,12 +534,18 @@ def main(DT, args):
         os.mkdir(os.path.join(fp, 'plots'))
         os.mkdir(os.path.join(fp, 'data'))
 
-    w.obstacle(15, 10, 25, 20, name="chair1")
-    w.obstacle(35, 10, 45, 20, name="chair2")
-    w.obstacle(10, 30, 50, 50, name="kitchen_island")
-    w.obstacle(80, 30, 100, 70, name="stove")
-    w.obstacle(10, 80, 50, 100, name="kitchen_unit")
-    w.obstacle(60, 80, 80, 100, name="fridge")
+    if args.obstacles:
+        obstacles = [
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
+    
+        for o, n in obstacles:
+            w.obstacle(*o, name=n)
 
     if not args.recent:
         if args.turn:
@@ -582,6 +588,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--turn', default=False, action='store_true', help='trigger generating turn data/learning turn model', required=False)
     parser.add_argument('-m', '--move', default=False, action='store_true', help='trigger generating move data/learning move model', required=False)
     parser.add_argument('-d', '--data', default=False, action='store_true', help='trigger generating data/world plots', required=False)
+    parser.add_argument('-o', '--obstacles', default=False, action='store_true', help='obstacles', required=False)
     parser.add_argument('--min-samples-leaf', type=float, default=.01, help='min_samples_leaf parameter', required=False)
     args = parser.parse_args()
 
