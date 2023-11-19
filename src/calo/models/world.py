@@ -20,11 +20,11 @@ class Agent:
 class Grid(World):
     def __init__(
             self,
-            x=100,
-            y=100
+            x=[-100, 100],
+            y=[-100, 100]
     ) -> None:
         super().__init__()
-        self.coords = -x, -y, x, y
+        self.coords = [x[0], y[0], x[1], y[1]]
         self._obstacles = []
         self._obstaclenames = []
 
@@ -66,7 +66,7 @@ class Grid(World):
             self,
             pos: Tuple[float, float]
     ) -> bool:
-        return not any([self.coords[0] <= pos[0] <= self.coords[2] and self.coords[1] <= pos[1] <= self.coords[3]])
+        return not (self.coords[0] <= pos[0] <= self.coords[2] and self.coords[1] <= pos[1] <= self.coords[3])
 
     def collides(
             self,
