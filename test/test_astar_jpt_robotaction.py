@@ -1,20 +1,16 @@
 import os
 import unittest
 from pathlib import Path
-from typing import Tuple, Any
 
-import numpy as np
 import pandas as pd
-from dnutils import ifnone, first
+from dnutils import first
 from jpt.base.intervals import ContinuousSet
-from matplotlib import pyplot as plt
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar
 from calo.core.astar_jpt import Goal
 from calo.utils import locs
-from calo.utils.plotlib import plot_pos, plot_path, gendata, plot_heatmap, plot_data_subset, plot_tree_dist, \
-    plotly_animation, plotly_sq, defaultconfig
+from calo.utils.plotlib import gendata, plot_heatmap
 from calo.utils.utils import recent_example
 from jpt import JPT
 from jpt.distributions import Numeric, Gaussian
@@ -68,7 +64,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # OK
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # NICHT OK
         # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]  # NICHT OK
-        initx, inity, initdirx, initdiry = [30, 78, 0, -1]
+        initx, inity, initdirx, initdiry = [30, 78, 0, 1]
 
         tolerance = .01
 
@@ -274,263 +270,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # ACTION II: TURN ==============================================================
         # evidence['angle'] = -9
-
-    def test_astar_cram_path(self) -> None:
-        cmds = [
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-        ]
-
-        cmds = [
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-        ]
-
-        # VARIANT I
-        pass
-
-        # VARIANT II: each leaf of the conditional tree represents one possible action
-        s = AStarRobotActionJPTTests.initstate
-        p = [[s, {}]]
-        for cmd in cmds:
-            print('cmd', cmd)
-            t = AStarRobotActionJPTTests.models[cmd['tree']]
-
-            # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
-            evidence = {
-                var: ContinuousSet(s[var].ppf(.05), s[var].ppf(.95)) for var in s.keys()
-            }
-
-            if cmd["params"] is not None:
-                evidence.update(cmd["params"])
-
-            # candidate is the conditional tree
-            # t_ = self.generate_steps(evidence, t)
-            best = t.posterior(
-                variables=t.targets,
-                evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
-                    allow_singular_values=False
-                ),
-                fail_on_unsatisfiability=False
-            )
-
-            if best is None:
-                print('skipping command', cmd, 'unsatisfiable!')
-                continue
-
-            # create successor state
-            s_ = State_()
-            s_.update({k: v for k, v in s.items()})
-            s_.tree = cmd['tree']
-            s_.leaf = None
-
-            # update belief state of potential predecessor
-            for vn, d in best.items():
-                outvar = vn.name
-                invar = vn.name.replace('_out', '_in')
-                if outvar != invar and invar in s_:
-                    # if the _in variable is already contained in the state, update it by adding the delta
-                    # from the leaf distribution
-                    if len(s_[invar].cdf.functions) > 20:
-                        s_[invar] = s_[invar].approximate(.2)
-                    if len(best[outvar].cdf.functions) > 20:
-                        best[outvar] = best[outvar].approximate(.2)
-                    s_[invar] = s_[invar] + best[outvar]
-                else:
-                    s_[invar] = d
-
-                if hasattr(s_[invar], 'approximate'):
-                    s_[invar] = s_[invar].approximate(
-                        error_max=.2
-                    )
-
-            p.append([s_, cmd['params']])
-            s = State_()
-            s.update({k: v for k, v in s_.items()})
-
-        plot_path(
-            'x_in',
-            'y_in',
-            p,
-            title="Path A to B",
-            save=os.path.join(locs.logs, f'path.svg')
-        )
-
-        plot_pos(
-            path=p,
-            save=os.path.join(locs.logs, f'posxy.html'),
-            show=True
-        )
-
-        # plot_dir(
-        #     path=p,
-        #     save=os.path.join(locs.logs, f'dirxy.html'),
-        #     show=True,
-        # )
-
-        # SubAStar_.plot_xyvars(
-        #     xvar='x_in',
-        #     yvar='y_in',
-        #     path=p,
-        #     title=f'Position(x,y)',
-        #     limx=[-75, -25],
-        #     limy=[40, 75],
-        #     limz=[0, 0.05],
-        #     save=f'test_astar_cram_path_posxy',
-        #     show=False
-        # )
-
-    def test_move_till_collision(self) -> None:
-        import plotly.graph_objects as go
-
-        print("loading example", AStarRobotActionJPTTests.recent)
-
-        # VARIANT II: each leaf of the conditional tree represents one possible action
-        s = AStarRobotActionJPTTests.initstate
-        p = [[s, {}]]
-        t = AStarRobotActionJPTTests.models['000-MOVEFORWARD.tree']
-        for step in range(3):
-            print("Step", step)
-
-            # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
-            evidence = {
-                var: ContinuousSet(s[var].ppf(.05), s[var].ppf(.95)) for var in s.keys() if isinstance(s[var], Numeric)
-            }
-
-            # candidate is the conditional tree
-            best = t.posterior(
-                variables=t.targets,
-                evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
-                    allow_singular_values=False
-                ),
-                fail_on_unsatisfiability=False
-            )
-
-            if best is None:
-                print('skipping at step', step, 'unsatisfiable!')
-                continue
-
-            # create successor state
-            s_ = State_()
-            s_.update({k: v for k, v in s.items()})
-            s_.tree = '000-MOVEFORWARD.tree'
-            s_.leaf = None
-
-            # update belief state of potential predecessor
-            print("Updating new state...")
-            for vn, d in best.items():
-                outvar = vn.name
-                invar = vn.name.replace('_out', '_in')
-                if outvar != invar and invar in s_:
-                    # if the _in variable is already contained in the state, update it by adding the delta
-                    # from the leaf distribution
-                    if len(s_[invar].cdf.functions) > 20:
-                        s_[invar] = s_[invar].approximate(.2)
-                    if len(best[outvar].cdf.functions) > 20:
-                        best[outvar] = best[outvar].approximate(.2)
-
-                    print("adding", best[outvar], best[outvar].expectation(), "to", s_[invar], s_[invar].expectation())
-                    s_[invar] = s_[invar] + best[outvar]
-                else:
-                    s_[invar] = d
-
-                if hasattr(s_[invar], 'approximate'):
-                    s_[invar] = s_[invar].approximate(
-                        error_max=.2
-                    )
-
-            p.append([s_, {'action': 'move'}])
-            s = State_()
-            s.update({k: v for k, v in s_.items()})
-
-        # plot annotated rectangles representing the obstacles and world boundaries
-        obstacles = [
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
-
-        fig = plot_path(
-            'x_in',
-            'y_in',
-            p,
-            title="Path A to B",
-            save=os.path.join(locs.logs, f'path.svg'),
-            obstacles=obstacles,
-            show=True
-        )
-
-        fig.write_html(
-            os.path.join(locs.logs, f'path.html'),
-            config=defaultconfig,
-            include_plotlyjs="cdn"
-        )
-
-        fig.show(config=defaultconfig)
-
-        # print heatmap representing position distribution update
-        plot_pos(
-            path=p,
-            save=os.path.join(locs.logs, f'posxy.html'),
-            show=True
-        )
-
-        # plot animation of collision bar chart representing change of collision status
-        frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
-        plotly_animation(
-            data=frames,
-            save=os.path.join(locs.logs, f'collision.html'),
-            show=True
-        )
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)
