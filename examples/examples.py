@@ -176,8 +176,8 @@ if __name__ == '__main__':
 
     init_loggers(level=args.verbose)
 
+    d = vars(args)
     if args.args is not None:
-        d = vars(args)
         for k, v in args.args:
             try:
                 d[k] = ast.literal_eval(v)
