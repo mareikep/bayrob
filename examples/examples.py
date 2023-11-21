@@ -169,8 +169,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--data', default=False, action='store_true', help='trigger generating data/world plots', required=False)
     parser.add_argument('-a', '--args', action='append', nargs=2, metavar=('arg', 'value'), help='other, example-specific argument of type (arg, value)')
     parser.add_argument('-e', '--example', type=str, default='perception', help='name of the data set', required=False)
-    parser.add_argument('-m', '--min-samples-leaf', type=float, default=.01, help='min_samples_leaf parameter', required=False)
-    parser.add_argument('-i', '--min-impurity_improvement', type=float, default=.01, help='impurity_improvement parameter', required=False)
+    parser.add_argument('-m', '--min-samples-leaf', type=float, default=None, help='min_samples_leaf parameter', required=False)
+    parser.add_argument('-i', '--min-impurity_improvement', type=float, default=None, help='impurity_improvement parameter', required=False)
     parser.add_argument('-o', '--obstacles', default=False, action='store_true', help='obstacles', required=False)
     args = parser.parse_args()
 
