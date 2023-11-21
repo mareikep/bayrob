@@ -77,6 +77,7 @@ def plot_pos(
         conf: float = None,
         limx: Tuple = None,
         limy: Tuple = None,
+        limz: Tuple = None,
         save: str = None,
         show: bool = True
 ) -> Figure:
@@ -94,10 +95,6 @@ def plot_pos(
     :param show:
     :return:
     '''
-
-    # if no title is given, generate it according to the input
-    if title is None:
-        title = f'Position x/y'
 
     # generate datapoints
     data = pd.DataFrame(
@@ -120,6 +117,7 @@ def plot_pos(
         title=title,
         limx=limx,
         limy=limy,
+        limz=limz,
         save=save,
         show=show
     )
@@ -199,23 +197,39 @@ def gendata(
     Z[Z > np.median(Z)] = np.median(Z)
 
     lbl = f'Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"} ' \
-          f'Action: {params.get("action")}, Params: {"angle=" if "angle" in params else ""}{params.get("angle", None)}'
+          f'{params.get("action")}({",".join([f"{k}: {v}" for k,v in params.items() if k != "action"])})'
 
-    return x, y, Z, np.full(x.shape, lbl)
+    return x, y, Z, lbl
 
 
 def plotly_animation(
         data: List[Any],
+        names: List[str] = None,
         title: str = None,
         save: str = None,
         show: bool = True,
+        showbuttons: bool = True,
+        speed: int = 100
 ) -> Figure:
+    '''
+
+    :param names:
+    :param data:
+    :param title:
+    :param save:
+    :param show:
+    :return:
+    '''
+
+    if names is None:
+        names = [f'Step {i}' for i in range(len(data))]
+
     # generate the frames
     frames = [
         go.Frame(
             data=fig_,
-            name=f'Step {i}'
-        ) for i, fig_ in enumerate(data)
+            name=name
+        ) for fig_, name in zip(data, names)
     ]
 
     fig = go.Figure(
@@ -275,7 +289,7 @@ def plotly_animation(
                             dict(
                                 args=[
                                     None,
-                                    frame_args(100)
+                                    frame_args(speed)
                                 ],
                                 label=f'{"&#9654;":{" "}{"^"}{20}}',
                                 method="animate"
@@ -302,9 +316,53 @@ def plotly_animation(
                         ]
                     )
                 )
-            ],
+            ] + ([
+                dict(
+                    type="buttons",
+                    x=-.05,
+                    y=-.3,
+                    direction="right",
+                    yanchor="top",
+                    buttons=list([
+                        dict(
+                            args=["type", "surface"],
+                            label=f'{"3D Surface":{" "}{"^"}{15}}',
+                            method="restyle"
+                        ),
+                        dict(
+                            args=["type", "heatmap"],
+                            label=f'{"Heatmap":{" "}{"^"}{15}}',
+                            method="restyle"
+                        )
+                    ])
+                )] if showbuttons else []),
             sliders=sliders
         )
+    else:
+        if showbuttons:
+            fig.update_layout(
+                updatemenus=[
+                     dict(
+                         type="buttons",
+                         x=-.05,
+                         y=-.3,
+                         direction="right",
+                         yanchor="top",
+                         buttons=list([
+                             dict(
+                                 args=["type", "surface"],
+                                 label=f'{"3D Surface":{" "}{"^"}{15}}',
+                                 method="restyle"
+                             ),
+                             dict(
+                                 args=["type", "heatmap"],
+                                 label=f'{"Heatmap":{" "}{"^"}{15}}',
+                                 method="restyle"
+                             )
+                         ])
+                     )
+                ]
+            )
 
     fig.update_layout(
         height=1000,
@@ -372,179 +430,55 @@ def plot_heatmap(
     if limy is None:
         limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
+    if limz is None:
+        limz = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
+
     fun = {"heatmap": go.Heatmap, "surface": go.Surface}.get(fun, go.Heatmap)
 
-    # generate the frames
     frames = [
-        go.Frame(
-            data=fun(
+        (
+            fun(
                 x=d[xvar],
                 y=d[yvar].T,
                 z=d['z'] if limz is None else np.clip(d['z'], *limz),
-                customdata=d["lbl"] if "lbl" in data.columns and d["lbl"].shape == d["z"].shape else np.full(d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
+                # zmin=limz[0],
+                # zmax=limz[1],
+                customdata=d["lbl"] if "lbl" in data.columns and data["lbl"].shape == d["z"].shape else np.full(d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
                     title=f"P({xvar},{yvar})",
                     orientation='v',
                     titleside="top",
-                    # x=.5,
-                    # y=-.3
                 ),
                 hovertemplate='x: %{x}<br>'
                               'y: %{y}<br>'
                               'z: %{z}'
                               '<extra>%{customdata}</extra>'
-            ),
-            name=f"Step {i}"
+            )
         ) for i, d in data.iterrows()
     ]
 
-    fig = go.Figure(
-        data=frames[0].data,
-        frames=frames,
+    names = list(data["lbl"])
+
+    fig = plotly_animation(
+        data=frames,
+        # names=names,
+        show=False,
+        showbuttons=showbuttons,
+        title=title,
+        speed=500
     )
 
-    if len(frames) > 1:
-        # if there are multiple datasets in the Dataframe, create buttons for an animation, otherwise,
-        # generate single plot
-
-        def frame_args(duration):
-            return dict(
-                frame=dict(
-                    duration=duration,
-                    redraw=True
-                ),
-                mode="immediate",
-                fromcurrent=True,
-                transition=dict(
-                    duration=0,
-                    redraw=True
-                )
-            )
-
-        steps = []
-        for i, f in enumerate(fig.frames):
-            step = dict(
-                args=[
-                    [f.name],
-                    frame_args(0)
-                ],
-                label=f.name,
-                method="animate"
-            )
-            steps.append(step)
-
-        sliders = [
-            dict(
-                currentvalue=dict(
-                    prefix="Step: "
-                ),
-                steps=steps
-            )
-        ]
-
-        fig.update_layout(
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    x=-.05,
-                    y=-.225,
-                    direction="right",
-                    yanchor="top",
-                    buttons=list(
-                        [
-                            dict(
-                                args=[
-                                    None,
-                                    frame_args(100)
-                                ],
-                                label=f'{"&#9654;":{" "}{"^"}{20}}',
-                                method="animate"
-                            ),
-                            dict(
-                                args=[
-                                    [
-                                        None
-                                    ],
-                                    dict(
-                                        frame=dict(
-                                            duration=0,
-                                            redraw=False
-                                        ),
-                                        mode="immediate",
-                                        transition=dict(
-                                            duration=0
-                                        )
-                                    )
-                                ],
-                                label=f'{"&#9208;":{" "}{"^"}{20}}',
-                                method="animate"
-                            ),
-                        ]
-                    )
-                ),
-                dict(
-                    type="buttons",
-                    x=-.05,
-                    y=-.3,
-                    direction="right",
-                    yanchor="top",
-                    buttons=list([
-                        dict(
-                            args=["type", "surface"],
-                            label=f'{"3D Surface":{" "}{"^"}{15}}',
-                            method="restyle"
-                        ),
-                        dict(
-                            args=["type", "heatmap"],
-                            label=f'{"Heatmap":{" "}{"^"}{15}}',
-                            method="restyle"
-                        )
-                    ])
-                )
-            ],
-            sliders=sliders
-        )
-    else:
-        if showbuttons:
-            fig.update_layout(
-                updatemenus=[
-                    dict(
-                        type="buttons",
-                        x=-.05,
-                        y=-.3,
-                        direction="right",
-                        yanchor="top",
-                        buttons=list([
-                            dict(
-                                args=["type", "surface"],
-                                label=f'{"3D Surface":{" "}{"^"}{15}}',
-                                method="restyle"
-                            ),
-                            dict(
-                                args=["type", "heatmap"],
-                                label=f'{"Heatmap":{" "}{"^"}{15}}',
-                                method="restyle"
-                            )
-                        ])
-                    )
-                ]
-            )
-
     fig.update_layout(
-        height=1000,
-        width=1000,
         xaxis=dict(
             title=xvar,
-            tickangle=-45,
             side='top',
             range=[*limx]
         ),
         yaxis=dict(
             title=yvar,
             range=[*limy]
-        ),
-        title=title
+        )
     )
 
     if save:
@@ -644,16 +578,16 @@ def plot_path(
             s[yvar].expectation(),
             s['xdir_in'].expectation(),
             s['ydir_in'].expectation(),
-            f'Step {i}',
+            f'Step {i}: {param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})'.ljust(50),
             f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}<br>'
-            f'PARAM: {param}',
+            f'{param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})',
             1
         ) if 'xdir_in' in s and 'ydir_in' in s else (
             first(s[xvar]) if isinstance(s[xvar], set) else s[xvar].lower + abs(s[xvar].upper - s[xvar].lower)/2,
             first(s[yvar]) if isinstance(s[yvar], set) else s[yvar].lower + abs(s[yvar].upper - s[yvar].lower)/2,
             0,
             0,
-            f'Step {i}',
+            f'Step {i}: {param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})'.ljust(50),
             f"Goal",
             1
         ) for i, (s, param) in enumerate(p)
@@ -671,15 +605,6 @@ def plot_path(
             fig.add_trace(
                 plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
 
-        fig.add_trace(
-            plotly_sq(
-                (0, 1, 100, 100),
-                lbl="kitchen_boundaries",
-                color='rgb(15,21,110)',
-                legend=False)
-        )
-
-
     fig_ = plot_scatter_quiver(
         xvar,
         yvar,
@@ -690,6 +615,11 @@ def plot_path(
 
     fig.add_traces(fig_.data)
     fig.layout = fig_.layout
+    fig.update_layout(
+        height=1000,
+        width=1200,
+        title=title
+    )
 
     if show:
         fig.show(config=defaultconfig)
@@ -827,6 +757,7 @@ def plot_scatter_quiver(
         color="step",
         labels=[f'Step {i}' for i in data['step']],
         size='size' if 'size' in data.columns else [1]*len(data),
+        size_max=12,
         width=1000,
         height=1000,
     )
@@ -920,9 +851,19 @@ def plot_data_subset(
         limy = [df[yvar].min(), df[yvar].max()]
 
     # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
-    constraints = [(var, op, v) for var, val in constraints.items() for v, op in ([(val.lower, ">="), (val.upper, "<=")] if isinstance(val, ContinuousSet) else [(val, "==")])]
+    constraints_ = []
+    for var, val in constraints.items():
+        if isinstance(val, ContinuousSet):
+            for v, op in [(val.lower, ">="), (val.upper, "<=")]:
+                constraints_.append(f'(`{var}` {op} {v})')
+        elif isinstance(val, (list, set)):
+            constraints_.append("(" + '|'.join([f'(`{var}` == "{v}")' for v in val]) + ")")
+        elif isinstance(val, str):
+            constraints_.append(f'(`{var}` == "{val}")')
+        else:
+            constraints_.append(f'(`{var}` == {val})')
 
-    s = ' & '.join([f'({var} {op} {num})' for var, op, num in constraints])
+    s = ' & '.join(constraints_)
     logger.debug('Extracting dataset using query: ', s)
 
     if s == "":
