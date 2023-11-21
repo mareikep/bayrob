@@ -18,20 +18,20 @@ from jpt.distributions import Numeric, Gaussian
 
 class AStarRobotActionJPTTests(unittest.TestCase):
 
-    # assumes trees MOVEFORWARD and TURN generated previously from functions in calo-dev/test/test_robotpos.py,
+    # assumes trees robotaction_move and robotaction_move generated previously from functions in calo-dev/test/test_robotpos.py,
     # executed in the following order:
     # test_robot_pos_random (xor test_robot_pos) --> generates csv files from consecutive (random) move/turn actions
-    # test_data_curation --> curates the previously generaed csv files to one large file each for moveforward and turn
+    # test_data_curation --> curates the previously generaed csv files to one large file each for robotaction_move and turn
     # actions; this is NOT just a merge of the files but a curation (initial data contains absolute positions or
     # directions, curated data contains deltas!)
-    # test_jpt_moveforward --> learns JPT from moveforward data
+    # test_jpt_robotaction_move --> learns JPT from robotaction_move data
     # test_jpt_turn --> learns JPT from turn data
     @classmethod
     def setUpClass(cls) -> None:
-        recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-        # recent = os.path.join(locs.examples, 'robotaction', '2023-11-18_15:24')
-        print("loading example", recent)
-        cls.recent = recent
+        cls.recent_move = recent_example(os.path.join(locs.examples, 'robotaction_move'))
+        cls.recent_turn = recent_example(os.path.join(locs.examples, 'robotaction_turn'))
+        # recent = os.path.join(locs.examples, 'robotaction_move', '2023-11-18_15:24')
+        print("loading examples from", cls.recent_move, cls.recent_turn)
 
         cls.models = dict(
             [
@@ -39,13 +39,13 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                     treefile.name,
                     JPT.load(str(treefile))
                 )
-                for p in [recent]
+                for p in [cls.recent_move, cls.recent_turn]
                 for treefile in Path(p).rglob('*.tree')
             ]
         )
 
         # plot initial distributions over x/y positions
-        t = cls.models['000-MOVEFORWARD.tree']
+        t = cls.models['000-robotaction_move.tree']
         # plot_tree_dist(
         #     tree=t,
         #     qvarx=t.varnames['x_in'],
@@ -64,7 +64,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # OK
         # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # NICHT OK
         # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]  # NICHT OK
-        initx, inity, initdirx, initdiry = [30, 78, 0, 1]
+        initx, inity, initdirx, initdiry = [20, 70, -1, 0]
 
         tolerance = .01
 
@@ -192,8 +192,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
     def test_astar_single_action_update(self) -> None:
         s0 = AStarRobotActionJPTTests.initstate  # = [-61, 61, 0, -1]
-        tm = AStarRobotActionJPTTests.models['000-MOVEFORWARD.tree']
-        tt = AStarRobotActionJPTTests.models['000-TURN.tree']
+        tm = AStarRobotActionJPTTests.models['000-robotaction_move.tree']
+        tt = AStarRobotActionJPTTests.models['000-robotaction_move.tree']
 
         # plot init position distribution
         d = pd.DataFrame(
@@ -205,8 +205,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             yvar='y',
             data=d,
             title="$\\text{Init Distribution } P(x_{in},y_{in})$",
-            limx=(-65, -55),
-            limy=(55, 65),
+            limx=(0, 100),
+            limy=(0, 100),
             show=True
         )
 
@@ -263,12 +263,12 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             yvar='y',
             data=d,
             title="$\\text{Init} + \delta$",
-            limx=(-65, -55),
-            limy=(55, 65),
+            limx=(0, 100),
+            limy=(0, 100),
             show=True
         )
 
-        # ACTION II: TURN ==============================================================
+        # ACTION II: robotaction_move ==============================================================
         # evidence['angle'] = -9
 
     def tearDown(self) -> None:

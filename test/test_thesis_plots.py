@@ -23,7 +23,7 @@ from jpt.distributions import Gaussian, Numeric
 def generate_gaussian_samples(gaussians, n):
     per_gaussian = int(n / len(gaussians))
     data = [g.sample(per_gaussian) for g in gaussians]
-    colors = [[c] * per_gaussian for c in ['#ff0000', '#0000ff'][:len(gaussians)]]
+    colors = [[c] * per_gaussian for c in ['#ff0000', '#0000ff', '#00ff00', '#0f0f0f', '#f0f0f0'][:len(gaussians)]]
 
     all_data = np.vstack(data)
     for d, c in zip(data, colors):
@@ -49,21 +49,24 @@ class ThesisPlotsTests(unittest.TestCase):
             )
        )
 
-       cls.recent = recent_example(os.path.join(locs.examples, 'robotaction'))
-       # cls.recent = os.path.join(locs.examples, 'robotaction', '2023-11-19_21:43')
+       cls.recent_move = recent_example(os.path.join(locs.examples, 'robotaction_move'))
+       cls.recent_turn = recent_example(os.path.join(locs.examples, 'robotaction_turn'))
+       # recent = os.path.join(locs.examples, 'robotaction_move', '2023-11-18_15:24')
+       print("loading examples from", cls.recent_move, cls.recent_turn)
+
        cls.models = dict(
            [
                (
                    treefile.name,
                    JPT.load(str(treefile))
                )
-               for p in [cls.recent]
+               for p in [cls.recent_move, cls.recent_turn]
                for treefile in Path(p).rglob('*.tree')
            ]
        )
 
     def test_plot_init_dist(self) -> None:
-        t = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        t = ThesisPlotsTests.models['000-robotaction_move.tree']
         plot_tree_dist(
             tree=t,
             qvarx=t.varnames['x_in'],
@@ -373,43 +376,17 @@ class ThesisPlotsTests(unittest.TestCase):
             config=ThesisPlotsTests.defaultconfig
         )
 
-    def test_rterror_conditional_jpt(self) -> None:
-        # load data and JPT that has been learnt from this data
-        j: JPT = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
-        print(f"Loading tree from {ThesisPlotsTests.recent}")
-
-        # minimal set of preconditions that cause runtime error
-        xdir_in = 0
-        ydir_in = 1
-
-        # This will create the error "RuntimeError: This should never happen. JPT.conditional_jpt() seems to be
-        # broken :(" in jpt-dev/src/jpt/trees.py:2216
-        pdfvars = {
-            'xdir_in': xdir_in,
-            'ydir_in': ydir_in,
-            'collided': True
-        }
-
-        # generate tree conditioned on given position and/or direction
-        cond = j.conditional_jpt(
-            evidence=j.bind(
-                {k: v for k, v in pdfvars.items() if k in j.varnames},
-                # allow_singular_values=False
-            ),
-            fail_on_unsatisfiability=True
-        )
-        cond.plot(plotvars=['x_in', 'y_in', 'x_out', 'y_out', 'xdir_in', 'ydir_in', 'collided'], view=True)
 
     def test_reproduce_data_find_limits(self) -> None:
         # -> constrain target pos, plot feature pos
 
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        j = ThesisPlotsTests.models['000-robotaction_move.tree']
         print(f"Loading tree from {ThesisPlotsTests.recent}")
 
         # set settings
-        limx = (-100, 100)
-        limy = (-100, 100)
+        limx = (0, 100)
+        limy = (0, 100)
 
         x_out = 0
         y_out = 0
@@ -444,8 +421,8 @@ class ThesisPlotsTests(unittest.TestCase):
         # cond.plot(plotvars=cond.variables, view=True)
 
         # data generation
-        x = np.linspace(*limx, 400)
-        y = np.linspace(*limy, 400)
+        x = np.linspace(*limx, 200)
+        y = np.linspace(*limy, 200)
 
         X, Y = np.meshgrid(x, y)
         Z = np.array(
@@ -467,20 +444,40 @@ class ThesisPlotsTests(unittest.TestCase):
             columns=['x', 'y', 'z', 'lbl']
         )
 
+        prefix = f'{"_".join([f"{k}({v})" for k,v in pdfvars.items()])}'
+
         # plot JPT
         plot_heatmap(
             xvar='x',
             yvar='y',
             data=data,
-            title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
             limx=limx,
             limy=limy,
             limz=(0, 0.0002),
+            save=os.path.join(locs.logs, f"boundaries-{prefix}-dist-hm.html"),
             show=True,
         )
 
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=data,
+            limx=limx,
+            limy=limy,
+            limz=(0, 0.0002),
+            save=os.path.join(locs.logs, f"boundaries-{prefix}-dist-surface.html"),
+            show=True,
+            fun="surface"
+        )
+
+        # fig.write_html(
+        #     os.path.join(locs.logs, f'crampath.html'),
+        #     config=defaultconfig,
+        #     include_plotlyjs="cdn"
+        # )
+
         # plot ground truth
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.parquet'))
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_move.parquet'))
         plot_data_subset(
             df,
             xvar="x_in",
@@ -488,6 +485,7 @@ class ThesisPlotsTests(unittest.TestCase):
             constraints=pdfvars,
             limx=limx,
             limy=limy,
+            save=os.path.join(locs.logs, f"boundaries-{prefix}-gt.html"),
             show=True
         )
 
@@ -495,7 +493,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # -> constrain feature pos, plot target pos
 
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        j = ThesisPlotsTests.models['000-robotaction_move.tree']
         print(f"Loading tree from {ThesisPlotsTests.recent}")
 
         # set settings
@@ -584,7 +582,7 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         # plot ground truth
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.csv'))
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_move.csv'))
         plot_data_subset(
             df,
             "x_out",
@@ -597,8 +595,8 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_reproduce_data_multiple_jpt(self) -> None:
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-MOVEFORWARD.parquet'))
+        j = ThesisPlotsTests.models['000-robotaction_move.tree']
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_move.parquet'))
 
         # set settings
         limx = (-3, 3)
@@ -615,14 +613,14 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values
         positions = {
-            # "free-pos": [  # random position in obstacle-free area
-            #     # (None, None, None, None),
-            #     # (40, 70, None, None),
-            #     (20, 70, -.7, -.7),
-            #     (20, 70, .7, -.7),
-            #     (20, 70, .7, .7),
-            #     (20, 70, -.7, .7),
-            # ],
+            "free-pos": [  # random position in obstacle-free area
+                # (None, None, None, None),
+                (50,50, None, None),
+                # (20, 70, -.7, -.7),
+                # (20, 70, .7, -.7),
+                # (20, 70, .7, .7),
+                # (20, 70, -.7, .7),
+            ],
             # "no-pos": [  # all directions without given pos
             #     (None, None, 0, -1),
             #     (None, None, 0, 1),
@@ -643,12 +641,12 @@ class ThesisPlotsTests(unittest.TestCase):
             #     (100, 0, None, None),  # broken!
             #     (100, 100, None, None)  # broken!
             # ],
-            "grid-edges": [  # all edges of gridworld (center)
-                # (0, 50, None, None),
-                # (100, 10, None, None),
-                # (50, 0, None, None),
-                (50, 100, None, None)
-            ],
+            # "grid-edges": [  # all edges of gridworld (center)
+            #     (0, 50, None, None),
+            #     (100, 10, None, None),
+            #     (50, 0, None, None),
+            #     (50, 100, None, None)
+            # ],
             # "obstacle-corners": [  # all corners of one obstacle
             #     (ox1, oy1, None, None),
             #     (ox2, oy2, None, None),
@@ -690,9 +688,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 if yd is not None:
                     pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
 
-                pdfvars = {}
-                pdfvars['x_in'] = ContinuousSet(99.9, 100)
-                pdfvars['y_in'] = ContinuousSet(8, 11)
+                # pdfvars = {}
+                # pdfvars['x_in'] = ContinuousSet(99.9, 100)
+                # pdfvars['y_in'] = ContinuousSet(0, 100)
                 print("PDFVARS:", pdfvars)
 
                 # generate tree conditioned on given position and/or direction
@@ -746,7 +744,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
-                    save=os.path.join(plotdir, f"{prefix}-ground-truth.svg"),
+                    save=os.path.join(plotdir, f"{prefix}-gt.svg"),
                     show=False
                 )
 
@@ -778,8 +776,8 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_reproduce_data_turn(self) -> None:
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-TURN.tree']
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-ALL-TURN.parquet'))
+        j = ThesisPlotsTests.models['000-robotaction_turn.tree']
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_turn.parquet'))
 
         # set settings
         limx = (-1, 1)
@@ -915,67 +913,62 @@ class ThesisPlotsTests(unittest.TestCase):
 
 
     def test_astar_cram_path(self) -> None:
-        cmds = [
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-        ]
+        initx, inity, initdirx, initdiry = [20, 70, -1, 0]
+
+        tolerance = .01
+
+        dx = Gaussian(initx, tolerance).sample(50)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance).sample(50)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance).sample(50)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance).sample(50)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        initstate = State_()
+        initstate.update(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
 
         cmds = [
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
-            {'tree': '000-TURN.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(8, 10)}},
-            {'tree': '000-MOVEFORWARD.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
         ]
-
-        # VARIANT I
-        pass
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
-        s = ThesisPlotsTests.initstate
+        s = initstate
         p = [[s, {}]]
         for cmd in cmds:
             print('cmd', cmd)
@@ -983,7 +976,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
             evidence = {
-                var: ContinuousSet(s[var].ppf(.05), s[var].ppf(.95)) for var in s.keys()
+                var: ContinuousSet(s[var].ppf(.05), s[var].ppf(.95)) for var in s.keys() if var != 'collided'
             }
 
             if cmd["params"] is not None:
@@ -1033,19 +1026,49 @@ class ThesisPlotsTests(unittest.TestCase):
             s = State_()
             s.update({k: v for k, v in s_.items()})
 
-        plot_path(
+        # plot annotated rectangles representing the obstacles and world boundaries
+        obstacles = [
+            ((0, 0, 100, 100), "kitchen_boundaries"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
+
+        # plot path as scatter points with direction arrows in kitchen world
+        fig = plot_path(
             'x_in',
             'y_in',
             p,
-            title="Path A to B",
-            save=os.path.join(locs.logs, f'path.svg')
+            save=os.path.join(locs.logs, f'crampath.svg'),
+            obstacles=obstacles,
+            show=False
         )
 
+        fig.write_html(
+            os.path.join(locs.logs, f'crampath.html'),
+            config=defaultconfig,
+            include_plotlyjs="cdn"
+        )
+
+        fig.show(config=defaultconfig)
+
+        # plot animation of heatmap representing position distribution update
         plot_pos(
             path=p,
             save=os.path.join(locs.logs, f'posxy.html'),
             show=True
         )
+
+        # plot animation of collision bar chart representing change of collision status
+        # frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
+        # plotly_animation(
+        #     data=frames,
+        #     save=os.path.join(locs.logs, f'collision.html'),
+        #     show=True
+        # )
 
         # plot_dir(
         #     path=p,
@@ -1066,14 +1089,42 @@ class ThesisPlotsTests(unittest.TestCase):
         # )
 
     def test_move_till_collision(self) -> None:
-        import plotly.graph_objects as go
-
         print("loading example", ThesisPlotsTests.recent)
 
+        initx, inity, initdirx, initdiry = [30, 78, 0, 1]
+
+        tolerance = .01
+
+        dx = Gaussian(initx, tolerance).sample(50)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance).sample(50)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance).sample(50)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance).sample(50)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        initstate = State_()
+        initstate.update(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
         # VARIANT II: each leaf of the conditional tree represents one possible action
-        s = ThesisPlotsTests.initstate
+        s = initstate
         p = [[s, {}]]
-        t = ThesisPlotsTests.models['000-MOVEFORWARD.tree']
+        t = ThesisPlotsTests.models['000-robotaction_move.tree']
         for step in range(3):
             print("Step", step)
 
@@ -1098,7 +1149,7 @@ class ThesisPlotsTests(unittest.TestCase):
             # create successor state
             s_ = State_()
             s_.update({k: v for k, v in s.items()})
-            s_.tree = '000-MOVEFORWARD.tree'
+            s_.tree = '000-robotaction_move.tree'
             s_.leaf = None
 
             # update belief state of potential predecessor
@@ -1145,7 +1196,7 @@ class ThesisPlotsTests(unittest.TestCase):
             title="Path A to B",
             save=os.path.join(locs.logs, f'path.svg'),
             obstacles=obstacles,
-            show=True
+            show=False
         )
 
         fig.write_html(
