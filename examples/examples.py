@@ -81,7 +81,7 @@ def learn_jpt(
         targets=tgts,
         min_impurity_improvement=args.min_impurity_improvement,
         min_samples_leaf=args.min_samples_leaf,
-        max_depth=args.max_depth
+        max_depth=args.max_depth if "max_depth" in args else None
     )
 
     jpt_.learn(df, close_convex_gaps=False)
