@@ -1,3 +1,4 @@
+import math
 import os
 import unittest
 
@@ -14,7 +15,7 @@ from pandas import DataFrame
 from calo.application.astar_jpt_app import State_
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation
+    plotly_animation, plot_scatter_quiver, plot_dir
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
@@ -181,11 +182,11 @@ class ThesisPlotsTests(unittest.TestCase):
         mu1, mu2 = [-2, 1]
         v1, v2 = [2, .02]
 
-        dx = Gaussian(mu1, v1).sample(50)
+        dx = Gaussian(mu1, v1).sample(500)
         distx = Numeric()
         distx.fit(dx.reshape(-1, 1), col=0)
 
-        dxdelta = Gaussian(mu2, v2).sample(50)
+        dxdelta = Gaussian(mu2, v2).sample(500)
         distxdelta = Numeric()
         distxdelta.fit(dxdelta.reshape(-1, 1), col=0)
 
@@ -1020,22 +1021,22 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, -1, 0]
-        shift = True
+        shift = False
         tolerance = .01
 
-        dx = Gaussian(initx, tolerance).sample(50)
+        dx = Gaussian(initx, tolerance).sample(500)
         distx = Numeric()
         distx.fit(dx.reshape(-1, 1), col=0)
 
-        dy = Gaussian(inity, tolerance).sample(50)
+        dy = Gaussian(inity, tolerance).sample(500)
         disty = Numeric()
         disty.fit(dy.reshape(-1, 1), col=0)
 
-        ddx = Gaussian(initdirx, tolerance).sample(50)
+        ddx = Gaussian(initdirx, tolerance).sample(500)
         distdx = Numeric()
         distdx.fit(ddx.reshape(-1, 1), col=0)
 
-        ddy = Gaussian(initdiry, tolerance).sample(50)
+        ddy = Gaussian(initdiry, tolerance).sample(500)
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
@@ -1050,50 +1051,50 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         cmds = [
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},  # STOP
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}}
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},  # STOP
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}}
         ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = initstate
         p = [[s, {}]]
         for i, cmd in enumerate(cmds):
-            print('cmd', i, cmd)
+            print(f'Step {i} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
             t = ThesisPlotsTests.models[cmd['tree']]
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -1136,18 +1137,19 @@ class ThesisPlotsTests(unittest.TestCase):
                             QuantileDistribution.from_cdf(s_[invar].cdf.xshift(-best[outvar].expectation())))
                     else:
                         if len(s_[invar].cdf.functions) > 20:
-                            s_[invar] = s_[invar].approximate(.2)
+                            s_[invar] = s_[invar].approximate(n_segments=20)
+                            # s_[invar] = s_[invar].approximate_fast(eps=.01)
                         if len(best[outvar].cdf.functions) > 20:
-                            best[outvar] = best[outvar].approximate(.2)
+                            best[outvar] = best[outvar].approximate(n_segments=20)
+                            # best[outvar] = best[outvar].approximate_fast(eps=.01)
                         s_[invar] = s_[invar] + best[outvar]
                 else:
                     s_[invar] = d
 
                 if not shift:
                     if hasattr(s_[invar], 'approximate'):
-                        s_[invar] = s_[invar].approximate(
-                            error_max=.2
-                        )
+                        s_[invar] = s_[invar].approximate(n_segments=20)
+                        # s_[invar] = s_[invar].approximate_fast(eps=.01)
 
             p.append([s_, cmd['params']])
             s = State_()
@@ -1185,8 +1187,10 @@ class ThesisPlotsTests(unittest.TestCase):
         # plot animation of heatmap representing position distribution update
         plot_pos(
             path=p,
-            save=os.path.join(locs.logs, f'posxy.html'),
-            show=True
+            save=os.path.join(locs.logs, f'crampath-animation.html'),
+            show=True,
+            limx=(0, 100),
+            limy=(0, 100)
         )
 
         # plot animation of collision bar chart representing change of collision status
@@ -1197,13 +1201,15 @@ class ThesisPlotsTests(unittest.TestCase):
         #     show=True
         # )
 
-        # plot_dir(
-        #     path=p,
-        #     save=os.path.join(locs.logs, f'dirxy.html'),
-        #     show=True,
-        # )
+        plot_dir(
+            path=p,
+            save=os.path.join(locs.logs, f'dirxy.html'),
+            show=True,
+            limx=(0, 100),
+            limy=(0, 100)
+        )
 
-        # SubAStar_.plot_xyvars(
+        # plot_xyvars(
         #     xvar='x_in',
         #     yvar='y_in',
         #     path=p,
@@ -1216,25 +1222,24 @@ class ThesisPlotsTests(unittest.TestCase):
         # )
 
     def test_move_till_collision(self) -> None:
-        print("loading example", ThesisPlotsTests.recent)
+        print("loading example", ThesisPlotsTests.recent_move)
 
-        initx, inity, initdirx, initdiry = [30, 78, 0, 1]
-
+        initx, inity, initdirx, initdiry = [10, 70, -1, 0]
         tolerance = .01
 
-        dx = Gaussian(initx, tolerance).sample(50)
+        dx = Gaussian(initx, tolerance).sample(500)
         distx = Numeric()
         distx.fit(dx.reshape(-1, 1), col=0)
 
-        dy = Gaussian(inity, tolerance).sample(50)
+        dy = Gaussian(inity, tolerance).sample(500)
         disty = Numeric()
         disty.fit(dy.reshape(-1, 1), col=0)
 
-        ddx = Gaussian(initdirx, tolerance).sample(50)
+        ddx = Gaussian(initdirx, tolerance).sample(500)
         distdx = Numeric()
         distdx.fit(ddx.reshape(-1, 1), col=0)
 
-        ddy = Gaussian(initdiry, tolerance).sample(50)
+        ddy = Gaussian(initdiry, tolerance).sample(500)
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
@@ -1252,8 +1257,8 @@ class ThesisPlotsTests(unittest.TestCase):
         s = initstate
         p = [[s, {}]]
         t = ThesisPlotsTests.models['000-robotaction_move.tree']
-        for step in range(3):
-            print("Step", step)
+        for i, step in enumerate(range(10)):
+            print(f'Step {i}: move()')
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
             evidence = {
@@ -1288,19 +1293,16 @@ class ThesisPlotsTests(unittest.TestCase):
                     # if the _in variable is already contained in the state, update it by adding the delta
                     # from the leaf distribution
                     if len(s_[invar].cdf.functions) > 20:
-                        s_[invar] = s_[invar].approximate(.2)
+                        s_[invar] = s_[invar].approximate(n_segments=20)
                     if len(best[outvar].cdf.functions) > 20:
-                        best[outvar] = best[outvar].approximate(.2)
+                        best[outvar] = best[outvar].approximate(n_segments=20)
 
-                    print("adding", best[outvar], best[outvar].expectation(), "to", s_[invar], s_[invar].expectation())
                     s_[invar] = s_[invar] + best[outvar]
                 else:
                     s_[invar] = d
 
                 if hasattr(s_[invar], 'approximate'):
-                    s_[invar] = s_[invar].approximate(
-                        error_max=.2
-                    )
+                    s_[invar] = s_[invar].approximate(n_segments=20)
 
             p.append([s_, {'action': 'move'}])
             s = State_()
@@ -1308,6 +1310,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # plot annotated rectangles representing the obstacles and world boundaries
         obstacles = [
+            ((0, 0, 100, 100), "kitchen_boundaries"),
             ((15, 10, 25, 20), "chair1"),
             ((35, 10, 45, 20), "chair2"),
             ((10, 30, 50, 50), "kitchen_island"),
@@ -1320,14 +1323,13 @@ class ThesisPlotsTests(unittest.TestCase):
             'x_in',
             'y_in',
             p,
-            title="Path A to B",
-            save=os.path.join(locs.logs, f'path.svg'),
+            save=os.path.join(locs.logs, f'crampath-collision.svg'),
             obstacles=obstacles,
             show=False
         )
 
         fig.write_html(
-            os.path.join(locs.logs, f'path.html'),
+            os.path.join(locs.logs, f'crampath-collision.html'),
             config=defaultconfig,
             include_plotlyjs="cdn"
         )
@@ -1337,8 +1339,10 @@ class ThesisPlotsTests(unittest.TestCase):
         # print heatmap representing position distribution update
         plot_pos(
             path=p,
-            save=os.path.join(locs.logs, f'posxy.html'),
-            show=True
+            save=os.path.join(locs.logs, f'crampath-collision-animation.html'),
+            show=True,
+            limx=(0, 100),
+            limy=(0, 100)
         )
 
         # plot animation of collision bar chart representing change of collision status
@@ -1388,6 +1392,57 @@ class ThesisPlotsTests(unittest.TestCase):
             os.path.join(locs.logs, 'testimg.png'),
             scale=1
         )
+
+    def test_data_point_update_plot(self) -> None:
+        def turn(x, y, deg):
+            deg = np.radians(-deg)
+            return x * math.cos(deg) - y * math.sin(deg), x * math.sin(deg) + y * math.cos(deg)
+        
+        d = [
+            (
+                0,
+                0,
+                *dir,
+                f"Step {s}",
+                "",
+                1
+            ) for s, dir in enumerate([
+                turn(*(0,1), 10*i) for i in range(36)
+            ])
+        ]
+        
+        data = pd.DataFrame(
+            data=d,
+            columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
+        )
+
+        fig = go.Figure()
+        fig_ = plot_scatter_quiver(
+            'x',
+            'x',
+            data,
+            title=None,
+            save=os.path.join(locs.logs, 'star.svg'),
+        )
+
+        fig.add_traces(fig_.data)
+        fig.layout = fig_.layout
+        fig.update_layout(
+            height=1000,
+            width=1000,
+            title=None,
+            xaxis=dict(
+                title=xvar,
+                side='top',
+                range=[*limx]
+            ),
+            yaxis=dict(
+                title=yvar,
+                range=[*limy]
+            )
+        )
+
+        fig.show(config=defaultconfig)
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)

@@ -79,7 +79,8 @@ def plot_pos(
         limy: Tuple = None,
         limz: Tuple = None,
         save: str = None,
-        show: bool = True
+        show: bool = True,
+        fun: str = "heatmap"
 ) -> Figure:
     '''
     Plot Heatmap representing distribution of `x_in`, `y_in` variables from a `path`.
@@ -119,7 +120,8 @@ def plot_pos(
         limy=limy,
         limz=limz,
         save=save,
-        show=show
+        show=show,
+        fun=fun
     )
 
 
@@ -130,11 +132,9 @@ def plot_dir(
         limx: Tuple = None,
         limy: Tuple = None,
         save: str = None,
-        show: bool = True
+        show: bool = True,
+        fun: str = "heatmap"
 ) -> Figure:
-
-    if title is None:
-        title = f'Direction xdir/ydir'
 
     # generate datapoints
     data = pd.DataFrame(
@@ -151,14 +151,15 @@ def plot_dir(
         )
 
     return plot_heatmap(
-        xvar='xdir',
-        yvar='ydir',
+        xvar='xdir_in',
+        yvar='ydir_in',
         data=data,
         title=title,
         limx=limx,
         limy=limy,
         save=save,
-        show=show
+        show=show,
+        fun=fun
     )
 
 
@@ -194,7 +195,7 @@ def gendata(
         Z[Z < conf] = 0.
 
     # remove or replace by eliminating values > median
-    Z[Z > np.median(Z)] = np.median(Z)
+    # Z[Z > np.median(Z)] = np.median(Z)
 
     lbl = f'Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"} ' \
           f'{params.get("action")}({",".join([f"{k}: {v}" for k,v in params.items() if k != "action"])})'
@@ -430,8 +431,8 @@ def plot_heatmap(
     if limy is None:
         limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
-    if limz is None:
-        limz = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
+    # if limz is None:
+    #     limz = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
 
     fun = {"heatmap": go.Heatmap, "surface": go.Surface}.get(fun, go.Heatmap)
 
@@ -458,15 +459,12 @@ def plot_heatmap(
         ) for i, d in data.iterrows()
     ]
 
-    names = list(data["lbl"])
-
     fig = plotly_animation(
         data=frames,
-        # names=names,
         show=False,
         showbuttons=showbuttons,
         title=title,
-        speed=500
+        speed=100
     )
 
     fig.update_layout(
@@ -914,14 +912,6 @@ def plot_data_subset(
 
 # ==================================== TESTS ===========================================================================
 
-def test_plot_start_goal():
-    start = [10, 10, 1, 0]
-    goal = [3, 3, 6, 7]
-
-    f = plot_pt_sq(start, goal)
-    f.show(config=defaultconfig)
-
-
 def gaussian(
         mean1,
         cov1,
@@ -945,129 +935,3 @@ def gaussian(
     Z = Z.reshape(X.shape)
 
     return x, y, Z, np.full(x.shape, f"test {i}")
-
-
-def test_hm():
-    """plot difference between M(N) and M+1(N+1),
-    cmp. https://plotly.com/javascript/reference/heatmap/
-    """
-
-    x = np.array([[1, 2, 3, 4, 5]])
-    y = np.array([[-1, -2, -3]]).T
-    x2 = np.array([[0, 1, 2, 3, 4, 5]])
-    y2 = np.array([[0, -1, -2, -3]]).T
-    x5 = np.array([[1, 2, 3, 4, 5, 6]])
-    y5 = np.array([[-1, -2, -3, -4]]).T
-    z = np.array([
-        [0, 0.25, 0.25, 0.25, 0],
-        [0, 0.25, 0.5, 0.25, 0],
-        [0, 0.5, 1, 0.5, 0]
-    ])
-
-    plot_heatmap(
-        xvar='x',
-        yvar='y',
-        data=pd.DataFrame([[x, y, z], [x2, y2, z], [x5, y5, z]], columns=['x', 'y', 'z']),
-        save=os.path.join(locs.logs, f'testhm.html')
-    )
-
-
-def test_plotexamplepath():
-    d = []
-    for i in range(30):
-        d.append(
-            [
-                i,
-                random.randint(i - 3, i + 3),
-                1,
-                random.randint(-1, 1),
-                f'Step {i}',
-                f'Step {i}',
-                1
-            ]
-        )
-
-    data = pd.DataFrame(
-        data=d,
-        columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
-    )
-
-    # draw path
-    fig = plot_scatter_quiver(
-        xvar='x',
-        yvar='y',
-        data=data,
-        title="plotexamplepath",
-        show=False,
-        save=os.path.join('/home/mareike/Downloads/test.svg')
-    )
-
-    # draw init and goal
-    init = (0, 5, 1, 0)
-    goal = (28.5, 30, 32, 35)
-
-    fig2 = plot_pt_sq(
-        pt=init,
-        area=goal
-
-    )
-
-    fig.add_traces(
-        data=fig2.data
-    )
-
-    return fig
-
-
-def test_plotexampleheatmap():
-    d = [
-        [
-            [-.25, 0],
-            [[.2, -.07], [-.07, .1]],
-            [-.5, 1],
-            [[.2, .07], [.07, .05]],
-            1
-        ], [
-            [-.25, -.5],
-            [[.2, -.07], [-.07, .1]],
-            [0., 1],
-            [[.2, .07], [.07, .05]],
-            2
-        ], [
-            [-.25, -1],
-            [[.2, -.07], [-.07, .1]],
-            [.5, 1],
-            [[.2, .07], [.07, .05]],
-            3
-        ], [
-            [-.25, -1.5],
-            [[.2, -.07], [-.07, .1]],
-            [1, 1],
-            [[.2, .07], [.07, .05]],
-            4
-        ], [
-            [-.25, -2],
-            [[.2, -.07], [-.07, .1]],
-            [1.5, 1],
-            [[.2, .07], [.07, .05]],
-            5
-        ]
-    ]
-    data = pd.DataFrame(
-        data=[gaussian(*p) for p in d],
-        columns=['x', 'y', 'z', 'lbl']
-    )
-
-    plot_heatmap(
-        'x',
-        'y',
-        data,
-        title='plotexampleheatmap'
-    )
-
-
-if __name__ == '__main__':
-    f = test_plotexamplepath()
-    f.show(config=defaultconfig)
-    test_plotexampleheatmap()
-    test_plot_start_goal()
