@@ -44,7 +44,7 @@ def generate_data(fp, args):
         'open(cupboard_door_left)': bool,
         'open(cupboard_door_right)': bool,
         'open(kitchen_unit_drawer)': bool,
-        'stove_door_open': bool,
+        'open(stove_door)': bool,
         'detected(cup)': bool,
         'detected(cutlery)': bool,
         'detected(bowl)': bool,
