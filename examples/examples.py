@@ -189,7 +189,7 @@ if __name__ == '__main__':
 
     # use most recently created dataset or create from scratch
     if args.recent:
-        DT = recent_example(os.path.join(locs.examples, 'perception'))
+        DT = recent_example(os.path.join(locs.examples, args.example))
         logger.debug(f'Using recent directory {DT}')
     else:
         DT = f'{datetime.datetime.now().strftime(FILESTRFMT)}'
