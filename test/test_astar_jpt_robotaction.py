@@ -68,19 +68,19 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         tolerance = .01
 
-        dx = Gaussian(initx, tolerance).sample(50)
+        dx = Gaussian(initx, tolerance).sample(500)
         distx = Numeric()
         distx.fit(dx.reshape(-1, 1), col=0)
 
-        dy = Gaussian(inity, tolerance).sample(50)
+        dy = Gaussian(inity, tolerance).sample(500)
         disty = Numeric()
         disty.fit(dy.reshape(-1, 1), col=0)
 
-        ddx = Gaussian(initdirx, tolerance).sample(50)
+        ddx = Gaussian(initdirx, tolerance).sample(500)
         distdx = Numeric()
         distdx.fit(ddx.reshape(-1, 1), col=0)
 
-        ddy = Gaussian(initdiry, tolerance).sample(50)
+        ddy = Gaussian(initdiry, tolerance).sample(500)
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
@@ -193,8 +193,9 @@ class AStarRobotActionJPTTests(unittest.TestCase):
     def test_astar_single_action_update(self) -> None:
         s0 = AStarRobotActionJPTTests.initstate  # = [-61, 61, 0, -1]
         tm = AStarRobotActionJPTTests.models['000-robotaction_move.tree']
-        tt = AStarRobotActionJPTTests.models['000-robotaction_move.tree']
+        tt = AStarRobotActionJPTTests.models['000-robotaction_turn.tree']
 
+        # ACTION I: MOVE ==============================================================
         # plot init position distribution
         d = pd.DataFrame(
             data=[gendata('x_in', 'y_in', s0)],
@@ -210,12 +211,10 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             show=True
         )
 
-        # ACTION I: MOVE ==============================================================
         # get update dist
         evidence = {
             var: ContinuousSet(s0[var].ppf(.05), s0[var].ppf(.95)) for var in s0.keys()
         }
-        print('evidence', evidence)
         tm_ = tm.conditional_jpt(
             evidence=tm.bind(
                 {k: v for k, v in evidence.items() if k in tm.varnames},
@@ -244,15 +243,14 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         s1 = State_()
         s1.update({k: v for k, v in s0.items()})
 
-        nx = min(10, len(s1['x_in'].cdf.functions))
-        dist_u1['x_out'] = dist_u1['x_out'].approximate(.3)
+        n_segments = 20
+        dist_u1['x_out'] = dist_u1['x_out'].approximate(n_segments=n_segments)
         s1['x_in'] = s1['x_in'] + dist_u1['x_out']
-        s1['x_in'] = s1['x_in'].approximate(n_segments=nx)
+        s1['x_in'] = s1['x_in'].approximate(n_segments=n_segments)
 
-        ny = min(10, len(s1['y_in'].cdf.functions))
-        dist_u1['y_out'] = dist_u1['y_out'].approximate(.3)
+        dist_u1['y_out'] = dist_u1['y_out'].approximate(n_segments=n_segments)
         s1['y_in'] = s1['y_in'] + dist_u1['y_out']
-        s1['y_in'] = s1['y_in'].approximate(n_segments=ny)
+        s1['y_in'] = s1['y_in'].approximate(n_segments=n_segments)
 
         # plot result
         d = pd.DataFrame(
@@ -269,7 +267,76 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         )
 
         # ACTION II: robotaction_move ==============================================================
-        # evidence['angle'] = -9
+        # plot init position distribution
+        d = pd.DataFrame(
+            data=[gendata('xdir_in', 'ydir_in', s0)],
+            columns=['x', 'y', 'z', 'lbl']
+        )
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\\text{Init Distribution } P(xdir_{in},ydir_{in})$",
+            limx=(-3, 3),
+            limy=(-3, 3),
+            show=True
+        )
+
+        evidence = {
+            var: ContinuousSet(s1[var].ppf(.05), s1[var].ppf(.95)) for var in s1.keys()
+        }
+        evidence['angle'] = -20
+        tt_ = tt.conditional_jpt(
+            evidence=tt.bind(
+                {k: v for k, v in evidence.items() if k in tt.varnames},
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+        dist_u2 = tt_.posterior(variables=tt.targets)
+
+        # plot direction update distribution
+        d = pd.DataFrame(
+            data=[gendata('xdir_out', 'ydir_out', dist_u2)],
+            columns=['x', 'y', 'z', 'lbl'])
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\delta\\text{-Distribution } P(xdir_{out},ydir_{out})$",
+            limx=(-3, 3),
+            limy=(-3, 3),
+            show=True
+        )
+
+        # update dir
+        # create successor state
+        s2 = State_()
+        s2.update({k: v for k, v in s1.items()})
+
+        n_segments = 20
+        dist_u2['xdir_out'] = dist_u2['xdir_out'].approximate(n_segments=n_segments)
+        s2['xdir_in'] = s2['xdir_in'] + dist_u2['xdir_out']
+        s2['xdir_in'] = s2['xdir_in'].approximate(n_segments=n_segments)
+
+        dist_u2['ydir_out'] = dist_u2['ydir_out'].approximate(n_segments=n_segments)
+        s2['ydir_in'] = s2['ydir_in'] + dist_u2['ydir_out']
+        s2['ydir_in'] = s2['ydir_in'].approximate(n_segments=n_segments)
+
+        # plot result
+        d = pd.DataFrame(
+            data=[gendata('xdir_in', 'ydir_in', s2)],
+            columns=['x', 'y', 'z', 'lbl'])
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\\text{Init} + \delta$",
+            limx=(-3, 3),
+            limy=(-3, 3),
+            show=True
+        )
+
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)
