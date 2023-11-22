@@ -17,8 +17,10 @@ from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, p
     plotly_animation
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
-from jpt.base.intervals import ContinuousSet
+from jpt.base.intervals import ContinuousSet, RealSet
 from jpt.distributions import Gaussian, Numeric
+from jpt.distributions.quantile.quantiles import QuantileDistribution
+
 
 def generate_gaussian_samples(gaussians, n):
     per_gaussian = int(n / len(gaussians))
@@ -593,10 +595,116 @@ class ThesisPlotsTests(unittest.TestCase):
             show=True
         )
 
+    def test_face(self) -> None:
+        j = ThesisPlotsTests.models['000-robotaction_move.tree']
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent_move, 'data', f'000-robotaction_move.parquet'))
+        tolerance = .3
+        limx = (-3, 3)
+        limy = (-3, 3)
+
+        rx = RealSet([
+            ContinuousSet(-.5 - tolerance, -.5 + tolerance),
+            ContinuousSet(.5 - tolerance, .5 + tolerance)
+        ])
+        ry = RealSet([
+            ContinuousSet(-1 - tolerance, -1 + tolerance),
+            ContinuousSet(.5 - tolerance, .5 + tolerance),
+            ContinuousSet(.5 - tolerance, .5 + tolerance)
+        ])
+        s = ('((`ydir_in` >= -1.3) & (`ydir_in` <= -0.7)) | '
+             '((`xdir_in` >= -0.8) & (`xdir_in` <= 0.2) & (`ydir_in` >= 0.3) & (`ydir_in` <= 0.8)) | '
+             '((`xdir_in` >= 0.3) & (`xdir_in` <= 0.8) & (`ydir_in` >= 0.3) & (`ydir_in` <= 0.8))')
+        df = df.query(s)
+        plot_data_subset(
+            df,
+            xvar='x_out',
+            yvar='y_out',
+            constraints={},
+            limx=limx,
+            limy=limy,
+            show=True
+        )
+
+        # from jpt import infer_from_dataframe
+        # variables = infer_from_dataframe(
+        #     df,
+        #     scale_numeric_types=False,
+        #     # precision=.5
+        # )
+        #
+        # jpt_ = JPT(
+        #     variables=variables,
+        #     targets=variables[4:],
+        #     min_impurity_improvement=None,
+        #     min_samples_leaf=400
+        # )
+        #
+        # jpt_.learn(df, close_convex_gaps=False)
+        #
+        # jpt_.save(os.path.join(ThesisPlotsTests.recent_move, f'000-funnyface.tree'))
+        #
+        # jpt_.plot(
+        #     title='funnyface',
+        #     plotvars=list(jpt_.variables),
+        #     filename=f'000-funnyface',
+        #     directory=os.path.join(ThesisPlotsTests.recent_move, 'plots'),
+        #     leaffill='#CCDAFF',
+        #     nodefill='#768ABE',
+        #     alphabet=True,
+        #     view=False
+        # )
+
+        # generate tree conditioned on given position and/or direction
+        jpt_ = j.conditional_jpt(
+            evidence=j.bind(
+                {
+                    'xdir_in': rx,
+                    'ydir_in': ry
+                },
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+
+        # data generation
+        x = np.linspace(*limx, 50)
+        y = np.linspace(*limy, 50)
+
+        X, Y = np.meshgrid(x, y)
+        Z = np.array(
+            [
+                jpt_.pdf(
+                    jpt_.bind(
+                        {
+                            'x_out': x,
+                            'y_out': y
+                        }
+                    )
+                ) for x, y, in zip(X.ravel(), Y.ravel())
+            ]
+        ).reshape(X.shape)
+        lbl = np.full(Z.shape, ":)")
+
+        data = pd.DataFrame(
+            data=[[x, y, Z, lbl]],
+            columns=['x', 'y', 'z', 'lbl']
+        )
+
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=data,
+            title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+            limx=limx,
+            limy=limy,
+            show=True,
+            showbuttons=True
+        )
+
     def test_reproduce_data_multiple_jpt(self) -> None:
         # load data and JPT that has been learnt from this data
         j = ThesisPlotsTests.models['000-robotaction_move.tree']
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_move.parquet'))
+        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent_move, 'data', f'000-robotaction_move.parquet'))
 
         # set settings
         limx = (-3, 3)
@@ -613,28 +721,28 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values
         positions = {
-            "free-pos": [  # random position in obstacle-free area
+            # "free-pos": [  # random position in obstacle-free area
                 # (None, None, None, None),
-                (50,50, None, None),
+                # (50,50, None, None),
                 # (20, 70, -.7, -.7),
                 # (20, 70, .7, -.7),
                 # (20, 70, .7, .7),
                 # (20, 70, -.7, .7),
-            ],
-            # "no-pos": [  # all directions without given pos
-            #     (None, None, 0, -1),
-            #     (None, None, 0, 1),
-            #     (None, None, .5, -.5),
-            #     (None, None, .5, .5),
-            #     (None, None, -.5, -.5),
-            #     (None, None, -.5, .5),
-            #     (None, None, 1, 0),
-            #     (None, None, -1, 0),
-            #     (None, None, -1, None),
-            #     (None, None, 1, None),
-            #     (None, None, None, -1),
-            #     (None, None, None, 1),
             # ],
+            "no-pos": [  # all directions without given pos
+                (None, None, 0, -1),
+                (None, None, 0, 1),
+                (None, None, .5, -.5),
+                (None, None, .5, .5),
+                (None, None, -.5, -.5),
+                (None, None, -.5, .5),
+                (None, None, 1, 0),
+                (None, None, -1, 0),
+                (None, None, -1, None),
+                (None, None, 1, None),
+                (None, None, None, -1),
+                (None, None, None, 1),
+            ],
             # "grid-corners": [  # all corners of gridworld
             #     (0, 0, None, None),
             #     (0, 100, None, None),  # broken!
@@ -688,10 +796,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 if yd is not None:
                     pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
 
-                # pdfvars = {}
+                pdfvars = {}
                 # pdfvars['x_in'] = ContinuousSet(99.9, 100)
                 # pdfvars['y_in'] = ContinuousSet(0, 100)
-                print("PDFVARS:", pdfvars)
 
                 # generate tree conditioned on given position and/or direction
                 cond = j.conditional_jpt(
@@ -911,10 +1018,9 @@ class ThesisPlotsTests(unittest.TestCase):
                     show=False
                 )
 
-
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, -1, 0]
-
+        shift = True
         tolerance = .01
 
         dx = Gaussian(initx, tolerance).sample(50)
@@ -944,34 +1050,50 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         cmds = [
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': 20}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
-            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': -20}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},  # STOP
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
+            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}}
         ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = initstate
         p = [[s, {}]]
-        for cmd in cmds:
-            print('cmd', cmd)
+        for i, cmd in enumerate(cmds):
+            print('cmd', i, cmd)
             t = ThesisPlotsTests.models[cmd['tree']]
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -1009,18 +1131,23 @@ class ThesisPlotsTests(unittest.TestCase):
                 if outvar != invar and invar in s_:
                     # if the _in variable is already contained in the state, update it by adding the delta
                     # from the leaf distribution
-                    if len(s_[invar].cdf.functions) > 20:
-                        s_[invar] = s_[invar].approximate(.2)
-                    if len(best[outvar].cdf.functions) > 20:
-                        best[outvar] = best[outvar].approximate(.2)
-                    s_[invar] = s_[invar] + best[outvar]
+                    if shift:
+                        s_[invar] = Numeric().set(
+                            QuantileDistribution.from_cdf(s_[invar].cdf.xshift(-best[outvar].expectation())))
+                    else:
+                        if len(s_[invar].cdf.functions) > 20:
+                            s_[invar] = s_[invar].approximate(.2)
+                        if len(best[outvar].cdf.functions) > 20:
+                            best[outvar] = best[outvar].approximate(.2)
+                        s_[invar] = s_[invar] + best[outvar]
                 else:
                     s_[invar] = d
 
-                if hasattr(s_[invar], 'approximate'):
-                    s_[invar] = s_[invar].approximate(
-                        error_max=.2
-                    )
+                if not shift:
+                    if hasattr(s_[invar], 'approximate'):
+                        s_[invar] = s_[invar].approximate(
+                            error_max=.2
+                        )
 
             p.append([s_, cmd['params']])
             s = State_()
