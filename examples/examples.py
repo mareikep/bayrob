@@ -85,8 +85,12 @@ def learn_jpt(
     )
 
     jpt_.learn(df, close_convex_gaps=False)
-    # jpt_mf = jpt_mf.prune(similarity_threshold=.77)
-    # jpt_mf.postprocess_leaves()
+
+    if "prune" in args:
+        jpt_ = jpt_.prune(similarity_threshold=args.prune)  # .77
+
+    if "postprocess" in args:
+        jpt_.postprocess_leaves()
 
     logger.debug(f'...done! saving to file {os.path.join(fp, f"000-{name}.tree")}')
 
@@ -132,12 +136,16 @@ def main(DT, args):
         os.mkdir(os.path.join(fp, 'plots'))
         os.mkdir(os.path.join(fp, 'data'))
 
-    if args.example == 'robotaction_turn':
-        from robotaction_turn import robotaction_turn as mod
-    elif args.example == 'robotaction_move':
-        from robotaction_move import robotaction_move as mod
+    if args.example == 'turn':
+        from turn import turn as mod
+    elif args.example == 'move':
+        from move import move as mod
+    elif args.example == 'move_exp':
+        from move_exp import move as mod
     elif args.example == 'perception':
         from perception import perception as mod
+    elif args.example == 'pr2':
+        from pr2 import pr2 as mod
     else:
         from perception import perception as mod
         args.example = 'perception'
@@ -148,7 +156,10 @@ def main(DT, args):
         mod.generate_data(fp, args)
 
     if args.learn:
-        learn_jpt(fp, args)
+        if args.modulelearn:
+            mod.learn_jpt(fp, args)
+        else:
+            learn_jpt(fp, args)
 
     if args.plot:
         plot_jpt(fp, args)
@@ -161,18 +172,22 @@ def main(DT, args):
 
 if __name__ == '__main__':
 
+    # The arguments are not limited to the list below. For any example-specific arguments use the -a (--args), e.g.
+    # python example -o -l -p -a prune 0.77
+
     parser = argparse.ArgumentParser(description='CALOWeb.')
     parser.add_argument("-v", "--verbose", dest="verbose", default='debug', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
-    parser.add_argument('-r', '--recent', default=False, action='store_true', help='use most recent folder greated', required=False)
-    parser.add_argument('-l', '--learn', default=False, action='store_true', help='learn model', required=False)
-    parser.add_argument('-p', '--plot', default=False, action='store_true', help='plot model', required=False)
-    parser.add_argument('-s', '--showplots', default=False, action='store_true', help='show plots', required=False)
-    parser.add_argument('-d', '--data', default=False, action='store_true', help='trigger generating data/world plots', required=False)
+    parser.add_argument('-r', '--recent', action='store_true', help='use most recent folder greated', required=False)
+    parser.add_argument('-l', '--learn', action='store_true', help='learn model', required=False)
+    parser.add_argument('--modulelearn', action='store_true', help='use default learning function. otherwise use learning function of module', required=False)
+    parser.add_argument('-p', '--plot', action='store_true', help='plot model', required=False)
+    parser.add_argument('-s', '--showplots', action='store_true', help='show plots', required=False)
+    parser.add_argument('-d', '--data', action='store_true', help='trigger generating data/world plots', required=False)
     parser.add_argument('-a', '--args', action='append', nargs=2, metavar=('arg', 'value'), help='other, example-specific argument of type (arg, value)')
     parser.add_argument('-e', '--example', type=str, default='perception', help='name of the data set', required=False)
-    parser.add_argument('-m', '--min-samples-leaf', type=float, default=None, help='min_samples_leaf parameter', required=False)
+    parser.add_argument('-m', '--min-samples-leaf', type=float, default=1, help='min_samples_leaf parameter', required=False)
     parser.add_argument('-i', '--min-impurity_improvement', type=float, default=None, help='impurity_improvement parameter', required=False)
-    parser.add_argument('-o', '--obstacles', default=False, action='store_true', help='obstacles', required=False)
+    parser.add_argument('-o', '--obstacles', action='store_true', help='obstacles', required=False)
     args = parser.parse_args()
 
     init_loggers(level=args.verbose)

@@ -19,6 +19,9 @@ from jpt.distributions import Gaussian
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
+def circumference(o):
+    return sum([2*edge for edge in [abs(o[2]-o[0]), abs(o[3]-o[1])]])
+
 def generate_gaussian_samples(gaussians, n):
     per_gaussian = int(n / len(gaussians))
     data = [g.sample(per_gaussian) for g in gaussians]
@@ -32,7 +35,12 @@ def generate_gaussian_samples(gaussians, n):
 
 def generate_data(fp, args):
     name = args.example
-    samples_per_obstacle = args.samples_per_obstacle if 'samples_per_obstacle' in args else 500
+
+    # the number of samples to generate per point along an obstacle
+    samples_ppnt = args.samples_ppnt if 'samples_ppnt' in args else 5
+
+    # the number of samples to generate for each additional sample position (open_positions)
+    samples_ppos = args.samples_ppos if 'samples_ppos' in args else int(samples_ppnt*10)
 
     cols = {
         'x_in': np.float32,
@@ -56,8 +64,25 @@ def generate_data(fp, args):
         'detected(pot)': bool,
         'nearest_furniture': str,
     }
+    daytimes = ['morning', 'post-breakfast', 'pre-lunchtime', 'lunchtime', 'post-lunchtime', 'pre-dinnertime', 'dinnertime', 'post-dinnertime', 'night']
+    dt = dict(zip(range(len(daytimes)), daytimes))
 
-    numdata = int(len(w.obstacles)*samples_per_obstacle)
+    # define some positions where the robot can see the insides of drawers, cupboards and the fridge to sample from
+    open_positions = {
+        "stove": [
+            (72, 40, [5, .07], [.07, 2], 1, -1, 20, None),
+        ],
+        "kitchen_unit": [
+            (20, 75, [7, .07], [.07, 2], -1, 3, 45, "left"),
+            (20, 70, [10, .07], [.07, 1], -1, 3, 45, "drawer"),
+            (40, 75, [8, -.07], [-.07, 1], 1, 3, 45, "right"),
+        ],
+        "fridge": [
+            (63, 75, [5, -.07], [-.07, 1], 1, 1, 30, None)
+        ]
+    }
+
+    numdata = int(sum([circumference(o) for o in w.obstacles])*samples_ppnt) + int(sum([len(l) for l in open_positions.values()])*samples_ppos)
     logger.debug(f'Generating up to {numdata} move data points...')
 
     # init agent at left lower corner facing right
@@ -68,8 +93,9 @@ def generate_data(fp, args):
     distance_to_obstacle = 4
 
     dp_ = []
-    for o, o_name in zip(w.obstacles, w.obstaclenames):
-        logger.debug(f"sampling data for obstacle {o_name}")
+    # sample 500 positions around each obstacle (all doors/cabinets/drawers closed)
+    for o, obstacle in zip(w.obstacles, w.obstaclenames):
+        logger.debug(f"sampling data for obstacle {obstacle}")
         # sample positions and directions along edges of obstacles
         for edge in ['upper', 'lower', 'left', 'right']:
             logger.debug(f"edge {edge}")
@@ -77,25 +103,25 @@ def generate_data(fp, args):
             if edge == 'upper':
                 mudx = 0
                 mudy = -1
-                dx = np.random.uniform(low=o[0], high=o[2], size=int(samples_per_obstacle / 4))
-                dy = Gaussian(o[3], distance_to_obstacle).sample(int(samples_per_obstacle / 4))
+                dx = np.random.uniform(low=o[0], high=o[2], size=int(abs(o[2]-o[0])*samples_ppnt))
+                dy = Gaussian(o[3] + distance_to_obstacle/2, distance_to_obstacle/2).sample(int(abs(o[2]-o[0])*samples_ppnt))
             elif edge == 'lower':
                 mudx = 0
                 mudy = 1
-                dx = np.random.uniform(low=o[0], high=o[2], size=int(samples_per_obstacle / 4))
-                dy = Gaussian(o[1], distance_to_obstacle).sample(int(samples_per_obstacle / 4))
+                dx = np.random.uniform(low=o[0], high=o[2], size=int(abs(o[2]-o[0])*samples_ppnt))
+                dy = Gaussian(o[1] - distance_to_obstacle/2, distance_to_obstacle/2).sample(int(abs(o[2]-o[0])*samples_ppnt))
             elif edge == 'left':
                 mudx = 1
                 mudy = 0
-                dx = Gaussian(o[0], distance_to_obstacle).sample(int(samples_per_obstacle / 4))
-                dy = np.random.uniform(low=o[1], high=o[3], size=int(samples_per_obstacle / 4))
+                dx = Gaussian(o[0] - distance_to_obstacle/2, distance_to_obstacle/2).sample(int(abs(o[3]-o[1])*samples_ppnt))
+                dy = np.random.uniform(low=o[1], high=o[3], size=int(abs(o[3]-o[1])*samples_ppnt))
             else:
                 mudx = -1
                 mudy = 0
-                dx = Gaussian(o[2], distance_to_obstacle).sample(int(samples_per_obstacle / 4))
-                dy = np.random.uniform(low=o[1], high=o[3], size=int(samples_per_obstacle / 4))
+                dx = Gaussian(o[2] + distance_to_obstacle/2, distance_to_obstacle/2).sample(int(abs(o[3]-o[1])*samples_ppnt))
+                dy = np.random.uniform(low=o[1], high=o[3], size=int(abs(o[3]-o[1])*samples_ppnt))
 
-            deg = Gaussian(0, 45).sample(int(samples_per_obstacle / 4))
+            deg = Gaussian(0, 45).sample(len(dx))
             ddx = ddy = []
             for d in deg:
                 a.dir = (mudx, mudy)
@@ -104,98 +130,91 @@ def generate_data(fp, args):
                 ddx.append(ddx_)
                 ddy.append(ddy_)
 
-            daytime = np.random.randint(low=0, high=4, size=int(samples_per_obstacle/4))
+            daytime = np.random.randint(low=0, high=len(daytimes), size=len(dx))
 
-            for x_, y_, dx_, dy_, tod in zip(dx, dy, ddx, ddy, daytime):
+            for x_, y_, dx_, dy_, daytime in zip(dx, dy, ddx, ddy, daytime):
                 if w.collides((x_, y_)): continue
 
                 npos = (x_, y_)
                 ndir = (dx_, dy_)
-                tod = {0: "morning", 1: "day", 2: "evening", 3: "night"}[tod]
+                daytime = dt[daytime]
 
                 dp_.append(
                     [
                         *npos,  # position
                         *ndir,  # direction
-                        tod,  # time of day
+                        daytime,  # time of day
                         False,  # open(fridge_door)
                         False,  # open(cupboard_door_left)
                         False,  # open(cupboard_door_right)
                         False,  # open(kitchen_unit_drawer)
-                        False,  # stove_door_open
-                        o_name == "kitchen_island" and tod == "morning",  # see cup
-                        False,  # see cutlery
-                        o_name == "kitchen_island" and tod == "morning",  # see bowl
-                        o_name == "kitchen_unit",  # see sink
-                        o_name == "kitchen_island" and tod == "morning",  # see milk
-                        (o_name == 'kitchen_island' and tod == "night") or o_name == "stove",  # see beer
-                        o_name == "kitchen_island" and tod == "morning",  # see cereal
-                        o_name == 'stove',  # see stovetop
-                        (o_name == 'stove' and tod not in ['evening', 'day']) or (o_name == "kitchen_island" and tod in ['evening', 'day']),  # see pot
-                        o_name,
+                        False,  # open(stove_door)
+                        obstacle == "kitchen_island" and daytime == "morning" or obstacle == "kitchen_unit" and daytime == "post-breakfast",  # see cup
+                        obstacle == "kitchen_unit" and daytime == "post-breakfast",  # see cutlery
+                        obstacle == "kitchen_island" and daytime == "morning" or obstacle == "kitchen_unit" and daytime == "post-breakfast",  # see bowl
+                        obstacle == "kitchen_unit",  # see sink
+                        obstacle == "kitchen_island" and daytime == "morning",  # see milk
+                        (obstacle == 'kitchen_island' and daytime == "night") or obstacle == "stove",  # see beer
+                        obstacle == "kitchen_island" and daytime == "morning",  # see cereal
+                        obstacle == 'stove',  # see stovetop
+                        (obstacle == 'stove' and daytime in ['pre-lunchtime', 'pre-dinnertime']) or (obstacle == "kitchen_island" and daytime in ['lunchtime', 'dinnertime']) or (obstacle == "kitchen_unit" and daytime in ["post-lunchtime", "post-dinnertime"]),  # see pot
+                        obstacle,
                     ]
                 )
 
-        # define some positions where the robot can see the insides of drawers, cupboards and the fridge to sample from
-        open_positions = {
-            "stove": [
-                (72, 40, [5, .07], [.07, 2], 1, -1, 20, None),
-            ],
-            "kitchen_unit": [
-                (20, 75, [7, .07], [.07, 2], -1, 3, 45, "left"),
-                (20, 70, [10, .07], [.07, 1], -1, 3, 45, "drawer"),
-                (40, 75, [8, -.07], [-.07, 1], 1, 3, 45, "right"),
-            ],
-            "fridge": [
-                (63, 75, [5, -.07], [-.07, 1], 1, 1, 30, None)
-            ]
-        }
-
-
-        for mx_, my_, stdx_, stdy_, dx_, dy_, deg, side in open_positions.get(o_name, []):
+    # sample another 500 positions near certain furniture objects for generating data points
+    # where the respective door is open
+    for obstacle, queries in open_positions.items():
+        for mx_, my_, stdx_, stdy_, dx_, dy_, deg, side in queries:
             gausspos = Gaussian([mx_, my_], [stdx_, stdy_])
 
-            df = generate_gaussian_samples([gausspos], 1000)
+            df = generate_gaussian_samples([gausspos], samples_ppos*2)
 
             dx = df['X'].values
             dy = df['Y'].values
 
-            deg = Gaussian(0, deg).sample(int(samples_per_obstacle / 4))
+            deg = Gaussian(0, deg).sample(samples_ppos)
             ddx = ddy = []
             for d in deg:
-                a.dir = (mudx, mudy)
+                a.dir = (dx_, dy_)
                 Move.turndeg(a, d)
                 ddx_, ddy_ = a.dir
                 ddx.append(ddx_)
                 ddy.append(ddy_)
 
-            daytime = np.random.randint(low=0, high=4, size=int(samples_per_obstacle / 4))
-            for x_, y_, dx_, dy_, tod in zip(dx, dy, ddx, ddy, daytime):
+            daytime = np.random.randint(low=0, high=len(daytimes), size=samples_ppos)
+            for x_, y_, dx_, dy_, daytime in zip(dx, dy, ddx, ddy, daytime):
                 if w.collides((x_, y_)): continue
+
+                open_fridge = obstacle == "fridge" or bool(np.random.randint(low=0, high=2))
+                open_kitchenunit_left = obstacle == "kitchen_unit" and side == "left" or bool(np.random.randint(low=0, high=2))
+                open_kitchenunit_right = obstacle == "kitchen_unit" and side == "right" or bool(np.random.randint(low=0, high=2))
+                open_kitchenunit_drawer = obstacle == "kitchen_unit" and side == "drawer" or bool(np.random.randint(low=0, high=2))
+                open_stove = obstacle == "stove" or bool(np.random.randint(low=0, high=2))
 
                 npos = (x_, y_)
                 ndir = (dx_, dy_)
-                tod = {0: "morning", 1: "day", 2: "evening", 3: "night"}[tod]
+                daytime = dt[daytime]
                 dp_.append(
                     [
                         *npos,  # position
                         *ndir,  # direction
-                        tod,  # time of day
-                        o_name == "fridge",  # open(fridge_door)
-                        o_name == "kitchen_unit" and side == "left",  # open(cupboard_door_left)
-                        o_name == "kitchen_unit" and side == "right",  # open(cupboard_door_right)
-                        o_name == "kitchen_unit" and side == "drawer",  # open(kitchen_unit_drawer)
-                        o_name == "fridge",  # stove_door_open
-                        o_name == "kitchen_unit" and tod != "morning" and side == "left",  # see cup
-                        o_name == "kitchen_unit" and side == "drawer",  # see cutlery
-                        o_name == "kitchen_unit" and tod != "morning" and side == "left",  # see bowl
-                        o_name == "kitchen_unit",  # see sink
-                        o_name == "fridge" and tod != "morning",  # see milk
-                        o_name == 'fridge',  # see beer
-                        o_name == "kitchen_unit" and tod != "morning" and side == "right",  # see cereal
-                        o_name == 'stove',  # see stovetop
-                        o_name == 'stove',  # see pot
-                        o_name,
+                        daytime,  # time of day
+                        open_fridge,  # open(fridge_door)
+                        open_kitchenunit_left,  # open(cupboard_door_left)
+                        open_kitchenunit_right,  # open(cupboard_door_right)
+                        open_kitchenunit_drawer,  # open(kitchen_unit_drawer)
+                        open_stove,  # open(stove_door)
+                        obstacle == "kitchen_unit" and open_kitchenunit_left and daytime != "morning",  # see cup
+                        obstacle == "kitchen_unit" and open_kitchenunit_drawer and daytime != "morning",  # see cutlery
+                        obstacle == "kitchen_unit" and open_kitchenunit_left and daytime != "morning",  # see bowl
+                        obstacle == "kitchen_unit",  # see sink
+                        obstacle == "fridge" and open_fridge and daytime != "morning",  # see milk
+                        obstacle == "fridge" and open_fridge or obstacle == 'stove',  # see beer
+                        obstacle == "kitchen_unit" and open_kitchenunit_right and daytime != "morning",  # see cereal
+                        obstacle == 'stove',  # see stovetop
+                        obstacle == "stove" and open_stove and daytime not in ['lunchtime', 'dinnertime'] or obstacle == "kitchen_unit" and daytime in ['post-lunchtime', 'post-dinnertime'],  # see pot
+                        obstacle,
                     ]
                 )
 
@@ -214,15 +233,15 @@ def generate_data(fp, args):
     return df
 
 
-def plot_data(fp, name, varx, vary) -> go.Figure:
+def plot_data(fp, args) -> go.Figure:
     logger.debug('plotting data...')
 
-    df = pd.read_parquet(os.path.join(fp, 'data', f'000-{name}.parquet'))
+    df = pd.read_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'))
 
     fig_d = px.scatter(
         df,
-        x=varx,
-        y=vary,
+        x="x_in",
+        y="y_in",
         color_continuous_scale=px.colors.sequential.dense,
         color=[1]*df.shape[0],#range(df.shape[0]),
         size=[1]*df.shape[0],
@@ -236,14 +255,14 @@ def plot_data(fp, name, varx, vary) -> go.Figure:
     )
 
     fig_d.write_html(
-        os.path.join(fp, 'plots', f'000-DATA-MOVE.html'),
+        os.path.join(fp, 'plots', f'000-{args.example}-data.html'),
         config=defaultconfig,
         include_plotlyjs="cdn"
     )
 
-    fig_d.to_json(os.path.join(fp, 'plots', f'000-DATA-MOVE.json'))
-    fig_d.to_json(os.path.join(fp, 'plots', f'000-DATA-MOVE.png'))
-    fig_d.write_image(os.path.join(fp, 'plots', f'000-DATA-MOVE.svg'))
+    fig_d.to_json(os.path.join(fp, 'plots', f'000-{args.example}-data.json'))
+    fig_d.to_json(os.path.join(fp, 'plots', f'000-{args.example}-data.png'))
+    fig_d.write_image(os.path.join(fp, 'plots', f'000-{args.example}-data.svg'))
 
     fig_d.show(config=defaultconfig)
 
@@ -272,6 +291,14 @@ def init(fp, args):
 
         for o, n in obstacles:
             w.obstacle(*o, name=n)
+
+
+def learn_jpt(
+        fp,
+        args
+):
+    raise NotImplementedError
+
 
 def teardown(fp, args):
     pass
