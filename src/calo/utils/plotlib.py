@@ -1,25 +1,21 @@
-import os
-import random
+import json
 from typing import List, Tuple, Dict, Any
 
 import dnutils
+import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
+import plotly.io as pio
 from _plotly_utils.colors import sample_colorscale
+from dnutils import first
+from jpt.base.intervals import ContinuousSet
 from plotly.graph_objs import Figure
 
-import numpy as np
-import pandas as pd
-
-from calo.logs.logs import init_loggers
-from calo.utils import locs
 from calo.utils.constants import calologger
 from calo.utils.utils import unit
-from dnutils import first, ifnone
-
 from jpt import JPT
-from jpt.base.intervals import ContinuousSet
 from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
@@ -44,6 +40,23 @@ defaultconfig = dict(
    #      'eraseshape'
    # ]
 )
+
+def fig_from_json_file(fname) -> Figure:
+    with open(fname) as f:
+        return pio.from_json(json.dumps(json.load(f)))
+
+def fig_to_file(fig, fname) -> None:
+    logger.debug(f"Saving plot to file {fname}...")
+    if fname.endswith('html'):
+        fig.write_html(
+            fname,
+            config=defaultconfig,
+            include_plotlyjs="cdn"
+        )
+        fig.write_json(fname.replace("html", "json"))
+    else:
+        fig.write_image(fname)
+
 
 def hextorgb(col):
     h = col.strip("#")
@@ -94,6 +107,7 @@ def plot_pos(
     :param limz:
     :param save:
     :param show:
+    :param fun:
     :return:
     '''
 
@@ -161,6 +175,35 @@ def plot_dir(
         show=show,
         fun=fun
     )
+
+def gendata_mixture(
+        xvar,
+        yvar,
+        states,
+        limx: Tuple = None,
+        limy: Tuple = None,
+        priors: List = None,
+        numpoints=200
+):
+    if priors is None:
+        priors = [1]*len(states)
+
+    # generate datapoints
+    x = np.linspace(limx[0], limx[1], numpoints)
+    y = np.linspace(limy[0], limy[1], numpoints)
+
+    X, Y = np.meshgrid(x, y)
+    Z = np.array(
+        [
+            sum([
+                s[xvar].pdf(x_) * s[yvar].pdf(y_) * p for s, p in zip(states, priors)
+            ]) for x_, y_ in zip(X.ravel(), Y.ravel())
+        ]
+    ).reshape(X.shape)
+
+    lbl = f'Mixture'
+
+    return x, y, Z, lbl
 
 
 def gendata(
@@ -372,14 +415,7 @@ def plotly_animation(
     )
 
     if save:
-        if save.endswith('html'):
-            fig.write_html(
-                save,
-                config=defaultconfig,
-                include_plotlyjs="cdn"
-            )
-        else:
-            fig.write_image(save)
+        fig_to_file(fig, save)
 
     if show:
         fig.show(config=defaultconfig)
@@ -431,9 +467,10 @@ def plot_heatmap(
     if limy is None:
         limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
-    # if limz is None:
-    #     limz = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
+    if limz is None:
+        limz = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
 
+    addargs = {"zmin" if fun == "heatmap" else "cmin": limz[0], "zmax" if fun == "heatmap" else "cmax": limz[1]}
     fun = {"heatmap": go.Heatmap, "surface": go.Surface}.get(fun, go.Heatmap)
 
     frames = [
@@ -454,7 +491,8 @@ def plot_heatmap(
                 hovertemplate='x: %{x}<br>'
                               'y: %{y}<br>'
                               'z: %{z}'
-                              '<extra>%{customdata}</extra>'
+                              '<extra>%{customdata}</extra>',
+                **addargs
             )
         ) for i, d in data.iterrows()
     ]
@@ -476,18 +514,13 @@ def plot_heatmap(
         yaxis=dict(
             title=yvar,
             range=[*limy]
-        )
+        ),
+        # paper_bgcolor="black",
+        # plot_bgcolor="black"
     )
 
     if save:
-        if save.endswith('html'):
-            fig.write_html(
-                save,
-                config=defaultconfig,
-                include_plotlyjs="cdn"
-            )
-        else:
-            fig.write_image(save)
+        fig_to_file(fig, save)
 
     if show:
         fig.show(config=defaultconfig)
@@ -627,7 +660,8 @@ def plot_path(
 
 def plotly_pt(
         pt: Tuple,
-        dir: Tuple = None
+        dir: Tuple = None,
+        name: str = None
 ) -> Any:
     ix, iy = pt
 
@@ -641,7 +675,8 @@ def plotly_pt(
                 color='rgb(0,125,0)'
             ),
             fillcolor='rgb(0,125,0)',
-            name="Start",
+            name=name,
+            showlegend=False
         )
     )
 
@@ -701,7 +736,8 @@ def plot_pt_sq(
     fig.add_traces(
         data=plotly_pt(
             pt[:2],
-            dir=pt[2:]
+            dir=pt[2:],
+            name="Start"
         ).data
     )
 
@@ -816,15 +852,12 @@ def plot_scatter_quiver(
     # do not draw colorax and legend
     mainfig.layout = fig_s.layout
 
-    mainfig.update_coloraxes(
-        showscale=False,
-    )
+    # mainfig.update_coloraxes(
+    #     showscale=False,
+    # )
 
     if save is not None:
-        mainfig.write_image(
-            save,
-            scale=1
-        )
+        fig_to_file(mainfig, save)
 
     if show:
         mainfig.show(config=defaultconfig)
@@ -855,7 +888,7 @@ def plot_data_subset(
             for v, op in [(val.lower, ">="), (val.upper, "<=")]:
                 constraints_.append(f'(`{var}` {op} {v})')
         elif isinstance(val, (list, set)):
-            constraints_.append("(" + '|'.join([f'(`{var}` == "{v}")' for v in val]) + ")")
+            constraints_.append("(" + '|'.join([f'`{var}` == "{v}"' for v in val]) + ")")
         elif isinstance(val, str):
             constraints_.append(f'(`{var}` == "{val}")')
         else:
@@ -898,14 +931,7 @@ def plot_data_subset(
         fig_s.show(config=defaultconfig)
 
     if save:
-        if save.endswith('html'):
-            fig_s.write_html(
-                save,
-                config=defaultconfig,
-                include_plotlyjs="cdn"
-            )
-        else:
-            fig_s.write_image(save)
+        fig_to_file(fig_s, save)
 
     return fig_s
 
