@@ -9,12 +9,16 @@ import pandas as pd
 
 from calo.utils import locs
 from calo.utils.constants import calologger, FILESTRFMT
-from calo.utils.utils import recent_example
+from calo.utils.utils import recent_example, angles_from_quaternion, euler_from_quaternion
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
 def generate_data(fp, args):
+
+    def angle(row):
+        return {k: v for k, v in zip(['angle_x', 'angle_y', 'angle_z'], euler_from_quaternion(row['q_x'], row['q_y'], row['q_z'], row['q_w']))}
+
     # merge actions and poses
     for path in Path(os.path.join(locs.examples, 'pr2', 'raw')).glob('16*/'):
         df_a = pd.read_csv(os.path.join(path, "actions.csv"), delimiter=";")
@@ -30,15 +34,21 @@ def generate_data(fp, args):
                          "object_acted_on": "None",
                          "bodyPartsUsed": "None",
                          "arm": "None",
-                         "t_x": -10,
-                         "t_y": -10,
-                         "t_z": -10,
-                         "q_x": -2,
-                         "q_y": -2,
-                         "q_z": -2,
-                         "q_w": -2,
+                         "t_x": 0,
+                         "t_y": 0,
+                         "t_z": 0,
+                         "q_x": 0,
+                         "q_y": 0,
+                         "q_z": 0,
+                         "q_w": 1,
                          "information": "None"
                     }, inplace=True)
+
+        # add angle columns (degrees) calculated from quaternion
+        df = pd.concat([df, pd.DataFrame.from_records(df.apply(angle, axis=1))], axis=1)
+
+        # drop columns that are not necessary anymore (quaternion)
+        df = df.drop(columns=['q_x', 'q_y', 'q_z', 'q_w'])
 
         logger.debug(f"saving merged file to {os.path.join(fp, 'data', f'{path.name}.parquet')}")
         df.to_parquet(os.path.join(fp, 'data', f'{path.name}.parquet'))
@@ -65,11 +75,10 @@ def generate_data(fp, args):
         't_x': np.float32,
         't_y': np.float32,
         't_z': np.float32,
-        'q_x': np.float32,
-        'q_y': np.float32,
-        'q_z': np.float32,
-        'q_w': np.float32,
         'information': str,
+        'angle_x': np.float32,
+        'angle_y': np.float32,
+        'angle_z': np.float32
     }
     df = df.astype(cols)
 
