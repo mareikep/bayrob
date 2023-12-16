@@ -19,9 +19,11 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
 def generate_data(fp, args):
-    logger.debug('Generating direction data...')
 
-    lrturns = args.lrturns if 'lrturns' in args else 500
+    lrturns = args.lrturns if 'lrturns' in args else 360
+    range_t = args.range_t if 'range_t' in args else 45
+
+    logger.debug(f'Generating {lrturns * 2 * range_t} direction data points...')
 
     # init agent at left lower corner facing right
     a = GridAgent(
@@ -33,7 +35,7 @@ def generate_data(fp, args):
     a.dir = (1, 0)
     initdir = a.dir
 
-    dt_ = DynamicArray(shape=(lrturns*100, 5), dtype=np.float32)
+    dt_ = DynamicArray(shape=(lrturns * 2 * range_t, 5), dtype=np.float32)
 
     for degi in np.random.uniform(low=-180, high=180, size=lrturns):
 
@@ -43,7 +45,7 @@ def generate_data(fp, args):
 
         # make additional turns uniformly distributed to the left and right
         # in a -x/+x degree range
-        for randdeg in np.random.uniform(low=-45, high=45, size=200):
+        for randdeg in np.random.uniform(low=-range_t, high=range_t, size=range_t*2):
             # turn and save new direction
             Move.turndeg(a, randdeg)
             dt_.append(np.array(
@@ -61,9 +63,9 @@ def generate_data(fp, args):
     data_turn = data_turn.astype({
         'xdir_in': np.float32,
         'ydir_in': np.float32,
+        'angle': np.float32,
         'xdir_out': np.float32,
         'ydir_out': np.float32,
-        'angle': np.float32
     })
 
     logger.debug(f"...done! Saving {data_turn.shape[0]} data points to {os.path.join(fp, 'data', f'000-{args.example}.parquet')}...")
