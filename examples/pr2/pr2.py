@@ -9,7 +9,7 @@ import pandas as pd
 
 from calo.utils import locs
 from calo.utils.constants import calologger, FILESTRFMT
-from calo.utils.utils import recent_example, angles_from_quaternion, euler_from_quaternion
+from calo.utils.utils import recent_example, euler_from_quaternion
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -50,6 +50,9 @@ def generate_data(fp, args):
         # drop columns that are not necessary anymore (quaternion)
         df = df.drop(columns=['q_x', 'q_y', 'q_z', 'q_w'])
 
+        # drop columns that are not necessary for learning
+        df = df.drop(columns=['id_x', 'startTime', 'endTime', 'parent', 'angle_x', 'angle_y'])
+
         logger.debug(f"saving merged file to {os.path.join(fp, 'data', f'{path.name}.parquet')}")
         df.to_parquet(os.path.join(fp, 'data', f'{path.name}.parquet'))
         df.to_csv(os.path.join(fp, 'data', f'{path.name}.csv'))
@@ -61,14 +64,14 @@ def generate_data(fp, args):
 
     # set type for data columns
     cols = {
-        'id_x': str,
+        # 'id_x': str,
         'type': str,
-        'startTime': np.float32,  # 'datetime64[s]',
-        'endTime': np.float32,  # 'datetime64[s]',
+        # 'startTime': np.float32,  # 'datetime64[s]',
+        # 'endTime': np.float32,  # 'datetime64[s]',
         'duration': np.float32,
         'success': bool,
         'failure': str,
-        'parent': str,
+        # 'parent': str,
         'object_acted_on': str,
         'bodyPartsUsed': str,
         'arm': str,
@@ -76,8 +79,8 @@ def generate_data(fp, args):
         't_y': np.float32,
         't_z': np.float32,
         'information': str,
-        'angle_x': np.float32,
-        'angle_y': np.float32,
+        # 'angle_x': np.float32,
+        # 'angle_y': np.float32,
         'angle_z': np.float32
     }
     df = df.astype(cols)

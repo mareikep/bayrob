@@ -1,5 +1,6 @@
 import math
 import os
+import traceback
 import unittest
 
 import unittest
@@ -15,7 +16,7 @@ from pandas import DataFrame
 from calo.application.astar_jpt_app import State_
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation, plot_scatter_quiver, plot_dir
+    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
@@ -37,6 +38,7 @@ def generate_gaussian_samples(gaussians, n):
     df = DataFrame({'X': all_data[:, 0], 'Y': all_data[:, 1], 'Color': reduce(list.__add__, colors)})
     return df
 
+
 class ThesisPlotsTests(unittest.TestCase):
 
     @classmethod
@@ -52,10 +54,11 @@ class ThesisPlotsTests(unittest.TestCase):
             )
        )
 
-       cls.recent_move = recent_example(os.path.join(locs.examples, 'robotaction_move'))
-       cls.recent_turn = recent_example(os.path.join(locs.examples, 'robotaction_turn'))
-       # recent = os.path.join(locs.examples, 'robotaction_move', '2023-11-18_15:24')
-       print("loading examples from", cls.recent_move, cls.recent_turn)
+       cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
+       cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
+       cls.recent_perception = recent_example(os.path.join(locs.examples, 'perception'))
+       cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
+       print(f"loading examples from: \n{cls.recent_move}\n{cls.recent_turn}\n{cls.recent_perception}\n{cls.recent_pr2}")
 
        cls.models = dict(
            [
@@ -63,13 +66,21 @@ class ThesisPlotsTests(unittest.TestCase):
                    treefile.name,
                    JPT.load(str(treefile))
                )
-               for p in [cls.recent_move, cls.recent_turn]
+               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception, cls.recent_pr2]
                for treefile in Path(p).rglob('*.tree')
            ]
        )
 
+       cls.obstacle_chair1 = [10, 10, 20, 20]  # chair1"
+       cls.obstacle_chair2 = [30, 10, 40, 20]  # "chair2"
+       cls.obstacle_kitchen_island = [10, 30, 50, 50]  # "kitchen_island"
+       cls.obstacle_stove = [80, 30, 100, 70]  # "stove"
+       cls.obstacle_kitchen_unit = [10, 80, 50, 100]  # "kitchen_unit"
+       cls.obstacle_fridge = [60, 80, 80, 100]  # "fridge"
+
     def test_plot_init_dist(self) -> None:
-        t = ThesisPlotsTests.models['000-robotaction_move.tree']
+        # plot initial position (in) distribution of move tree
+        t = self.models['000-robotaction_move.tree']
         plot_tree_dist(
             tree=t,
             qvarx=t.varnames['x_in'],
@@ -77,11 +88,12 @@ class ThesisPlotsTests(unittest.TestCase):
             title='Initial distribution P(x,y)',
             limx=(-100, 100),
             limy=(-100, 100),
-            save=os.path.join(os.path.join(locs.logs, 'init-dist.html')),
+            save=os.path.join(os.path.join(locs.logs, 'test_plot_init_dist.html')),
             show=True
         )
 
     def test_plot_dist_similarity_discrete(self) -> None:
+        # plot for explaining similarity of discrete dists
         # Arrange
         DistA = SymbolicType('DistA', labels=['A', 'B', 'C'])
         DistB = SymbolicType('DistB', labels=['D', 'E', 'F'])
@@ -160,23 +172,24 @@ class ThesisPlotsTests(unittest.TestCase):
 
 
         mainfig.write_image(
-            os.path.join(locs.logs, f'similarity_discrete.svg'),
+            os.path.join(locs.logs, f'test_plot_dist_similarity_discrete.svg'),
             scale=1
         )
 
         mainfig.write_html(
-            os.path.join(locs.logs, f'similarity_discrete.html'),
-            config=ThesisPlotsTests.defaultconfig,
+            os.path.join(locs.logs, f'test_plot_dist_similarity_discrete.html'),
+            config=self.defaultconfig,
             include_plotlyjs="cdn"
         )
 
         mainfig.show(
-            config=ThesisPlotsTests.defaultconfig
+            config=self.defaultconfig
         )
 
         # Assert
 
     def test_plot_dist_add_continuous(self) -> None:
+        # plot for explaining addition of continuous dist
         # Arrange
 
         mu1, mu2 = [-2, 1]
@@ -233,21 +246,22 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         mainfig.write_image(
-            os.path.join(locs.logs, f'addition_continuous.svg'),
+            os.path.join(locs.logs, f'test_plot_dist_add_continuous.svg'),
             scale=1
         )
 
         mainfig.write_html(
-            os.path.join(locs.logs, f'addition_continuous.html'),
-            config=ThesisPlotsTests.defaultconfig,
+            os.path.join(locs.logs, f'test_plot_dist_add_continuous.html'),
+            config=self.defaultconfig,
             include_plotlyjs="cdn"
         )
 
         mainfig.show(
-            config=ThesisPlotsTests.defaultconfig
+            config=self.defaultconfig
         )
 
     def test_plot_dist_similarity_continuous(self) -> None:
+        # plot for explaining similarity of continuous dists
         # Arrange
 
         mu1, mu2 = [-2, 0.5]
@@ -365,27 +379,27 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         mainfig.write_image(
-            os.path.join(locs.logs, f'similarity_continuous.svg'),
+            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous.svg'),
             scale=1
         )
 
         mainfig.write_html(
-            os.path.join(locs.logs, f'similarity_continuous.html'),
-            config=ThesisPlotsTests.defaultconfig,
+            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous.html'),
+            config=self.defaultconfig,
             include_plotlyjs="cdn"
         )
 
         mainfig.show(
-            config=ThesisPlotsTests.defaultconfig
+            config=self.defaultconfig
         )
 
 
     def test_reproduce_data_find_limits(self) -> None:
-        # -> constrain target pos, plot feature pos
+        # for constrained MOVE TARGET variables, plot heatmap, 3D and ground data of position (IN) distribution
 
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-robotaction_move.tree']
-        print(f"Loading tree from {ThesisPlotsTests.recent}")
+        j = self.models['000-robotaction_move.tree']
+        print(f"Loading tree from {self.recent_move}")
 
         # set settings
         limx = (0, 100)
@@ -403,8 +417,8 @@ class ThesisPlotsTests(unittest.TestCase):
         youtmax = y_out + tolerance
 
         pdfvars = {
-            'x_out': 0,#ContinuousSet(xoutmin, xoutmax),
-            'y_out': 0,#ContinuousSet(youtmin, youtmax),
+            # 'x_out': 0,#ContinuousSet(xoutmin, xoutmax),
+            # 'y_out': 0,#ContinuousSet(youtmin, youtmax),
             'collided': True
         }
 
@@ -457,7 +471,7 @@ class ThesisPlotsTests(unittest.TestCase):
             limx=limx,
             limy=limy,
             limz=(0, 0.0002),
-            save=os.path.join(locs.logs, f"boundaries-{prefix}-dist-hm.html"),
+            save=os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-dist-hm.html"),
             show=True,
         )
 
@@ -468,7 +482,7 @@ class ThesisPlotsTests(unittest.TestCase):
             limx=limx,
             limy=limy,
             limz=(0, 0.0002),
-            save=os.path.join(locs.logs, f"boundaries-{prefix}-dist-surface.html"),
+            save=os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-dist-surface.html"),
             show=True,
             fun="surface"
         )
@@ -480,7 +494,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # )
 
         # plot ground truth
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_move.parquet'))
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
         plot_data_subset(
             df,
             xvar="x_in",
@@ -488,16 +502,17 @@ class ThesisPlotsTests(unittest.TestCase):
             constraints=pdfvars,
             limx=limx,
             limy=limy,
-            save=os.path.join(locs.logs, f"boundaries-{prefix}-gt.html"),
+            save=os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-gt.html"),
             show=True
         )
 
     def test_reproduce_data_single_jpt(self) -> None:
-        # -> constrain feature pos, plot target pos
+        # SINGLE set of constraints:
+        # for any constrained MOVE variables, plot heatmap, 3D and ground data of position (OUT) distribution
 
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-robotaction_move.tree']
-        print(f"Loading tree from {ThesisPlotsTests.recent}")
+        j = self.models['000-robotaction_move.tree']
+        print(f"Loading tree from {self.recent_move}")
 
         # set settings
         limx = (-3, 3)
@@ -585,7 +600,7 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         # plot ground truth
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_move.csv'))
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.csv'))
         plot_data_subset(
             df,
             "x_out",
@@ -597,8 +612,9 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
     def test_face(self) -> None:
-        j = ThesisPlotsTests.models['000-robotaction_move.tree']
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent_move, 'data', f'000-robotaction_move.parquet'))
+        # plot ground truth and distribution smiley face
+        j = self.models['000-robotaction_move.tree']
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
         tolerance = .3
         limx = (-3, 3)
         limy = (-3, 3)
@@ -616,39 +632,39 @@ class ThesisPlotsTests(unittest.TestCase):
              '((`xdir_in` >= -0.8) & (`xdir_in` <= 0.2) & (`ydir_in` >= 0.3) & (`ydir_in` <= 0.8)) | '
              '((`xdir_in` >= 0.3) & (`xdir_in` <= 0.8) & (`ydir_in` >= 0.3) & (`ydir_in` <= 0.8))')
         df = df.query(s)
-        plot_data_subset(
+        # plot_data_subset(
+        #     df,
+        #     xvar='x_out',
+        #     yvar='y_out',
+        #     constraints={},
+        #     limx=limx,
+        #     limy=limy,
+        #     show=True
+        # )
+
+        from jpt import infer_from_dataframe
+        variables = infer_from_dataframe(
             df,
-            xvar='x_out',
-            yvar='y_out',
-            constraints={},
-            limx=limx,
-            limy=limy,
-            show=True
+            scale_numeric_types=False,
+            # precision=.5
         )
 
-        # from jpt import infer_from_dataframe
-        # variables = infer_from_dataframe(
-        #     df,
-        #     scale_numeric_types=False,
-        #     # precision=.5
-        # )
-        #
-        # jpt_ = JPT(
-        #     variables=variables,
-        #     targets=variables[4:],
-        #     min_impurity_improvement=None,
-        #     min_samples_leaf=400
-        # )
-        #
-        # jpt_.learn(df, close_convex_gaps=False)
-        #
-        # jpt_.save(os.path.join(ThesisPlotsTests.recent_move, f'000-funnyface.tree'))
+        jpt_ = JPT(
+            variables=variables,
+            targets=variables[4:],
+            min_impurity_improvement=None,
+            min_samples_leaf=400
+        )
+
+        jpt_.learn(df, close_convex_gaps=False)
+
+        # jpt_.save(os.path.join(self.recent_move, f'000-funnyface.tree'))
         #
         # jpt_.plot(
         #     title='funnyface',
         #     plotvars=list(jpt_.variables),
         #     filename=f'000-funnyface',
-        #     directory=os.path.join(ThesisPlotsTests.recent_move, 'plots'),
+        #     directory=os.path.join(self.recent_move, 'plots'),
         #     leaffill='#CCDAFF',
         #     nodefill='#768ABE',
         #     alphabet=True,
@@ -656,16 +672,16 @@ class ThesisPlotsTests(unittest.TestCase):
         # )
 
         # generate tree conditioned on given position and/or direction
-        jpt_ = j.conditional_jpt(
-            evidence=j.bind(
-                {
-                    'xdir_in': rx,
-                    'ydir_in': ry
-                },
-                allow_singular_values=False
-            ),
-            fail_on_unsatisfiability=False
-        )
+        # jpt_ = j.conditional_jpt(
+        #     evidence=j.bind(
+        #         {
+        #             'xdir_in': rx,
+        #             'ydir_in': ry
+        #         },
+        #         allow_singular_values=False
+        #     ),
+        #     fail_on_unsatisfiability=False
+        # )
 
         # data generation
         x = np.linspace(*limx, 50)
@@ -699,51 +715,48 @@ class ThesisPlotsTests(unittest.TestCase):
             limx=limx,
             limy=limy,
             show=True,
+            save=os.path.join(locs.logs, f"test_reproduce_data_single_jpt.html"),
             showbuttons=True
         )
 
-    def test_reproduce_data_multiple_jpt(self) -> None:
+    def test_reproduce_data_move(self) -> None:
+        # MULTIPLE sets of constraints:
+        # for constrained MOVE FEATURE variables, plot heatmap, 3D and ground data of position (OUT) distribution
+
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-robotaction_move.tree']
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent_move, 'data', f'000-robotaction_move.parquet'))
+        j = self.models['000-robotaction_move.tree']
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
 
         # set settings
         limx = (-3, 3)
         limy = (-3, 3)
 
-        o1 = [10, 10, 20, 20]  # chair1"
-        o2 = [30, 10, 40, 20]  # "chair2"
-        o3 = [10, 30, 50, 50]  # "kitchen_island"
-        o4 = [80, 30, 100, 70]  # "stove"
-        o5 = [10, 80, 50, 100]  # "kitchen_unit"
-        o6 = [60, 80, 80, 100]  # "fridge"
+        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
 
-        ox1, oy1, ox2, oy2 = o3
-
-        # constraints/query values
+        # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            # "free-pos": [  # random position in obstacle-free area
-                # (None, None, None, None),
+            "free-pos": [  # random position in obstacle-free area
+                (None, None, None, None),
                 # (50,50, None, None),
                 # (20, 70, -.7, -.7),
                 # (20, 70, .7, -.7),
                 # (20, 70, .7, .7),
                 # (20, 70, -.7, .7),
-            # ],
-            "no-pos": [  # all directions without given pos
-                (None, None, 0, -1),
-                (None, None, 0, 1),
-                (None, None, .5, -.5),
-                (None, None, .5, .5),
-                (None, None, -.5, -.5),
-                (None, None, -.5, .5),
-                (None, None, 1, 0),
-                (None, None, -1, 0),
-                (None, None, -1, None),
-                (None, None, 1, None),
-                (None, None, None, -1),
-                (None, None, None, 1),
             ],
+            # "no-pos": [  # all directions without given pos
+            #     (None, None, 0, -1),
+                # (None, None, 0, 1),
+                # (None, None, .5, -.5),
+                # (None, None, .5, .5),
+                # (None, None, -.5, -.5),
+                # (None, None, -.5, .5),
+                # (None, None, 1, 0),
+                # (None, None, -1, 0),
+                # (None, None, -1, None),
+                # (None, None, 1, None),
+                # (None, None, None, -1),
+                # (None, None, None, 1),
+            # ],
             # "grid-corners": [  # all corners of gridworld
             #     (0, 0, None, None),
             #     (0, 100, None, None),  # broken!
@@ -773,7 +786,7 @@ class ThesisPlotsTests(unittest.TestCase):
         for postype, pos in positions.items():
             print("POSTYPE:", postype)
 
-            plotdir = os.path.join(locs.logs, f"{postype}")
+            plotdir = os.path.join(locs.logs, f"test_reproduce_data_move-{postype}")
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
@@ -797,7 +810,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 if yd is not None:
                     pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
 
-                pdfvars = {}
+                # pdfvars = {}
                 # pdfvars['x_in'] = ContinuousSet(99.9, 100)
                 # pdfvars['y_in'] = ContinuousSet(0, 100)
 
@@ -883,15 +896,18 @@ class ThesisPlotsTests(unittest.TestCase):
                 )
 
     def test_reproduce_data_turn(self) -> None:
+        # MULTIPLE sets of constraints:
+        # for any constrained TURN variables, plot heatmap, 3D and ground data of direction (OUT) distribution
+
         # load data and JPT that has been learnt from this data
-        j = ThesisPlotsTests.models['000-robotaction_turn.tree']
-        df = pd.read_parquet(os.path.join(ThesisPlotsTests.recent, 'data', f'000-robotaction_turn.parquet'))
+        j = self.models['000-turn.tree']
+        df = pd.read_parquet(os.path.join(self.recent, 'data', f'000-turn.parquet'))
 
         # set settings
         limx = (-1, 1)
         limy = (-1, 1)
 
-        # constraints/query values
+        # constraints/query values (xdir_in, ydir_in, angle)
         dirs = {
             "no-dir": [
                 (None, None, None),
@@ -922,13 +938,13 @@ class ThesisPlotsTests(unittest.TestCase):
             ]
         }
 
-        for dirtype, pos in dirs.items():
+        for dirtype, d in dirs.items():
 
-            plotdir = os.path.join(locs.logs, f"{dirtype}")
+            plotdir = os.path.join(locs.logs, f"test_reproduce_data_turn-{dirtype}")
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
-            for i, (xd, yd, angle) in enumerate(pos):
+            for i, (xd, yd, angle) in enumerate(d):
 
                 # leave untouched
                 tolerance = .3
@@ -1019,8 +1035,330 @@ class ThesisPlotsTests(unittest.TestCase):
                     show=False
                 )
 
+    def test_reproduce_data_perception(self) -> None:
+        # MULTIPLE sets of constraints:
+        # for any constrained PERCEPTION variables, plot heatmap, 3D and ground data of position (IN) distribution
+
+        # load data and JPT that has been learnt from this data
+        j = self.models['000-perception.tree']
+        df = pd.read_parquet(os.path.join(self.recent_perception, 'data', f'000-perception.parquet'))
+
+        print(f"Loading tree from {self.recent_perception}")
+
+        # set settings
+        limx = (0, 100)
+        limy = (0, 100)
+
+        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
+
+        # constraints/query values
+        queries = {
+            "positions": [  # random position in obstacle-free area
+                # {},  # ~ init distribution over position
+                # {'detected(milk)': True, 'daytime': ['morning']},
+                # {'detected(milk)': True, 'daytime': ['night']},
+                # {'detected(bowl)': True, 'daytime': ['post-breakfast']},
+                # {'detected(beer)': True, 'daytime': ['night']},
+                # {'nearest_furniture': 'kitchen_island'},
+                # {'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']},
+                {""},
+                # {'detected(milk)': True, 'open(fridge_door)': False, 'daytime': ['night']},  # breaks! -> no datapoints
+            ],
+        }
+
+        for postype, queries in queries.items():
+            print("POSTYPE:", postype)
+
+            plotdir = os.path.join(locs.logs, f"test_reproduce_data_perception-{postype}")
+            if not os.path.exists(plotdir):
+                os.mkdir(plotdir)
+
+            for i, query in enumerate(queries):
+
+                print("QUERY:", query)
+
+                prefix = f'Perception-' + '_'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
+
+                # plot ground truth
+                plot_data_subset(
+                    df,
+                    xvar='x_in',
+                    yvar='y_in',
+                    constraints=query,
+                    limx=limx,
+                    limy=limy,
+                    save=os.path.join(plotdir, f"{prefix}-gt.svg"),
+                    show=True
+                )
+
+                # generate tree conditioned on given position and/or direction
+                cond = j.conditional_jpt(
+                    evidence=j.bind(
+                        {k: v for k, v in query.items() if k in j.varnames},
+                        allow_singular_values=False
+                    ),
+                    fail_on_unsatisfiability=False
+                )
+
+                print(len(j.allnodes), len(cond.allnodes))
+
+                # data generation
+                x = np.linspace(*limx, 200)
+                y = np.linspace(*limy, 200)
+
+                X, Y = np.meshgrid(x, y)
+                Z = np.array(
+                    [
+                        cond.pdf(
+                            cond.bind(
+                                {
+                                    'x_in': x,
+                                    'y_in': y
+                                }
+                            )
+                        ) for x, y, in zip(X.ravel(), Y.ravel())
+                    ]
+                ).reshape(X.shape)
+                lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in query.items()]))
+
+                data = pd.DataFrame(
+                    data=[[x, y, Z, lbl]],
+                    columns=['x', 'y', 'z', 'lbl']
+                )
+
+                # plot JPT Heatmap
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    # limz=(0, 0.001),
+                    show=True,
+                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg"),
+                    showbuttons=False
+                )
+
+                # plot JPT 3D-Surface
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    # title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    # limz=(0, 0.001),
+                    show=True,
+                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
+                    fun="surface"
+                )
+
+    def test_reproduce_data_perception_multinomial_plots(self) -> None:
+        # MULTIPLE sets of constraints:
+        # for any constrained PERCEPTION variables, plot all remaining dists
+
+        # load data and JPT that has been learnt from this data
+        j = self.models['000-perception.tree']
+        df = pd.read_parquet(os.path.join(self.recent_perception, 'data', f'000-perception.parquet'))
+
+        print(f"Loading tree from {self.recent_perception}")
+
+        # set settings
+        limx = (0, 100)
+        limy = (0, 100)
+
+        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
+
+        # constraints/query values
+        queries = {
+            "positions": [  # random position in obstacle-free area
+                # {},  # ~ init distribution over position
+                # {'detected(milk)': True, 'daytime': ['morning']},
+                # {'detected(milk)': True, 'daytime': ['night']},
+                {'detected(bowl)': True, 'daytime': ['post-breakfast']},
+                # {'detected(beer)': True, 'daytime': ['night']},
+                # {'nearest_furniture': 'kitchen_island'},
+                # {'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']},
+                # {'detected(milk)': True, 'open(fridge_door)': False, 'daytime': ['night']},  # breaks! -> no datapoints
+            ],
+        }
+
+        for postype, queries in queries.items():
+            print("POSTYPE:", postype)
+
+            plotdir = os.path.join(locs.logs, f"test_reproduce_data_perception_multinomial_plots-{postype}")
+            if not os.path.exists(plotdir):
+                os.mkdir(plotdir)
+
+            for i, query in enumerate(queries):
+
+                print("QUERY:", query)
+                querystring = ';'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
+                prefix = f'Perception-' + '_'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
+
+                # print(len(j.allnodes), len(cond.allnodes))
+                cond = j.conditional_jpt(
+                    evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
+                                    allow_singular_values=False
+                                    ),
+                    fail_on_unsatisfiability=False
+                )
+                # post = cond.posterior(variables=[v for v in j.variables if v.name not in query])
+
+                post = j.posterior(
+                    variables=[v for v in j.variables if v.name not in query],
+                    evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
+                        allow_singular_values=False
+                    ),
+                    fail_on_unsatisfiability=False
+                )
+
+                for k, d in post.items():
+                    if k.name in ['x_in', 'y_in', 'xdir_in', 'ydir_in']: continue
+                    d.plot(view=True, title=f'Dist: {k.name}<br>Query: {querystring}')
+
+                # data generation
+                x = np.linspace(*limx, 200)
+                y = np.linspace(*limy, 200)
+
+                X, Y = np.meshgrid(x, y)
+                Z = np.array(
+                    [
+                        cond.pdf(
+                            cond.bind(
+                                {
+                                    'x_in': x,
+                                    'y_in': y
+                                }
+                            )
+                        ) for x, y, in zip(X.ravel(), Y.ravel())
+                    ]
+                ).reshape(X.shape)
+                lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in query.items()]))
+
+                data = pd.DataFrame(
+                    data=[[x, y, Z, lbl]],
+                    columns=['x', 'y', 'z', 'lbl']
+                )
+
+                # plot JPT Heatmap
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    # limz=(0, 0.001),
+                    show=True,
+                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg"),
+                    showbuttons=False
+                )
+
+                # plot JPT 3D-Surface
+                plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    # title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    # limz=(0, 0.001),
+                    show=True,
+                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
+                    fun="surface"
+                )
+
+    def test_reproduce_data_pr2_multinomial_plots(self) -> None:
+        # MULTIPLE sets of constraints:
+        # for any constrained PR2 variables, plot all remaining dists
+        import plotly.express as px
+
+        # load data and JPT that has been learnt from this data
+        # j = self.models['000-pr2.tree']
+        df = pd.read_parquet(os.path.join(self.recent_pr2, 'data', f'000-pr2.parquet'))
+
+        print(f"Loading tree from {self.recent_pr2}")
+
+        # constraints/query values
+        # the postype determines a category, tp
+        queries_ = {
+            "apriori": [
+                ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
+            ],
+            # "failure": [  # failed actions
+            #     ({'success': False}, ['type', "positions", "failure"]),
+            #     ({'type': "Grasping", "success": False}, ["positions", "failure"]),
+            #     ({'type': "Placing", "success": False}, ["positions", "failure"]),
+            # ],
+            # "success": [
+            #     ({"success": True, 'type': "Grasping"}, ["positions", "bodyPartsUsed", "type"]),
+            #     ({"success": True, 'type': "Placing"}, ["positions", "bodyPartsUsed", "type"]),
+            #     ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
+            # ],
+        }
+
+        for postype, queries in queries_.items():
+            print("POSTYPE:", postype)
+
+            plotdir = os.path.join(locs.logs, f"test_reproduce_data_pr2_multinomial_plots-{postype}")
+            if not os.path.exists(plotdir):
+                os.mkdir(plotdir)
+
+            for i, (query, plots) in enumerate(queries):
+
+                print("QUERY:", query)
+                querystring = ';'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
+                prefix = f'PR2-' + '_'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
+
+                # # print(len(j.allnodes), len(cond.allnodes))
+                # cond = j.conditional_jpt(
+                #     evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
+                #                     allow_singular_values=False
+                #                     ),
+                #     fail_on_unsatisfiability=False
+                # )
+                # # post = cond.posterior(variables=[v for v in j.variables if v.name not in query])
+                #
+                # post = j.posterior(
+                #     variables=[v for v in j.variables if v.name not in query],
+                #     evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
+                #         allow_singular_values=False
+                #     ),
+                #     fail_on_unsatisfiability=False
+                # )
+                #
+
+                for plot in plots:
+
+                    # plot ground truth
+                    if plot == "positions":
+                        plot_data_subset(
+                            df,
+                            xvar='t_x',
+                            yvar='t_y',
+                            constraints=query,
+                            save=os.path.join(plotdir, f"{prefix}-gt.html"),
+                            show=True
+                        )
+                    elif plot in ['type', "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]:
+                        plot_data_subset(
+                            df,
+                            xvar=plot,
+                            yvar=None,
+                            constraints=query,
+                            save=os.path.join(plotdir, f"{prefix}-gt.html"),
+                            show=True,
+                            plot_type="histogram"
+                        )
+
+                    # plot distribution of variable
+                    # if plot in post:
+                    #     post[plot].plot(view=True, title=f'Dist: {k.name}<br>Query: {querystring}')
+
     def test_astar_cram_path(self) -> None:
-        initx, inity, initdirx, initdiry = [20, 70, -1, 0]
+        initx, inity, initdirx, initdiry = [20, 70, 0, -1]
         shift = False
         tolerance = .01
 
@@ -1051,42 +1389,50 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         cmds = [
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
             {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},  # STOP
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},  # STOP
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},  # STOP
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-robotaction_turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
             # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}}
         ]
 
@@ -1095,7 +1441,7 @@ class ThesisPlotsTests(unittest.TestCase):
         p = [[s, {}]]
         for i, cmd in enumerate(cmds):
             print(f'Step {i} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
-            t = ThesisPlotsTests.models[cmd['tree']]
+            t = self.models[cmd['tree']]
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
             evidence = {
@@ -1171,13 +1517,13 @@ class ThesisPlotsTests(unittest.TestCase):
             'x_in',
             'y_in',
             p,
-            save=os.path.join(locs.logs, f'crampath.svg'),
+            save=os.path.join(locs.logs, f'test_astar_cram_path.svg'),
             obstacles=obstacles,
             show=False
         )
 
         fig.write_html(
-            os.path.join(locs.logs, f'crampath.html'),
+            os.path.join(locs.logs, f'test_astar_cram_path.html'),
             config=defaultconfig,
             include_plotlyjs="cdn"
         )
@@ -1187,10 +1533,20 @@ class ThesisPlotsTests(unittest.TestCase):
         # plot animation of heatmap representing position distribution update
         plot_pos(
             path=p,
-            save=os.path.join(locs.logs, f'crampath-animation.html'),
+            save=os.path.join(locs.logs, f'test_astar_cram_path-animation.html'),
             show=True,
             limx=(0, 100),
             limy=(0, 100)
+        )
+
+        # plot animation of 3d surface representing position distribution update
+        plot_pos(
+            path=p,
+            save=os.path.join(locs.logs, f'test_astar_cram_path-animation-3d.html'),
+            show=True,
+            limx=(0, 100),
+            limy=(0, 100),
+            fun="surface"
         )
 
         # plot animation of collision bar chart representing change of collision status
@@ -1203,7 +1559,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
         plot_dir(
             path=p,
-            save=os.path.join(locs.logs, f'dirxy.html'),
+            save=os.path.join(locs.logs, f'test_astar_cram_path-dirxy.html'),
             show=True,
             limx=(0, 100),
             limy=(0, 100)
@@ -1222,9 +1578,10 @@ class ThesisPlotsTests(unittest.TestCase):
         # )
 
     def test_move_till_collision(self) -> None:
-        print("loading example", ThesisPlotsTests.recent_move)
+        # position near obstacle or wall and move a couple of stepps, observe state of collision variable
+        print("loading example", self.recent_move)
 
-        initx, inity, initdirx, initdiry = [10, 70, -1, 0]
+        initx, inity, initdirx, initdiry = [7, 70, -1, 0]
         tolerance = .01
 
         dx = Gaussian(initx, tolerance).sample(500)
@@ -1256,8 +1613,8 @@ class ThesisPlotsTests(unittest.TestCase):
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = initstate
         p = [[s, {}]]
-        t = ThesisPlotsTests.models['000-robotaction_move.tree']
-        for i, step in enumerate(range(10)):
+        t = self.models['000-robotaction_move.tree']
+        for i, step in enumerate(range(4)):
             print(f'Step {i}: move()')
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -1273,6 +1630,14 @@ class ThesisPlotsTests(unittest.TestCase):
                 ),
                 fail_on_unsatisfiability=False
             )
+
+            # cond = t.conditional_jpt(
+            #     evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
+            #         allow_singular_values=False
+            #     ),
+            #     fail_on_unsatisfiability=False
+            # )
+            # best = cond.posterior(variables=t.targets)
 
             if best is None:
                 print('skipping at step', step, 'unsatisfiable!')
@@ -1292,12 +1657,16 @@ class ThesisPlotsTests(unittest.TestCase):
                 if outvar != invar and invar in s_:
                     # if the _in variable is already contained in the state, update it by adding the delta
                     # from the leaf distribution
-                    if len(s_[invar].cdf.functions) > 20:
-                        s_[invar] = s_[invar].approximate(n_segments=20)
-                    if len(best[outvar].cdf.functions) > 20:
-                        best[outvar] = best[outvar].approximate(n_segments=20)
+                    try:
+                        if len(s_[invar].cdf.functions) > 20:
+                            s_[invar] = s_[invar].approximate(n_segments=20)
+                        if len(best[outvar].cdf.functions) > 20:
+                            best[outvar] = best[outvar].approximate(n_segments=20)
 
-                    s_[invar] = s_[invar] + best[outvar]
+                        s_[invar] = s_[invar] + best[outvar]
+                    except:
+                        print(f"Crashing belief state for variable\n{outvar}:\n{best[outvar].pdf}\n\n{best[outvar].cdf}")
+                        traceback.print_exc()
                 else:
                     s_[invar] = d
 
@@ -1323,13 +1692,13 @@ class ThesisPlotsTests(unittest.TestCase):
             'x_in',
             'y_in',
             p,
-            save=os.path.join(locs.logs, f'crampath-collision.svg'),
+            save=os.path.join(locs.logs, f'test_move_till_collision.svg'),
             obstacles=obstacles,
             show=False
         )
 
         fig.write_html(
-            os.path.join(locs.logs, f'crampath-collision.html'),
+            os.path.join(locs.logs, f'test_move_till_collision.html'),
             config=defaultconfig,
             include_plotlyjs="cdn"
         )
@@ -1339,7 +1708,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # print heatmap representing position distribution update
         plot_pos(
             path=p,
-            save=os.path.join(locs.logs, f'crampath-collision-animation.html'),
+            save=os.path.join(locs.logs, f'test_move_till_collision-pos-animation.html'),
             show=True,
             limx=(0, 100),
             limy=(0, 100)
@@ -1349,7 +1718,7 @@ class ThesisPlotsTests(unittest.TestCase):
         frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
         plotly_animation(
             data=frames,
-            save=os.path.join(locs.logs, f'collision.html'),
+            save=os.path.join(locs.logs, f'test_move_till_collision-collision-anmiation.html'),
             show=True
         )
 
@@ -1389,11 +1758,11 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         mainfig.write_image(
-            os.path.join(locs.logs, 'testimg.png'),
+            os.path.join(locs.logs, 'test_plot_kaleido_error.png'),
             scale=1
         )
 
-    def test_data_point_update_plot(self) -> None:
+    def test_data_point_star(self) -> None:
         def turn(x, y, deg):
             deg = np.radians(-deg)
             return x * math.cos(deg) - y * math.sin(deg), x * math.sin(deg) + y * math.cos(deg)
@@ -1407,7 +1776,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 "",
                 1
             ) for s, dir in enumerate([
-                turn(*(0,1), 10*i) for i in range(36)
+                turn(*(0,1), 20*i) for i in range(18)
             ])
         ]
         
@@ -1422,7 +1791,7 @@ class ThesisPlotsTests(unittest.TestCase):
             'x',
             data,
             title=None,
-            save=os.path.join(locs.logs, 'star.svg'),
+            save=os.path.join(locs.logs, 'test_data_point_star.svg'),
         )
 
         fig.add_traces(fig_.data)
@@ -1430,15 +1799,137 @@ class ThesisPlotsTests(unittest.TestCase):
         fig.update_layout(
             height=1000,
             width=1000,
-            title=None,
             xaxis=dict(
-                title=xvar,
-                side='top',
-                range=[*limx]
+                title='x',
+                range=(-1, 1)
             ),
             yaxis=dict(
-                title=yvar,
-                range=[*limy]
+                title='y',
+                range=(-1, 1)
+            )
+        )
+
+        fig.show(config=defaultconfig)
+
+    def test_data_point_one_turn(self) -> None:
+        # plot image representing 3 single turns
+        def turn(x, y, deg):
+            deg = np.radians(-deg)
+            return x * math.cos(deg) - y * math.sin(deg), x * math.sin(deg) + y * math.cos(deg)
+
+        d = [
+            (
+                0,
+                0,
+                *(1, 0),
+                f"Step {0}",
+                "",
+                1
+            ),
+            (
+                0,
+                0,
+                *turn(*(1, 0), -50),
+                f"Step {1}",
+                "",
+                1
+            ),
+            (
+                0,
+                0,
+                *turn(*(1, 0), -45),
+                f"Step {1}",
+                "",
+                1
+            ),
+            (
+                0,
+                0,
+                *turn(*(1, 0), -40),
+                f"Step {1}",
+                "",
+                1
+            )
+        ]
+
+        data = pd.DataFrame(
+            data=d,
+            columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
+        )
+
+        fig = go.Figure()
+        fig_ = plot_scatter_quiver(
+            'x',
+            'y',
+            data,
+            title=None,
+            save=os.path.join(locs.logs, 'test_data_point_one_turn.svg'),
+        )
+
+        fig.add_traces(fig_.data)
+        fig.layout = fig_.layout
+        fig.update_layout(
+            height=1000,
+            width=1000,
+            xaxis=dict(
+                title='x',
+                range=(-.5, .5)
+            ),
+            yaxis=dict(
+                title='y',
+                range=(-.5, .5)
+            )
+        )
+
+        fig.show(config=defaultconfig)
+
+    def test_data_point_one_move(self) -> None:
+
+        d = [
+            (
+                0,
+                0,
+                *(1, 0),
+                f"Step {0}",
+                "",
+                1
+            ),
+            (
+                1,
+                0,
+                *(1, 0),
+                f"Step {1}",
+                "",
+                1
+            )
+        ]
+
+        data = pd.DataFrame(
+            data=d,
+            columns=['x', 'y', 'dx', 'dy', 'step', 'lbl', 'size']
+        )
+
+        fig = go.Figure()
+        fig_ = plot_scatter_quiver(
+            'x',
+            'y',
+            data,
+            title=None,
+            save=os.path.join(locs.logs, 'test_data_point_one_move.svg'),
+        )
+
+        fig.add_traces(fig_.data)
+        fig.layout = fig_.layout
+        fig.update_layout(
+            height=1000,
+            width=1000,
+            xaxis=dict(
+                title='x',
+                range=(-.5, 2)
+            ),
+            yaxis=dict(
+                title='y',
+                range=(-.5, .5)
             )
         )
 

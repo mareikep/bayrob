@@ -865,21 +865,10 @@ def plot_scatter_quiver(
     return mainfig
 
 
-def plot_data_subset(
-        df,
-        xvar,
-        yvar,
-        constraints,
-        limx=None,
-        limy=None,
-        save=None,
-        show=False
-):
-    if limx is None:
-        limx = [df[xvar].min(), df[xvar].max()]
-
-    if limy is None:
-        limy = [df[yvar].min(), df[yvar].max()]
+def filter_dataframe(
+        df: pd.DataFrame,
+        constraints
+) -> pd.DataFrame:
 
     # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
     constraints_ = []
@@ -903,29 +892,70 @@ def plot_data_subset(
         df_ = df.query(s)
 
     logger.debug('Returned subset of shape:', df_.shape)
+    return df_
+
+
+def plot_data_subset(
+        df,
+        xvar,
+        yvar,
+        constraints,
+        limx=None,
+        limy=None,
+        save=None,
+        show=False,
+        plot_type='scatter'
+):
+    if limx is None:
+        limx = [df[xvar].min(), df[xvar].max()]
+
+    if limy is None and yvar is not None:
+        limy = [df[yvar].min(), df[yvar].max()]
+
+    df_ = filter_dataframe(df, constraints)
+
+    logger.debug('Returned subset of shape:', df_.shape)
 
     if df_.shape[0] == 0:
         logger.warning('EMPTY DATAFRAME!')
         return
 
-    fig_s = px.scatter(
-        df_,
-        x=xvar,
-        y=yvar,
-        size=[1]*len(df_),
-        size_max=5,
-        width=1000,
-        height=1000
-    )
+    print(df_.shape[0])
 
-    fig_s.update_layout(
-        xaxis=dict(
-            range=limx
-        ),
-        yaxis=dict(
-            range=limy
-        ),
-    )
+    if plot_type == "scatter":
+        fig_s = px.scatter(
+            df_,
+            x=xvar,
+            y=yvar,
+            size=[1]*len(df_),
+            size_max=5,
+            width=1000,
+            height=1000,
+        )
+
+        fig_s.update_layout(
+            xaxis=dict(
+                range=limx
+            ),
+            yaxis=dict(
+                range=limy
+            ),
+        )
+    elif plot_type == "histogram":
+        fig_s = px.histogram(
+            x=df_[xvar].unique(),
+            y=[df_[xvar].value_counts()]
+        )
+        fig_s.update_layout(
+            xaxis_title=xvar,
+            yaxis_title=f"count({xvar})",
+            showlegend=False,
+            width=1000,
+            height=1000
+        )
+    else:
+        logger.error("Can only plot scatter or histogram")
+        return
 
     if show:
         fig_s.show(config=defaultconfig)

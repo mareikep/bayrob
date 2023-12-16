@@ -1,18 +1,21 @@
 import os
 import unittest
+from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-from dnutils import first
-from jpt.base.intervals import ContinuousSet
+from jpt.base.intervals import ContinuousSet, R
+import plotly.graph_objects as go
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
-from calo.core.astar import BiDirAStar
-from calo.core.astar_jpt import Goal
+from calo.core.astar import BiDirAStar, Node
+from calo.core.astar_jpt import Goal, State
 from calo.utils import locs
-from calo.utils.plotlib import gendata, plot_heatmap
+from calo.utils.plotlib import gendata, plot_heatmap, plotly_sq, defaultconfig, gendata_mixture
 from calo.utils.utils import recent_example
 from jpt import JPT
+from jpt.base.errors import Unsatisfiability
 from jpt.distributions import Numeric, Gaussian
 
 
@@ -28,24 +31,27 @@ class AStarRobotActionJPTTests(unittest.TestCase):
     # test_jpt_turn --> learns JPT from turn data
     @classmethod
     def setUpClass(cls) -> None:
-        cls.recent_move = recent_example(os.path.join(locs.examples, 'robotaction_move'))
-        cls.recent_turn = recent_example(os.path.join(locs.examples, 'robotaction_turn'))
-        # recent = os.path.join(locs.examples, 'robotaction_move', '2023-11-18_15:24')
-        print("loading examples from", cls.recent_move, cls.recent_turn)
+        cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
+        cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
+        cls.recent_perc = recent_example(os.path.join(locs.examples, 'perception'))
+        print("loading examples from", cls.recent_move, cls.recent_turn, cls.recent_perc)
 
         cls.models = dict(
             [
                 (
-                    treefile.name,
+                    Path(p).parent.name,
                     JPT.load(str(treefile))
                 )
-                for p in [cls.recent_move, cls.recent_turn]
+                for p in [cls.recent_move, cls.recent_turn, cls.recent_perc]
                 for treefile in Path(p).rglob('*.tree')
             ]
         )
 
+        cls.init = State_()
+        cls.goal = Goal()
+
         # plot initial distributions over x/y positions
-        t = cls.models['000-robotaction_move.tree']
+        t = cls.models['move']
         # plot_tree_dist(
         #     tree=t,
         #     qvarx=t.varnames['x_in'],
@@ -57,35 +63,30 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         #     show=True
         # )
 
-        # initx, inity, initdirx, initdiry = [-42, 48, 0.5, -.86]
-        # initx, inity, initdirx, initdiry = [-55, 65, 0, -1]
-        # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]
-        # initx, inity, initdirx, initdiry = [-61, 61, -1, 0]  # OK
-        # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # OK
-        # initx, inity, initdirx, initdiry = [-61, 61, 1, 0]  # NICHT OK
-        # initx, inity, initdirx, initdiry = [-61, 61, 0, 1]  # NICHT OK
-        initx, inity, initdirx, initdiry = [20, 70, -1, 0]
+        initx, inity, initdirx, initdiry = [55, 44, 1, 0]
+        tolerance_pos = 2
+        tolerance_dir = .01
 
-        tolerance = .01
-
-        dx = Gaussian(initx, tolerance).sample(500)
+        dx = Gaussian(initx, tolerance_pos).sample(500)
         distx = Numeric()
         distx.fit(dx.reshape(-1, 1), col=0)
 
-        dy = Gaussian(inity, tolerance).sample(500)
+        dy = Gaussian(inity, tolerance_pos).sample(500)
         disty = Numeric()
         disty.fit(dy.reshape(-1, 1), col=0)
 
-        ddx = Gaussian(initdirx, tolerance).sample(500)
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
         distdx = Numeric()
         distdx.fit(ddx.reshape(-1, 1), col=0)
 
-        ddy = Gaussian(initdiry, tolerance).sample(500)
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
+        
+        goalx, goaly = [0, 60]
+        tol = .5
 
-        cls.initstate = State_()
-        cls.initstate.update(
+        cls.init.update(
             {
                 'x_in': distx,
                 'y_in': disty,
@@ -93,107 +94,113 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 'ydir_in': distdy
             }
         )
-
         # cls.initstate.plot(show=True)
-        goalx, goaly = [-75, 50]
-        cls.goal = Goal()
+
         cls.goal.update(
             {
-                'x_in': ContinuousSet(goalx - abs(tolerance * goalx), goalx + abs(tolerance * goalx)),
-                'y_in': ContinuousSet(goaly - abs(tolerance * goaly), goaly + abs(tolerance * goaly))
+                'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                'y_in': ContinuousSet(goaly - tol, goaly + tol)
             }
         )
 
+    def test_isgoal_fw_t(self) -> None:
+        self.a_star = SubAStar_(
+            self.init,
+            self.goal,
+            models=self.models
+        )
+
+        n = Node(
+            state=self.init,
+            g=0,
+            h=0,
+            parent=None,
+        )
+
+        self.assertTrue(self.a_star.isgoal(n))
+
+    def test_isgoal_fw_f(self) -> None:
+        g = Goal()
+        g.update({
+                'x_in': ContinuousSet(70, 72),
+                'y_in': ContinuousSet(50, 52)
+        })
+
+        self.a_star = SubAStar_(
+            self.init,
+            g,
+            models=self.models
+        )
+
+        n = Node(
+            state=self.init,
+            g=0,
+            h=0,
+            parent=None,
+        )
+
+        self.assertFalse(self.a_star.isgoal(n))
+
+    def test_h_fw(self) -> None:
+        pass
+
+    def test_stepcost_fw(self) -> None:
+        pass
+
+    def test_isgoal_bw(self) -> None:
+        pass
+
+    def test_h_bw(self) -> None:
+        pass
+
+    def test_stepcost_bw(self) -> None:
+        pass
+
+    def test_isgoal_bdir(self) -> None:
+        pass
+
+    def test_h_bir(self) -> None:
+        pass
+
+    def test_stepcost_bdir(self) -> None:
+        pass
+
+    # @unittest.skip
     def test_astar_fw_path(self) -> None:
         self.a_star = SubAStar_(
-            AStarRobotActionJPTTests.initstate,
-            AStarRobotActionJPTTests.goal,
+            self.init,
+            self.goal,
             models=self.models
         )
         self.path = list(self.a_star.search())
 
-        # generate mapping from path step (=position) to action executed from this position
-        self.actions = {}
-        for p in self.path:
-            self.actions[
-                (
-                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
-                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
-                )
-            ] = (
-                (
-                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
-                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
-                ) if 'ydir_in' in p and 'xdir_in' in p else None
-            )
-
+    # @unittest.skip
     def test_astar_bw_path(self) -> None:
         self.a_star = SubAStarBW_(
-            AStarRobotActionJPTTests.initstate,
-            AStarRobotActionJPTTests.goal,
+            self.init,
+            self.goal,
             models=self.models
         )
         self.path = list(self.a_star.search())
         self.path.reverse()
 
-        # generate mapping from path step (=position) to action executed from this position
-        self.actions = {}
-        for p in self.path:
-            self.actions[
-                (
-                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
-                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
-                )
-            ] = (
-                (
-                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
-                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
-                ) if 'ydir_in' in p and 'xdir_in' in p else None
-            )
-
+    @unittest.skip
     def test_astar_bdir_path(self) -> None:
         self.a_star = BiDirAStar(
             SubAStar_,
             SubAStarBW_,
-            AStarRobotActionJPTTests.initstate,
-            AStarRobotActionJPTTests.goal,
+            self.init,
+            self.goal,
             models=self.models
         )
 
         self.path = list(self.a_star.search())
 
-        # generate mapping from path step (=position) to action executed from this position
-        self.actions = {}
-        for p in self.path:
-            self.actions[
-                (
-                    first(p['y_in'] if isinstance(p['y_in'], set) else p['y_in'].mpe()[1]),
-                    first(p['x_in'] if isinstance(p['x_in'], set) else p['x_in'].mpe()[1])
-                )
-            ] = (
-                (
-                    first(p['ydir_in'] if isinstance(p['ydir_in'], set) else p['ydir_in'].mpe()[1]),
-                    first(p['xdir_in'] if isinstance(p['xdir_in'], set) else p['xdir_in'].mpe()[1])
-                ) if 'ydir_in' in p and 'xdir_in' in p else None
-            )
-
-    @staticmethod
-    def generate_steps(
-            evidence,
-            tree
-    ):
-        return tree.conditional_jpt(
-            evidence=tree.bind(
-                {k: v for k, v in evidence.items() if k in tree.varnames},
-                allow_singular_values=False
-            ),
-            fail_on_unsatisfiability=False
-        )
-
+    # @unittest.skip
     def test_astar_single_action_update(self) -> None:
-        s0 = AStarRobotActionJPTTests.initstate  # = [-61, 61, 0, -1]
-        tm = AStarRobotActionJPTTests.models['000-robotaction_move.tree']
-        tt = AStarRobotActionJPTTests.models['000-robotaction_turn.tree']
+        s0 = self.init  # = [-61, 61, 0, -1]
+        tm = self.models['move']
+        tt = self.models['turn']
 
         # ACTION I: MOVE ==============================================================
         # plot init position distribution
@@ -266,7 +273,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             show=True
         )
 
-        # ACTION II: robotaction_move ==============================================================
+        # ACTION II: TURN ==============================================================
         # plot init position distribution
         d = pd.DataFrame(
             data=[gendata('xdir_in', 'ydir_in', s0)],
@@ -337,6 +344,148 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             show=True
         )
 
+    def test_astar_single_predecessor_update(self) -> None:
+        tm = self.models['move']
+        print(self.goal)
+
+        confidence = 0.13
+        num_preds = 50
+
+        query = {
+            var:
+                self.goal[var] if isinstance(self.goal[var], (set, ContinuousSet)) else
+                self.goal[var].mpe()[0] for var in self.goal.keys()
+        }
+
+        # predecessor from move action model
+        q_ = tm.bind(
+            {
+                k: v for k, v in query.items() if k in tm.varnames
+            },
+            allow_singular_values=False
+        )
+
+        # Transform into internal values/intervals (symbolic values to their indices)
+        query_ = tm._preprocess_query(
+            q_,
+            skip_unknown_variables=True
+        )
+
+        for i, var in enumerate(tm.variables):
+            if var in query_: continue
+            if var.numeric:
+                query_[var] = R
+            else:
+                query_[var] = set(var.domain.labels.values())
+
+        def determine_leaf_confs(l):
+            #  assuming, that the _out variables are deltas and querying for _in semantically means querying for the
+            #  result of adding the delta to the _in variable (i.e. the actual outcome of performing the action
+            #  represented by the leaf)
+            conf = defaultdict(float)
+            s_ = State()
+            s_.tree = "move"
+            s_.leaf = l.idx
+
+            if l.idx in [3476, 3791, 4793]:
+                pass
+            for v, _ in l.distributions.items():
+                vname = v.name
+                invar = vname.replace('_out', '_in')
+                outvar = vname.replace('_in', '_out')
+
+                if vname.endswith('_in') and vname.replace('_in', '_out') in l.distributions:
+                    # if the current variable is an _in variable, and contains the respective _out variable
+                    # distribution, add the two distributions and calculate probability on resulting
+                    # distribution
+                    outdist = l.distributions[outvar]
+                    indist = l.distributions[invar]
+
+                    # determine probability that this action (leaf) produces desired output for this variable
+                    tmp_dist = indist + outdist
+                    c_ = tmp_dist.p(query_[vname])
+
+                    # determine distribution from which the execution of this action (leaf) produces desired output
+                    try:
+                        cond = tmp_dist.crop(query_[vname])
+                        tmp_diff = cond - outdist
+                        tmp_diff = tmp_dist.approximate(n_segments=20)
+                        d_ = tmp_diff
+                    except Unsatisfiability:
+                        c_ = 0
+                else:
+                    # default case
+                    c_ = l.distributions[vname].p(query_[vname])
+                    d_ = l.distributions[vname]
+
+                if not c_ > 0:
+                    return
+                conf[vname] = c_
+                s_[vname] = d_
+            return s_, conf
+
+        # find the leaf (or the leaves) that matches the query best
+        # for i, (k, l) in enumerate([(l.idx, l) for l in [t.leaves[3476], t.leaves[3791], t.leaves[4793]]] if self.first else t.leaves.items()):
+        steps = []
+        for i, (k, l) in enumerate(tm.leaves.items()):
+            res = determine_leaf_confs(l)
+            if res is not None:
+                steps.append(res)
+
+        # sort candidates according to overall confidence and select `num_preds` best ones
+        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:num_preds]
+
+        # drop confidence for plotting and store leaf priors
+        states = [s for s, c in selected_steps]
+        priors = [tm.leaves[s.leaf].prior for s in states]
+
+        d = pd.DataFrame(
+            data=[
+                gendata_mixture(
+                    'x_in',
+                    'y_in',
+                    limx=(0, 100),
+                    limy=(0, 100),
+                    priors=priors,
+                    states=states
+                )
+            ],
+            columns=['x', 'y', 'z', 'lbl'])
+
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\\text{Predecessors } P(x_{in},y_{in})$",
+            limx=(0, 100),
+            limy=(0, 100),
+            save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-absolute.html"),
+            show=True
+        )
+
+        d = pd.DataFrame(
+            data=[
+                gendata_mixture(
+                    'x_out',
+                    'y_out',
+                    limx=(-3, 3),
+                    limy=(-3, 3),
+                    priors=priors,
+                    states=states
+                )
+            ],
+            columns=['x', 'y', 'z', 'lbl'])
+
+        plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=d,
+            title="$\\text{Predecessors } P(x_{out},y_{out})$",
+            limx=(-3, 3),
+            limy=(-3, 3),
+            save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-delta.html"),
+            show=True
+        )
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)

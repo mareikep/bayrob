@@ -103,8 +103,8 @@ class AStarGridworldJPTTests(unittest.TestCase):
 
     def test_astar_fw_path(self) -> None:
         self.a_star = SubAStar_(
-            AStarGridworldJPTTests.initstate,
-            AStarGridworldJPTTests.goal,
+            self.initstate,
+            self.goal,
             models=self.models
         )
         self.path = list(self.a_star.search())
@@ -126,8 +126,8 @@ class AStarGridworldJPTTests(unittest.TestCase):
 
     def test_astar_bw_path(self) -> None:
         self.a_star = SubAStarBW_(
-            AStarGridworldJPTTests.initstate,
-            AStarGridworldJPTTests.goal,
+            self.initstate,
+            self.goal,
             models=self.models
         )
         self.path = list(self.a_star.search())
@@ -152,8 +152,8 @@ class AStarGridworldJPTTests(unittest.TestCase):
         self.a_star = BiDirAStar(
             SubAStar_,
             SubAStarBW_,
-            AStarGridworldJPTTests.initstate,
-            AStarGridworldJPTTests.goal,
+            self.initstate,
+            self.goal,
             models=self.models
         )
 

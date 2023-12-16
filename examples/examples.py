@@ -68,7 +68,7 @@ def learn_jpt(
     tgtidx = args.tgtidx if 'tgtidx' in args else None
     targets = args.targets if 'targets' in args else None
     features = args.features if 'features' in args else None
-    tgts = []
+    tgts = None
     if tgtidx is not None:
         tgts = variables[int(tgtidx):]
     if targets is not None:
@@ -76,6 +76,7 @@ def learn_jpt(
     if features is not None:
         tgts = [v for v in variables if v.name not in features]
 
+    logger.debug(f"passing targets {tgts} to JPT")
     jpt_ = JPT(
         variables=variables,
         targets=tgts,

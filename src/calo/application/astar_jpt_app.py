@@ -1,21 +1,21 @@
 import os
 from typing import Tuple, Dict, List
 
-import plotly.graph_objects as go
-from jpt.base.intervals import ContinuousSet
-from plotly.graph_objs import Figure
-
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+from dnutils import ifnone, first
+from jpt.base.intervals import ContinuousSet
+from matplotlib import pyplot as plt
+from plotly.graph_objs import Figure
+
 from calo.core.astar_jpt import State, SubAStar, Goal, SubAStarBW
 from calo.utils import locs
-from calo.utils.constants import plotcolormap, cs
-from calo.utils.plotlib import plot_heatmap, plot_scatter_quiver, plot_pt_sq, defaultconfig
+from calo.utils.constants import cs
+from calo.utils.plotlib import plot_heatmap, plot_scatter_quiver, plot_pt_sq, defaultconfig, plotly_pt, plotly_sq
 from calo.utils.utils import recent_example
-from dnutils import ifnone, first
 from jpt.distributions import Numeric, Integer
 from jpt.trees import Node
-from matplotlib import pyplot as plt
 
 
 class State_(State):
@@ -105,8 +105,8 @@ class SubAStar_(SubAStar):
             initstate: State_,
             goal: Goal,
             models: Dict,
-            state_similarity: float = .9,
-            goal_confidence: float = 1
+            state_similarity: float = .2,
+            goal_confidence: float = .2
     ):
         super().__init__(
             initstate,
@@ -260,7 +260,9 @@ class SubAStar_(SubAStar):
             p: List,
             title: str = None,
             save: str = None,
-            show: bool = False
+            show: bool = False,
+            limx: Tuple = None,
+            limy: Tuple = None
     ) -> Figure:
 
         # generate data points
@@ -322,11 +324,29 @@ class SubAStar_(SubAStar):
             data=fig_path.data
         )
 
-        if save is not None:
-            mainfig.write_image(
-                save,
-                scale=1
-            )
+        mainfig.update_layout(
+            xaxis=dict(
+                title=xvar,
+                side='top',
+                range=[*limx]
+            ),
+            yaxis=dict(
+                title=yvar,
+                range=[*limy]
+            ),
+            height=1000,
+            width=1100,
+        )
+
+        if save:
+            if save.endswith('html'):
+                mainfig.write_html(
+                    save,
+                    config=defaultconfig,
+                    include_plotlyjs="cdn"
+                )
+            else:
+                mainfig.write_image(save)
 
         if show:
             mainfig.show(config=defaultconfig)
@@ -366,8 +386,8 @@ class SubAStar_(SubAStar):
               f'Dir: ({state["xdir_in"].expectation():.2f},{state["ydir_in"].expectation():.2f})<br>'\
 
         params = f"Params: "
-        params += "None" if state.tree is None else \
-            f'{cs.join([f"{v.name}: {self.models.get(state.tree).leaves[state.leaf].distributions[v].expectation()}" for v in self.models.get(state.tree).features if v not in state])}'
+        # params += "None" if state.tree is None else \
+        #     f'{cs.join([f"{v.name}: {self.models.get(state.tree).leaves[state.leaf].distributions[v].expectation()}" for v in self.models.get(state.tree).features if v not in state])}'
 
         return x, y, Z, lbl+params
 
@@ -387,9 +407,11 @@ class SubAStar_(SubAStar):
             p=p,
             title=f'SubAStar (fwd)<br>{str(node)}',
             save=os.path.join(
-                locs.logs, f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-fwd-path.png'
+                locs.logs, f'{os.path.basename(os.path.join(locs.logs, "ASTAR-fwd-path.html"))}'
             ),
-            show=True
+            show=True,
+            limx=(0, 100),
+            limy=(0, 100)
         )
 
         if kwargs.get('plotdistributions', True):
@@ -402,7 +424,7 @@ class SubAStar_(SubAStar):
                 limy=kwargs.get('limy', None),
                 limz=kwargs.get('limz', None),
                 save=kwargs.get('save', None),
-                show=kwargs.get('show', True)
+                show=False#kwargs.get('show', True)
             )
 
             self.plot_dir(
@@ -413,7 +435,7 @@ class SubAStar_(SubAStar):
                 limy=kwargs.get('limy', None),
                 limz=kwargs.get('limz', None),
                 save=kwargs.get('save', None),
-                show=kwargs.get('show', True)
+                show=False#kwargs.get('show', True)
             )
 
         return fig
@@ -426,8 +448,8 @@ class SubAStarBW_(SubAStarBW):
             initstate: State_,  # would be the goal state of forward-search
             goal: Goal,  # init state in forward-search
             models: Dict,
-            state_similarity: float = .9,
-            goal_confidence: float = 1
+            state_similarity: float = .2,
+            goal_confidence: float = .2
     ):
 
         super().__init__(
@@ -476,7 +498,8 @@ class SubAStarBW_(SubAStarBW):
             if isinstance(v, Numeric):
                 return v.expectation()
             if isinstance(v, Integer):
-                return min(list(v.mpe()[1]))
+                v_ = v.mpe()[1]
+                return min([v_]) if isinstance(v_, int) else min(list(v_))
             if isinstance(v, ContinuousSet):
                 return v.lower + (v.upper - v.lower)/2
 
@@ -505,10 +528,6 @@ class SubAStarBW_(SubAStarBW):
             show: bool = True
     ) -> Figure:
 
-        # if no title is given, generate it according to the input
-        if title is None:
-            title = f'Position x_in/y_in'
-
         # generate datapoints
         data = pd.DataFrame(
                 data=[
@@ -522,17 +541,18 @@ class SubAStarBW_(SubAStarBW):
                 columns=['x_in', 'y_in', 'z', 'lbl']
             )
 
-        return plot_heatmap(
-            xvar='x_in',
-            yvar='y_in',
-            data=data,
-            title=title,
-            limx=limx,
-            limy=limy,
-            limz=limz,
-            save=save,
-            show=show
-        )
+        if not data.empty:
+            return plot_heatmap(
+                xvar='x_in',
+                yvar='y_in',
+                data=data,
+                title=title,
+                limx=limx,
+                limy=limy,
+                limz=limz,
+                save=save,
+                show=show
+            )
 
     def plot_dir(
             self,
@@ -545,9 +565,6 @@ class SubAStarBW_(SubAStarBW):
             save: str = None,
             show: bool = True
     ) -> Figure:
-
-        if title is None:
-            title = f'Direction xdir_in/ydir_in'
 
         # generate datapoints
         data = pd.DataFrame(
@@ -562,17 +579,18 @@ class SubAStarBW_(SubAStarBW):
                 columns=['xdir_in', 'ydir_in', 'z', 'lbl']
             )
 
-        return plot_heatmap(
-            xvar='xdir_in',
-            yvar='ydir_in',
-            data=data,
-            title=title,
-            limx=limx,
-            limy=limy,
-            limz=limz,
-            save=save,
-            show=show
-        )
+        if not data.empty:
+            return plot_heatmap(
+                xvar='xdir_in',
+                yvar='ydir_in',
+                data=data,
+                title=title,
+                limx=limx,
+                limy=limy,
+                limz=limz,
+                save=save,
+                show=show
+            )
 
     def plot_path(
             self,
@@ -581,7 +599,9 @@ class SubAStarBW_(SubAStarBW):
             p: List,
             title: str = None,
             save: str = None,
-            show: bool = False
+            show: bool = False,
+            limx: Tuple = None,
+            limy: Tuple = None
     ) -> Figure:
 
         # generate data points
@@ -592,7 +612,7 @@ class SubAStarBW_(SubAStarBW):
                 s['xdir_in'].expectation(),     # dx
                 s['ydir_in'].expectation(),     # dy
                 f'Step {i}',                    # step
-                f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}',  # lbl
+                f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}<br>MPEs:<br>{"<br>".join(f"{k}: {v.mpe()[0]}" for k, v in s.items())}',  # lbl
                 1                               # size
             )
             if not isinstance(s, self.goal_t) else (
@@ -601,7 +621,7 @@ class SubAStarBW_(SubAStarBW):
                 0,                              # dx
                 0,                              # dy
                 f'Step {i}',                    # step
-                f"Goal",                        # lbl
+                f'Goal<br>{"<br>".join(f"{k}: {str(v)}" for k, v in s.items())}',                        # lbl
                 1                               # size
             )
             for i, s in enumerate(p)
@@ -628,28 +648,54 @@ class SubAStarBW_(SubAStarBW):
         mainfig = go.Figure()
 
         # draw initstate and goal area
-        fig_initstate = plot_pt_sq(
-            pt=[ix, iy, ixd, iyd],
-            area=[gxl, gyl, gxu, gyu]
+        fig_initstate = go.Figure()
 
+        fig_initstate.add_traces(
+            data=plotly_pt(
+                pt=(ix, iy),
+                dir=(ixd, iyd),
+                name=f"Start<br>x_in: {ix}<br>y_in: {iy}"
+            ).data
+        )
+
+        # draw square area
+        fig_initstate.add_trace(
+            plotly_sq(
+                area=(gxl, gyl, gxu, gyu),
+                lbl=f"Goal Area",
+                legend=False
+            )
         )
 
         mainfig.add_traces(
             data=fig_initstate.data
         )
 
-
         # draw path as scatter circles and quivers
         fig_path = plot_scatter_quiver(
             xvar,
             yvar,
             data,
-            title=title,
             show=False
         )
 
         mainfig.add_traces(
             data=fig_path.data
+        )
+
+        mainfig.update_layout(
+            xaxis=dict(
+                title=xvar,
+                side='top',
+                range=[*limx]
+            ),
+            yaxis=dict(
+                title=yvar,
+                range=[*limy]
+            ),
+            height=1000,
+            width=1100,
+            title=title
         )
 
         if save:
@@ -658,6 +704,7 @@ class SubAStarBW_(SubAStarBW):
                     save,
                     include_plotlyjs="cdn"
                 )
+                mainfig.to_json(save.replace('html', 'json'))
             else:
                 mainfig.write_image(save)
 
@@ -718,9 +765,11 @@ class SubAStarBW_(SubAStarBW):
             p=p,
             title=f'SubAStar (bwd)<br>{str(node)}',
             save=os.path.join(
-                locs.logs, f'{os.path.basename(recent_example(os.path.join(locs.examples, "robotaction")))}-bwd-path.html'
+                locs.logs, f'{os.path.basename(os.path.join(locs.logs, "ASTAR-bwd-path.html"))}'
             ),
-            show=True
+            show=True,
+            limx=(0, 100),
+            limy=(0, 100)
         )
 
         if kwargs.get('plotdistributions', True):
@@ -733,7 +782,7 @@ class SubAStarBW_(SubAStarBW):
                 limy=kwargs.get('limy', None),
                 limz=kwargs.get('limz', None),
                 save=kwargs.get('save', None),
-                show=kwargs.get('show', True)
+                show=False#kwargs.get('show', True)
             )
 
             self.plot_dir(
@@ -744,7 +793,7 @@ class SubAStarBW_(SubAStarBW):
                 limy=kwargs.get('limy', None),
                 limz=kwargs.get('limz', None),
                 save=kwargs.get('save', None),
-                show=kwargs.get('show', True)
+                show=False#kwargs.get('show', True)
             )
 
         return fig

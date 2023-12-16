@@ -542,7 +542,7 @@ def dhms(td):
     return td.days, td.seconds // 3600, (td.seconds // 60) % 60, td.seconds % 60
 
 
-def euler_from_quaternion(x, y, z, w):
+def euler_from_quaternion(x, y, z, w, degree=True):
     """
     Convert a quaternion into euler angles (roll, pitch, yaw)
     roll is rotation around x in radians (counterclockwise)
@@ -562,7 +562,10 @@ def euler_from_quaternion(x, y, z, w):
     t4 = +1.0 - 2.0 * (y * y + z * z)
     yaw_z = math.atan2(t3, t4)
 
-    return roll_x, pitch_y, yaw_z  # in radians
+    if degree:
+        return roll_x*180/math.pi, pitch_y*180/math.pi, yaw_z*180/math.pi  # in degrees
+    else:
+        return roll_x, pitch_y, yaw_z  # in radians
 
 
 if __name__ == '__main__':
