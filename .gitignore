@@ -42,6 +42,6 @@ wheels/
 # do not automatically add learned data
 examples/gridagent/
 examples/paperexample/
-examples/robotaction_turn/
-examples/robotaction_move/
+examples/turn/
+examples/move/
 examples/perception/
