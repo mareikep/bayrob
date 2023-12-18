@@ -348,7 +348,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         tm = self.models['move']
         print(self.goal)
 
-        confidence = 0.13
         num_preds = 50
 
         query = {
@@ -433,7 +432,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 steps.append(res)
 
         # sort candidates according to overall confidence and select `num_preds` best ones
-        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:num_preds]
+        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))  # [:num_preds]
 
         # drop confidence for plotting and store leaf priors
         states = [s for s, c in selected_steps]

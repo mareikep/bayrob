@@ -80,7 +80,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_plot_init_dist(self) -> None:
         # plot initial position (in) distribution of move tree
-        t = self.models['000-robotaction_move.tree']
+        t = self.models['000-move.tree']
         plot_tree_dist(
             tree=t,
             qvarx=t.varnames['x_in'],
@@ -398,7 +398,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # for constrained MOVE TARGET variables, plot heatmap, 3D and ground data of position (IN) distribution
 
         # load data and JPT that has been learnt from this data
-        j = self.models['000-robotaction_move.tree']
+        j = self.models['000-move.tree']
         print(f"Loading tree from {self.recent_move}")
 
         # set settings
@@ -511,7 +511,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # for any constrained MOVE variables, plot heatmap, 3D and ground data of position (OUT) distribution
 
         # load data and JPT that has been learnt from this data
-        j = self.models['000-robotaction_move.tree']
+        j = self.models['000-move.tree']
         print(f"Loading tree from {self.recent_move}")
 
         # set settings
@@ -613,7 +613,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_face(self) -> None:
         # plot ground truth and distribution smiley face
-        j = self.models['000-robotaction_move.tree']
+        j = self.models['000-move.tree']
         df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
         tolerance = .3
         limx = (-3, 3)
@@ -724,7 +724,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # for constrained MOVE FEATURE variables, plot heatmap, 3D and ground data of position (OUT) distribution
 
         # load data and JPT that has been learnt from this data
-        j = self.models['000-robotaction_move.tree']
+        j = self.models['000-move.tree']
         df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
 
         # set settings
@@ -1035,125 +1035,6 @@ class ThesisPlotsTests(unittest.TestCase):
                     show=False
                 )
 
-    def test_reproduce_data_perception(self) -> None:
-        # MULTIPLE sets of constraints:
-        # for any constrained PERCEPTION variables, plot heatmap, 3D and ground data of position (IN) distribution
-
-        # load data and JPT that has been learnt from this data
-        j = self.models['000-perception.tree']
-        df = pd.read_parquet(os.path.join(self.recent_perception, 'data', f'000-perception.parquet'))
-
-        print(f"Loading tree from {self.recent_perception}")
-
-        # set settings
-        limx = (0, 100)
-        limy = (0, 100)
-
-        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
-
-        # constraints/query values
-        queries = {
-            "positions": [  # random position in obstacle-free area
-                # {},  # ~ init distribution over position
-                # {'detected(milk)': True, 'daytime': ['morning']},
-                # {'detected(milk)': True, 'daytime': ['night']},
-                # {'detected(bowl)': True, 'daytime': ['post-breakfast']},
-                # {'detected(beer)': True, 'daytime': ['night']},
-                # {'nearest_furniture': 'kitchen_island'},
-                # {'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']},
-                {""},
-                # {'detected(milk)': True, 'open(fridge_door)': False, 'daytime': ['night']},  # breaks! -> no datapoints
-            ],
-        }
-
-        for postype, queries in queries.items():
-            print("POSTYPE:", postype)
-
-            plotdir = os.path.join(locs.logs, f"test_reproduce_data_perception-{postype}")
-            if not os.path.exists(plotdir):
-                os.mkdir(plotdir)
-
-            for i, query in enumerate(queries):
-
-                print("QUERY:", query)
-
-                prefix = f'Perception-' + '_'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
-
-                # plot ground truth
-                plot_data_subset(
-                    df,
-                    xvar='x_in',
-                    yvar='y_in',
-                    constraints=query,
-                    limx=limx,
-                    limy=limy,
-                    save=os.path.join(plotdir, f"{prefix}-gt.svg"),
-                    show=True
-                )
-
-                # generate tree conditioned on given position and/or direction
-                cond = j.conditional_jpt(
-                    evidence=j.bind(
-                        {k: v for k, v in query.items() if k in j.varnames},
-                        allow_singular_values=False
-                    ),
-                    fail_on_unsatisfiability=False
-                )
-
-                print(len(j.allnodes), len(cond.allnodes))
-
-                # data generation
-                x = np.linspace(*limx, 200)
-                y = np.linspace(*limy, 200)
-
-                X, Y = np.meshgrid(x, y)
-                Z = np.array(
-                    [
-                        cond.pdf(
-                            cond.bind(
-                                {
-                                    'x_in': x,
-                                    'y_in': y
-                                }
-                            )
-                        ) for x, y, in zip(X.ravel(), Y.ravel())
-                    ]
-                ).reshape(X.shape)
-                lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in query.items()]))
-
-                data = pd.DataFrame(
-                    data=[[x, y, Z, lbl]],
-                    columns=['x', 'y', 'z', 'lbl']
-                )
-
-                # plot JPT Heatmap
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    # limz=(0, 0.001),
-                    show=True,
-                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg"),
-                    showbuttons=False
-                )
-
-                # plot JPT 3D-Surface
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    # title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    # limz=(0, 0.001),
-                    show=True,
-                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
-                    fun="surface"
-                )
-
     def test_reproduce_data_perception_multinomial_plots(self) -> None:
         # MULTIPLE sets of constraints:
         # for any constrained PERCEPTION variables, plot all remaining dists
@@ -1164,23 +1045,20 @@ class ThesisPlotsTests(unittest.TestCase):
 
         print(f"Loading tree from {self.recent_perception}")
 
-        # set settings
-        limx = (0, 100)
-        limy = (0, 100)
-
-        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
-
         # constraints/query values
+        # the postype determines a category, tp
         queries = {
-            "positions": [  # random position in obstacle-free area
-                # {},  # ~ init distribution over position
-                # {'detected(milk)': True, 'daytime': ['morning']},
-                # {'detected(milk)': True, 'daytime': ['night']},
-                {'detected(bowl)': True, 'daytime': ['post-breakfast']},
-                # {'detected(beer)': True, 'daytime': ['night']},
-                # {'nearest_furniture': 'kitchen_island'},
-                # {'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']},
-                # {'detected(milk)': True, 'open(fridge_door)': False, 'daytime': ['night']},  # breaks! -> no datapoints
+            # "apriori": [
+            #     ({}, ['positions'])
+            # ],
+            "milk-detected": [
+                # ({'detected(milk)': True, 'daytime': ['morning']}, ['positions']),
+                # ({'detected(milk)': True, 'daytime': ['night']}, ['positions']),
+                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions']),
+                # ({'detected(beer)': True, 'daytime': ['night']}, ['positions']),
+                # ({'nearest_furniture': 'kitchen_island'}, ['positions']),
+                # ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions']),
+                # ({'detected(milk)': True, 'open(fridge_door)': False, 'daytime': ['night']}, ['positions']),  # breaks! -> no datapoints
             ],
         }
 
@@ -1191,7 +1069,7 @@ class ThesisPlotsTests(unittest.TestCase):
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
-            for i, query in enumerate(queries):
+            for i, (query, plots) in enumerate(queries):
 
                 print("QUERY:", query)
                 querystring = ';'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
@@ -1204,7 +1082,6 @@ class ThesisPlotsTests(unittest.TestCase):
                                     ),
                     fail_on_unsatisfiability=False
                 )
-                # post = cond.posterior(variables=[v for v in j.variables if v.name not in query])
 
                 post = j.posterior(
                     variables=[v for v in j.variables if v.name not in query],
@@ -1214,61 +1091,96 @@ class ThesisPlotsTests(unittest.TestCase):
                     fail_on_unsatisfiability=False
                 )
 
-                for k, d in post.items():
-                    if k.name in ['x_in', 'y_in', 'xdir_in', 'ydir_in']: continue
-                    d.plot(view=True, title=f'Dist: {k.name}<br>Query: {querystring}')
+                j.plot(
+                    filename=f'{prefix}-orig',
+                    directory=os.path.join(plotdir),
+                    leaffill='#CCDAFF',
+                    nodefill='#768ABE',
+                    alphabet=True,
+                    view=False
+                )
+                cond.plot(
+                    filename=f'{prefix}-conditional',
+                    directory=os.path.join(plotdir),
+                    leaffill='#CCDAFF',
+                    nodefill='#768ABE',
+                    alphabet=True,
+                    view=False
+                )
 
-                # data generation
-                x = np.linspace(*limx, 200)
-                y = np.linspace(*limy, 200)
+                for plot in plots:
+                    print(f'Plotting {plot}')
 
-                X, Y = np.meshgrid(x, y)
-                Z = np.array(
-                    [
-                        cond.pdf(
-                            cond.bind(
-                                {
-                                    'x_in': x,
-                                    'y_in': y
-                                }
+                    # plot ground truth
+                    if plot == "positions":
+                        plot_data_subset(
+                            df,
+                            xvar='x_in',
+                            yvar='y_in',
+                            constraints=query,
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
+                            show=True
+                        )
+
+                        # data generation
+                        limx = (0, 100)
+                        limy = (0, 100)
+                        x = np.linspace(*limx, 200)
+                        y = np.linspace(*limy, 200)
+
+                        X, Y = np.meshgrid(x, y)
+                        Z = np.array([cond.pdf(cond.bind({'x_in': x, 'y_in': y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                        lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in query.items()]))
+
+                        data = pd.DataFrame(
+                            data=[[x, y, Z, lbl]],
+                            columns=['x', 'y', 'z', 'lbl']
+                        )
+
+                        # plot JPT Heatmap
+                        plot_heatmap(
+                            xvar='x',
+                            yvar='y',
+                            data=data,
+                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                            limx=limx,
+                            limy=limy,
+                            show=True,
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.svg"),
+                            showbuttons=False
+                        )
+
+                        # plot JPT 3D-Surface
+                        plot_heatmap(
+                            xvar='x',
+                            yvar='y',
+                            data=data,
+                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                            limx=limx,
+                            limy=limy,
+                            show=True,
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-surface.html"),
+                            fun="surface"
+                        )
+                    else:
+                        plot_data_subset(
+                            df,
+                            xvar=plot,
+                            yvar=None,
+                            constraints=query,
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
+                            show=True,
+                            plot_type="histogram"
+                        )
+
+                        # plot distribution of variable
+                        if plot in post:
+                            post[plot].plot(
+                                view=True,
+                                title=False,  # f'Dist: {plot}<br>Query: {querystring}',
+                                save=os.path.join(plotdir, f"{prefix}-{plot}-dist.html"),
                             )
-                        ) for x, y, in zip(X.ravel(), Y.ravel())
-                    ]
-                ).reshape(X.shape)
-                lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in query.items()]))
 
-                data = pd.DataFrame(
-                    data=[[x, y, Z, lbl]],
-                    columns=['x', 'y', 'z', 'lbl']
-                )
-
-                # plot JPT Heatmap
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    # limz=(0, 0.001),
-                    show=True,
-                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg"),
-                    showbuttons=False
-                )
-
-                # plot JPT 3D-Surface
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    # title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    # limz=(0, 0.001),
-                    show=True,
-                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
-                    fun="surface"
-                )
 
     def test_reproduce_data_pr2_multinomial_plots(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1276,7 +1188,7 @@ class ThesisPlotsTests(unittest.TestCase):
         import plotly.express as px
 
         # load data and JPT that has been learnt from this data
-        # j = self.models['000-pr2.tree']
+        j = self.models['000-pr2.tree']
         df = pd.read_parquet(os.path.join(self.recent_pr2, 'data', f'000-pr2.parquet'))
 
         print(f"Loading tree from {self.recent_pr2}")
@@ -1284,14 +1196,14 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries_ = {
-            "apriori": [
-                ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
-            ],
-            # "failure": [  # failed actions
-            #     ({'success': False}, ['type', "positions", "failure"]),
-            #     ({'type': "Grasping", "success": False}, ["positions", "failure"]),
-            #     ({'type': "Placing", "success": False}, ["positions", "failure"]),
+            # "apriori": [
+            #     ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
             # ],
+            "failure": [  # failed actions
+                ({'success': False}, ['type', "positions", "failure"]),
+                # ({'type': "Grasping", "success": False}, ["positions", "failure"]),
+                # ({'type': "Placing", "success": False}, ["positions", "failure"]),
+            ],
             # "success": [
             #     ({"success": True, 'type': "Grasping"}, ["positions", "bodyPartsUsed", "type"]),
             #     ({"success": True, 'type': "Placing"}, ["positions", "bodyPartsUsed", "type"]),
@@ -1312,25 +1224,43 @@ class ThesisPlotsTests(unittest.TestCase):
                 querystring = ';'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
                 prefix = f'PR2-' + '_'.join([f'{vname}: {val:{"s" if isinstance(val, str) else "" if val is None or isinstance(val, list) else "+.1f"}}' for vname, val in query.items()])
 
-                # # print(len(j.allnodes), len(cond.allnodes))
-                # cond = j.conditional_jpt(
-                #     evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
-                #                     allow_singular_values=False
-                #                     ),
-                #     fail_on_unsatisfiability=False
-                # )
-                # # post = cond.posterior(variables=[v for v in j.variables if v.name not in query])
-                #
-                # post = j.posterior(
-                #     variables=[v for v in j.variables if v.name not in query],
-                #     evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
-                #         allow_singular_values=False
-                #     ),
-                #     fail_on_unsatisfiability=False
-                # )
-                #
+                # generate tree conditioned on given position and/or direction
+                cond = j.conditional_jpt(
+                    evidence=j.bind(
+                        {k: v for k, v in query.items() if k in j.varnames},
+                        allow_singular_values=False
+                    ),
+                    fail_on_unsatisfiability=False
+                )
+
+                # calculate posterior from query
+                post = j.posterior(
+                    variables=[v for v in j.variables if v.name not in query],
+                    evidence=j.bind({k: v for k, v in query.items() if k in j.varnames},
+                        allow_singular_values=False
+                    ),
+                    fail_on_unsatisfiability=False
+                )
+
+                j.plot(
+                    filename=f'{prefix}-orig',
+                    directory=os.path.join(plotdir),
+                    leaffill='#CCDAFF',
+                    nodefill='#768ABE',
+                    alphabet=True,
+                    view=False
+                )
+                cond.plot(
+                    filename=f'{prefix}-conditional',
+                    directory=os.path.join(plotdir),
+                    leaffill='#CCDAFF',
+                    nodefill='#768ABE',
+                    alphabet=True,
+                    view=False
+                )
 
                 for plot in plots:
+                    print(f'Plotting {plot}')
 
                     # plot ground truth
                     if plot == "positions":
@@ -1339,23 +1269,68 @@ class ThesisPlotsTests(unittest.TestCase):
                             xvar='t_x',
                             yvar='t_y',
                             constraints=query,
-                            save=os.path.join(plotdir, f"{prefix}-gt.html"),
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
                             show=True
                         )
-                    elif plot in ['type', "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]:
+
+                        # data generation
+                        limx = (-3, 1)
+                        limy = (-1.5, 0.3)
+                        x = np.linspace(*limx, 200)
+                        y = np.linspace(*limy, 200)
+
+                        X, Y = np.meshgrid(x, y)
+                        Z = np.array([post['t_x'].pdf(x) * post['t_y'].pdf(y) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                        lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in query.items()]))
+
+                        data = pd.DataFrame(
+                            data=[[x, y, Z, lbl]],
+                            columns=['x', 'y', 'z', 'lbl']
+                        )
+
+                        # plot JPT Heatmap
+                        plot_heatmap(
+                            xvar='x',
+                            yvar='y',
+                            data=data,
+                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                            limx=limx,
+                            limy=limy,
+                            show=True,
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.svg"),
+                            showbuttons=False
+                        )
+
+                        # plot JPT 3D-Surface
+                        plot_heatmap(
+                            xvar='x',
+                            yvar='y',
+                            data=data,
+                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                            limx=limx,
+                            limy=limy,
+                            show=True,
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-surface.html"),
+                            fun="surface"
+                        )
+                    else:
                         plot_data_subset(
                             df,
                             xvar=plot,
                             yvar=None,
                             constraints=query,
-                            save=os.path.join(plotdir, f"{prefix}-gt.html"),
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
                             show=True,
                             plot_type="histogram"
                         )
 
-                    # plot distribution of variable
-                    # if plot in post:
-                    #     post[plot].plot(view=True, title=f'Dist: {k.name}<br>Query: {querystring}')
+                        # plot distribution of variable
+                        if plot in post:
+                            post[plot].plot(
+                                view=True,
+                                title=False,  # f'Dist: {plot}<br>Query: {querystring}',
+                                save=os.path.join(plotdir, f"{prefix}-{plot}-dist.html"),
+                            )
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, 0, -1]
@@ -1391,49 +1366,49 @@ class ThesisPlotsTests(unittest.TestCase):
         cmds = [
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
-            {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},  # STOP
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},  # STOP
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
-            # {'tree': '000-robotaction_move.tree', 'params': {'action': 'move'}}
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}}
         ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
@@ -1613,7 +1588,7 @@ class ThesisPlotsTests(unittest.TestCase):
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = initstate
         p = [[s, {}]]
-        t = self.models['000-robotaction_move.tree']
+        t = self.models['000-move.tree']
         for i, step in enumerate(range(4)):
             print(f'Step {i}: move()')
 
@@ -1646,7 +1621,7 @@ class ThesisPlotsTests(unittest.TestCase):
             # create successor state
             s_ = State_()
             s_.update({k: v for k, v in s.items()})
-            s_.tree = '000-robotaction_move.tree'
+            s_.tree = '000-move.tree'
             s_.leaf = None
 
             # update belief state of potential predecessor

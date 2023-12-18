@@ -501,7 +501,7 @@ def plot_heatmap(
         data=frames,
         show=False,
         showbuttons=showbuttons,
-        title=title,
+        title=None if title is False else title,
         speed=100
     )
 
@@ -943,7 +943,7 @@ def plot_data_subset(
         )
     elif plot_type == "histogram":
         fig_s = px.histogram(
-            x=df_[xvar].unique(),
+            x=df_[xvar].value_counts().index.tolist(),
             y=[df_[xvar].value_counts()]
         )
         fig_s.update_layout(
