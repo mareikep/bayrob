@@ -6,13 +6,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from jpt.base.intervals import ContinuousSet, R
-import plotly.graph_objects as go
 
 from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar, Node
 from calo.core.astar_jpt import Goal, State
 from calo.utils import locs
-from calo.utils.plotlib import gendata, plot_heatmap, plotly_sq, defaultconfig, gendata_mixture
+from calo.utils.plotlib import gendata, plot_heatmap
 from calo.utils.utils import recent_example
 from jpt import JPT
 from jpt.base.errors import Unsatisfiability
@@ -63,9 +62,11 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         #     show=True
         # )
 
-        initx, inity, initdirx, initdiry = [55, 44, 1, 0]
+        initx, inity, initdirx, initdiry = [3, 60, 1, 0]
+        goalx, goaly = [5, 60]
         tolerance_pos = 2
         tolerance_dir = .01
+        tol = .5
 
         dx = Gaussian(initx, tolerance_pos).sample(500)
         distx = Numeric()
@@ -82,9 +83,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         ddy = Gaussian(initdiry, tolerance_dir).sample(500)
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
-        
-        goalx, goaly = [0, 60]
-        tol = .5
+
 
         cls.init.update(
             {
@@ -348,6 +347,14 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         tm = self.models['move']
         print(self.goal)
 
+        def dist(s1, s2):
+            # return mean of distances to each required variable in init state (=goal in reverse)
+            dists = []
+            for k, v in s2.items():
+                if k in s1:
+                    dists.append(Numeric.distance(s1[k], v))
+            return np.mean(dists)
+
         num_preds = 50
 
         query = {
@@ -417,6 +424,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                     c_ = l.distributions[vname].p(query_[vname])
                     d_ = l.distributions[vname]
 
+                # drop entire leaf if only one variable has probability 0
                 if not c_ > 0:
                     return
                 conf[vname] = c_
@@ -424,30 +432,39 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             return s_, conf
 
         # find the leaf (or the leaves) that matches the query best
-        # for i, (k, l) in enumerate([(l.idx, l) for l in [t.leaves[3476], t.leaves[3791], t.leaves[4793]]] if self.first else t.leaves.items()):
         steps = []
         for i, (k, l) in enumerate(tm.leaves.items()):
             res = determine_leaf_confs(l)
             if res is not None:
                 steps.append(res)
 
-        # sort candidates according to overall confidence and select `num_preds` best ones
-        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))  # [:num_preds]
+        # sort candidates according to overall confidence (=probability to reach) and select `num_preds` best ones
+        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:num_preds]
 
-        # drop confidence for plotting and store leaf priors
-        states = [s for s, c in selected_steps]
-        priors = [tm.leaves[s.leaf].prior for s in states]
+        # add info so selected_steps contains tuples (step, confidence, distance to init state, leaf prior)
+        selected_steps_ = [(s, c, dist(s, self.init), tm.leaves[s.leaf].prior) for s, c in selected_steps]
+
+        # sort remaining candidates according to distance to init state (=goal in reverse)
+        selected_steps_wasserstein = sorted(selected_steps_, key=lambda x: x[2])  # zum start belief state
+
+        # TODO: for the first num_preds steps, plot leaf distributions for xin/yin variables
 
         d = pd.DataFrame(
             data=[
-                gendata_mixture(
+                gendata(
                     'x_in',
                     'y_in',
-                    limx=(0, 100),
-                    limy=(0, 100),
-                    priors=priors,
-                    states=states
-                )
+                    state=state,
+                    params={
+                        "confidence": "<br>".join([f"{k}: {v}" for k,v in conf.items()]),
+                        "leaf prior": prior,
+                        "distance": dist,
+                        "MPE x_in": state["x_in"].mpe()[0],
+                        "MPE y_in": state["y_in"].mpe()[0],
+                        "EXP x_in": state["x_in"].expectation(),
+                        "EXP y_in": state["y_in"].expectation(),
+                    }
+                ) for (state, conf, dist, prior) in selected_steps_wasserstein
             ],
             columns=['x', 'y', 'z', 'lbl'])
 
@@ -459,19 +476,26 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             limx=(0, 100),
             limy=(0, 100),
             save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-absolute.html"),
-            show=True
+            show=True,
+            fun="heatmap"
         )
 
         d = pd.DataFrame(
             data=[
-                gendata_mixture(
+                gendata(
                     'x_out',
                     'y_out',
-                    limx=(-3, 3),
-                    limy=(-3, 3),
-                    priors=priors,
-                    states=states
-                )
+                    state=state,
+                    params={
+                        "confidence": "<br>".join([f"{k}: {v}" for k, v in conf.items()]),
+                        "leaf prior": prior,
+                        "distance": dist,
+                        "MPE x_out": state["x_out"].mpe()[0],
+                        "MPE y_out": state["y_out"].mpe()[0],
+                        "EXP x_out": state["x_out"].expectation(),
+                        "EXP y_out": state["y_out"].expectation(),
+                    }
+                ) for (state, conf, dist, prior) in selected_steps_wasserstein
             ],
             columns=['x', 'y', 'z', 'lbl'])
 
@@ -483,7 +507,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             limx=(-3, 3),
             limy=(-3, 3),
             save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-delta.html"),
-            show=True
+            show=True,
+            fun="heatmap"
         )
 
     def tearDown(self) -> None:

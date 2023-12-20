@@ -12,7 +12,8 @@ from plotly.graph_objs import Figure
 from calo.core.astar_jpt import State, SubAStar, Goal, SubAStarBW
 from calo.utils import locs
 from calo.utils.constants import cs
-from calo.utils.plotlib import plot_heatmap, plot_scatter_quiver, plot_pt_sq, defaultconfig, plotly_pt, plotly_sq
+from calo.utils.plotlib import plot_heatmap, plot_scatter_quiver, plot_pt_sq, defaultconfig, plotly_pt, plotly_sq, \
+    fig_to_file
 from calo.utils.utils import recent_example
 from jpt.distributions import Numeric, Integer
 from jpt.trees import Node
@@ -120,57 +121,19 @@ class SubAStar_(SubAStar):
             self,
             state
     ) -> float:
-            # distance travelled and/or angle turnt in current step
-            # cost = 0.
-            #
-            # if 'x_out' in self.models[state['tree']].leaves[state['leaf']].distributions:
-            #     cost += abs(self.models[state['tree']].leaves[state['leaf']].distributions['x_out'].expectation())
-            #
-            # if 'y_out' in self.models[state['tree']].leaves[state['leaf']].distributions:
-            #     cost += abs(self.models[state['tree']].leaves[state['leaf']].distributions['y_out'].expectation())
-            #
-            # if 'angle' in self.models[state['tree']].leaves[state['leaf']].distributions:
-            #     cost += abs(self.models[state['tree']].leaves[state['leaf']].distributions['angle'].expectation())
 
-            return 1
+        return 1  # self.dist(state, state.parent)
 
     def h(
             self,
             state: State_
     ) -> float:
-        # p = 1
-        # if 'x_out' in state and 'y_out' in state:
-        #     p *= state['x_out'].p(self.goal['x_out']) * state['y_out'].p(self.goal['y_out'])
-        #
-        # return 1 - p
+        # for forward direction, the heuristic measures the mean of the distances of the current state's variables
+        # and the ones from the goal state. If `state` does not contain all variables of the goalstate (which typically
+        # applies to the goal state), the distance is infinite.
+        if not set(self.goal.keys()).issubset(set(state.keys())): return np.inf
 
-        def getv(v, cmp=None):
-            if isinstance(v, set):
-                return first(v)
-            if isinstance(v, Numeric):
-                return v.expectation()
-            if isinstance(v, Integer):
-                return min(list(v.mpe()[1]))
-            if isinstance(v, ContinuousSet):
-                a = [i for i in [v.lower, v.upper] if not np.isinf(i)]
-                if cmp is None:
-                    return min(a)
-                d = {abs(x - cmp): x for x in a}
-                return d[min(d.keys())]
-
-        # manhattan distance
-        c = 0.
-        if 'x_in' in state:
-            vx = getv(state['x_in'])
-            gx = getv(self.goal['x_in'], cmp=vx)
-            c += abs(vx - gx)
-
-        if 'y_in' in state:
-            vy = getv(state['y_in'])
-            gy = getv(self.goal['y_in'], cmp=vy)
-            c += abs(vy - gy)
-
-        return c
+        return self.dist(state, self.goal)
 
     def plot_pos(
             self,
@@ -183,10 +146,6 @@ class SubAStar_(SubAStar):
             save: str = None,
             show: bool = True
     ) -> Figure:
-
-        # if no title is given, generate it according to the input
-        if title is None:
-            title = f'Position x_in/y_in'
 
         # generate datapoints
         data = pd.DataFrame(
@@ -201,17 +160,18 @@ class SubAStar_(SubAStar):
                 columns=['x_in', 'y_in', 'z', 'lbl']
             )
 
-        return plot_heatmap(
-            xvar='x_in',
-            yvar='y_in',
-            data=data,
-            title=title,
-            limx=limx,
-            limy=limy,
-            limz=limz,
-            save=save,
-            show=show
-        )
+        if not data.empty:
+            return plot_heatmap(
+                xvar='x_in',
+                yvar='y_in',
+                data=data,
+                title=title,
+                limx=limx,
+                limy=limy,
+                limz=limz,
+                save=save,
+                show=show
+            )
 
     def plot_dir(
             self,
@@ -224,9 +184,6 @@ class SubAStar_(SubAStar):
             save: str = None,
             show: bool = True
     ) -> Figure:
-
-        if title is None:
-            title = f'Direction xdir_in/ydir_in'
 
         # generate datapoints
         data = pd.DataFrame(
@@ -241,23 +198,25 @@ class SubAStar_(SubAStar):
                 columns=['xdir_in', 'ydir_in', 'z', 'lbl']
             )
 
-        return plot_heatmap(
-            xvar='xdir_in',
-            yvar='ydir_in',
-            data=data,
-            title=title,
-            limx=limx,
-            limy=limy,
-            limz=limz,
-            save=save,
-            show=show
-        )
+        if not data.empty:
+            return plot_heatmap(
+                xvar='xdir_in',
+                yvar='ydir_in',
+                data=data,
+                title=title,
+                limx=limx,
+                limy=limy,
+                limz=limz,
+                save=save,
+                show=show
+            )
 
     def plot_path(
             self,
             xvar,
             yvar,
             p: List,
+            obstacles: List = None,
             title: str = None,
             save: str = None,
             show: bool = False,
@@ -268,12 +227,12 @@ class SubAStar_(SubAStar):
         # generate data points
         d = [
             (
-                s[xvar].expectation(),          # x
-                s[yvar].expectation(),          # y
-                s['xdir_in'].expectation(),     # dx
-                s['ydir_in'].expectation(),     # dy
+                np.mean([s[xvar].mpe()[0].lower, s[xvar].mpe()[0].upper]),          # x
+                np.mean([s[yvar].mpe()[0].lower, s[yvar].mpe()[0].upper]),          # y
+                np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),     # dx
+                np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),     # dy
                 f'Step {i}',                    # step
-                f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}',  # lbl
+                f'<b>Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br><b>MPEs:</b><br>{"<br>".join(f"{k}: {v.mpe()[0]}" for k, v in s.items())}',  # lbl
                 1                               # size
             )
             for i, s in enumerate(p)
@@ -292,18 +251,35 @@ class SubAStar_(SubAStar):
         gyu = self.goal[yvar].upper if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
 
         # determine position and direction of initstate
-        ix = self.initstate[xvar].expectation()
-        iy = self.initstate[yvar].expectation()
-        ixd = self.initstate['xdir_in'].expectation()
-        iyd = self.initstate['ydir_in'].expectation()
+        ix = np.mean([self.initstate[xvar].mpe()[0].lower, self.initstate[xvar].mpe()[0].upper])
+        iy = np.mean([self.initstate[yvar].mpe()[0].lower, self.initstate[yvar].mpe()[0].upper])
+        ixd = np.mean([self.initstate['xdir_in'].mpe()[0].lower, self.initstate['xdir_in'].mpe()[0].upper])
+        iyd = np.mean([self.initstate['ydir_in'].mpe()[0].lower, self.initstate['ydir_in'].mpe()[0].upper])
 
         mainfig = go.Figure()
+        if obstacles is not None:
+            for (o, on) in obstacles:
+                mainfig.add_trace(
+                    plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
 
         # draw initstate and goal area
-        fig_initstate = plot_pt_sq(
-            pt=[ix, iy, ixd, iyd],
-            area=[gxl, gyl, gxu, gyu]
+        fig_initstate = go.Figure()
 
+        fig_initstate.add_traces(
+            data=plotly_pt(
+                pt=(ix, iy),
+                dir=(ixd, iyd),
+                name=f"Start<br>x_in: {ix}<br>y_in: {iy}"
+            ).data
+        )
+
+        # draw square area
+        fig_initstate.add_trace(
+            plotly_sq(
+                area=(gxl, gyl, gxu, gyu),
+                lbl=f"Goal Area",
+                legend=False
+            )
         )
 
         mainfig.add_traces(
@@ -316,7 +292,6 @@ class SubAStar_(SubAStar):
             xvar,
             yvar,
             data,
-            title=title,
             show=False
         )
 
@@ -336,6 +311,7 @@ class SubAStar_(SubAStar):
             ),
             height=1000,
             width=1100,
+            title=title
         )
 
         if save:
@@ -345,6 +321,7 @@ class SubAStar_(SubAStar):
                     config=defaultconfig,
                     include_plotlyjs="cdn"
                 )
+                mainfig.write_json(save.replace("html", "json"))
             else:
                 mainfig.write_image(save)
 
@@ -362,10 +339,8 @@ class SubAStar_(SubAStar):
     ):
 
         # generate datapoints
-        # x = state[xvar].pdf.boundaries()
-        # y = state[yvar].pdf.boundaries()
-        x = state[xvar].cdf.boundaries()
-        y = state[yvar].cdf.boundaries()
+        x = state[xvar].pdf.boundaries()
+        y = state[yvar].pdf.boundaries()
 
         X, Y = np.meshgrid(x, y)
         Z = np.array(
@@ -381,13 +356,13 @@ class SubAStar_(SubAStar):
         # remove or replace by eliminating values > median
         Z[Z > np.median(Z)] = np.median(Z)
 
-        lbl = f'Leaf #: {state.leaf if state.leaf is not None else "ROOT"}<br>'\
-              f'Pos: ({state[xvar].expectation():.2f},{state[yvar].expectation():.2f})<br>'\
-              f'Dir: ({state["xdir_in"].expectation():.2f},{state["ydir_in"].expectation():.2f})<br>'\
+        lbl = f'<b>Leaf #: {state.leaf if state.leaf is not None else "ROOT"}</b><br>'\
+              f'<b>Pos:</b> ({np.mean(state[xvar].mpe()[0]):.2f},{np.mean(state[yvar].mpe()[0]):.2f})<br>'\
+              f'<b>Dir:</b> ({np.mean(state["xdir_in"].mpe()[0]):.2f},{np.mean(state["ydir_in"].mpe()[0]):.2f})<br>'\
 
         params = f"Params: "
-        # params += "None" if state.tree is None else \
-        #     f'{cs.join([f"{v.name}: {self.models.get(state.tree).leaves[state.leaf].distributions[v].expectation()}" for v in self.models.get(state.tree).features if v not in state])}'
+        params += "None" if state.tree is None else \
+            f'{cs.join([f"<b>{v.name}:</b> {self.models.get(state.tree).leaves[state.leaf].distributions[v].expectation()}" for v in self.models.get(state.tree).features if v not in state])}'
 
         return x, y, Z, lbl+params
 
@@ -401,10 +376,22 @@ class SubAStar_(SubAStar):
 
         p = self.retrace_path(node)
 
+        # plot annotated rectangles representing the obstacles and world boundaries
+        obstacles = [
+            ((0, 0, 100, 100), "kitchen_boundaries"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
+
         fig=self.plot_path(
             xvar='x_in',
             yvar='y_in',
             p=p,
+            obstacles=obstacles,
             title=f'SubAStar (fwd)<br>{str(node)}',
             save=os.path.join(
                 locs.logs, f'{os.path.basename(os.path.join(locs.logs, "ASTAR-fwd-path.html"))}'
@@ -440,7 +427,6 @@ class SubAStar_(SubAStar):
 
         return fig
 
-
 class SubAStarBW_(SubAStarBW):
 
     def __init__(
@@ -464,57 +450,19 @@ class SubAStarBW_(SubAStarBW):
             self,
             state
     ) -> float:
-        # distance (Manhattan) travelled/turnt in current step
-        # cost = 0.
 
-        # if 'x_out' in self.models[state['tree']].leaves[state['leaf']].distributions:
-        #     cost += abs(self.models[state['tree']].leaves[state['leaf']].distributions['x_out'].expectation())
-        #
-        # if 'y_out' in self.models[state['tree']].leaves[state['leaf']].distributions:
-        #     cost += abs(self.models[state['tree']].leaves[state['leaf']].distributions['y_out'].expectation())
-        #
-        # if 'angle' in self.models[state['tree']].leaves[state['leaf']].distributions:
-        #     cost += max(1, abs(self.models[state['tree']].leaves[state['leaf']].distributions['angle'].expectation()))
-
-        return 1
+        return 1  # self.dist(state, state.parent)
 
     def h(
             self,
             state: State_
     ) -> float:
-        # for backwards direction, the heuristic measures the probability, that the current state is the initstate
-        # p = 1
-        # FIXME:
-        # if 'x_in' in state and 'y_in' in state:
-        #     p *= self.initstate['x_in'].p(state['x_in']) * self.initstate['y_in'].p(state['x_in'])
-        #
-        # # ... and faces the initial direction specified
-        # if 'xdir_in' in state and 'ydir_in' in state:
-        #     p *= self.initstate['xdir_in'].p(state['xdir_in']) * self.initstate['ydir_in'].p(state['xdir_in'])
-        # return 1 - p
-        def getv(v, cmp=None):
-            if isinstance(v, set):
-                return first(v)
-            if isinstance(v, Numeric):
-                return v.expectation()
-            if isinstance(v, Integer):
-                v_ = v.mpe()[1]
-                return min([v_]) if isinstance(v_, int) else min(list(v_))
-            if isinstance(v, ContinuousSet):
-                return v.lower + (v.upper - v.lower)/2
+        # for backwards direction, the heuristic measures the mean of the distances of the current state's variables
+        # and the ones from the initstate. If `state` does not contain all variables of the initstate (which typically
+        # applies to the goal state), the distance is infinite.
+        if not set(self.initstate.keys()).issubset(set(state.keys())): return np.inf
 
-        # manhattan distance
-        c = 0.
-        if 'x_in' in state:
-            vx = getv(state['x_in'])
-            gx = getv(self.initstate['x_in'], cmp=vx)
-            c += abs(vx - gx)
-
-        if 'y_in' in state:
-            vy = getv(state['y_in'])
-            gy = getv(self.initstate['y_in'], cmp=vy)
-            c += abs(vy - gy)
-        return c
+        return self.dist(state, self.initstate)
 
     def plot_pos(
             self,
@@ -597,6 +545,7 @@ class SubAStarBW_(SubAStarBW):
             xvar,
             yvar,
             p: List,
+            obstacles: List = None,
             title: str = None,
             save: str = None,
             show: bool = False,
@@ -607,24 +556,15 @@ class SubAStarBW_(SubAStarBW):
         # generate data points
         d = [
             (
-                s[xvar].expectation(),          # x
-                s[yvar].expectation(),          # y
-                s['xdir_in'].expectation(),     # dx
-                s['ydir_in'].expectation(),     # dy
+                np.mean([s[xvar].mpe()[0].lower, s[xvar].mpe()[0].upper]),          # x
+                np.mean([s[yvar].mpe()[0].lower, s[yvar].mpe()[0].upper]),          # y
+                np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),     # dx
+                np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),     # dy
                 f'Step {i}',                    # step
-                f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}<br>MPEs:<br>{"<br>".join(f"{k}: {v.mpe()[0]}" for k, v in s.items())}',  # lbl
+                f'<b>Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br><b>MPEs:</b><br>{"<br>".join(f"{k}: {v.mpe()[0]}" for k, v in s.items())}',  # lbl
                 1                               # size
             )
-            if not isinstance(s, self.goal_t) else (
-                first(s[xvar]) if isinstance(s[xvar], set) else s[xvar].lower + abs(s[xvar].upper - s[xvar].lower) / 2,  # x
-                first(s[yvar]) if isinstance(s[yvar], set) else s[yvar].lower + abs(s[yvar].upper - s[yvar].lower) / 2,  # y
-                0,                              # dx
-                0,                              # dy
-                f'Step {i}',                    # step
-                f'Goal<br>{"<br>".join(f"{k}: {str(v)}" for k, v in s.items())}',                        # lbl
-                1                               # size
-            )
-            for i, s in enumerate(p)
+            for i, s in enumerate(p) if not isinstance(s, self.goal_t) and {'x_in', 'y_in'}.issubset(set(s.keys()))
         ]
 
         # draw scatter points and quivers
@@ -640,12 +580,16 @@ class SubAStarBW_(SubAStarBW):
         gyu = self.goal[yvar].upper if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
 
         # determine position and direction of initstate
-        ix = self.initstate[xvar].expectation()
-        iy = self.initstate[yvar].expectation()
-        ixd = self.initstate['xdir_in'].expectation()
-        iyd = self.initstate['ydir_in'].expectation()
+        ix = np.mean([self.initstate[xvar].mpe()[0].lower, self.initstate[xvar].mpe()[0].upper])
+        iy = np.mean([self.initstate[yvar].mpe()[0].lower, self.initstate[yvar].mpe()[0].upper])
+        ixd = np.mean([self.initstate['xdir_in'].mpe()[0].lower, self.initstate['xdir_in'].mpe()[0].upper])
+        iyd = np.mean([self.initstate['ydir_in'].mpe()[0].lower, self.initstate['ydir_in'].mpe()[0].upper])
 
         mainfig = go.Figure()
+        if obstacles is not None:
+            for (o, on) in obstacles:
+                mainfig.add_trace(
+                    plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
 
         # draw initstate and goal area
         fig_initstate = go.Figure()
@@ -682,7 +626,7 @@ class SubAStarBW_(SubAStarBW):
         mainfig.add_traces(
             data=fig_path.data
         )
-
+        mainfig.layout = fig_path.layout
         mainfig.update_layout(
             xaxis=dict(
                 title=xvar,
@@ -699,17 +643,10 @@ class SubAStarBW_(SubAStarBW):
         )
 
         if save:
-            if save.endswith('html'):
-                mainfig.write_html(
-                    save,
-                    include_plotlyjs="cdn"
-                )
-                mainfig.to_json(save.replace('html', 'json'))
-            else:
-                mainfig.write_image(save)
+            fig_to_file(mainfig, save)
 
         if show:
-            mainfig.show()
+            mainfig.show(defaultconfig(save))
 
         return mainfig
 
@@ -739,13 +676,13 @@ class SubAStarBW_(SubAStarBW):
         # remove or replace by eliminating values > median
         Z[Z > np.median(Z)] = np.median(Z)
 
-        lbl = f'Leaf #: {state.leaf if state.leaf is not None else "ROOT"}<br>'\
-              f'Pos: ({state[xvar].expectation():.2f},{state[yvar].expectation():.2f})<br>'\
-              f'Dir: ({state["xdir_in"].expectation():.2f},{state["ydir_in"].expectation():.2f})<br>'\
+        lbl = f'<b>Leaf #: {state.leaf if state.leaf is not None else "ROOT"}</b><br>'\
+              f'<b>Pos:</b> ({np.mean([state[xvar].mpe()[0].lower, state[xvar].mpe()[0].upper]):.2f},{np.mean([state[yvar].mpe()[0].lower, state[yvar].mpe()[0].upper]):.2f})<br>'\
+              f'<b>Dir:</b> ({np.mean([state["xdir_in"].mpe()[0].lower, state["xdir_in"].mpe()[0].upper]):.2f},{np.mean([state["ydir_in"].mpe()[0].lower, state["ydir_in"].mpe()[0].upper]):.2f})<br>'\
 
         params = f"Params: "
         params += "None" if state.tree is None else \
-            f'{cs.join([f"{v.name}: {self.models.get(state.tree).leaves[state.leaf].distributions[v].expectation()}" for v in self.models.get(state.tree).features if v not in state])}'
+            f'{cs.join([f"<b>{v.name}:</b> {self.models.get(state.tree).leaves[state.leaf].distributions[v].expectation()}" for v in self.models.get(state.tree).features if v not in state])}'
 
         return x, y, Z, lbl+params
 
@@ -754,15 +691,24 @@ class SubAStarBW_(SubAStarBW):
             node: Node,
             **kwargs
     ) -> Figure:
-        """ONLY FOR GRIDWORLD DATA
-        """
 
         p = self.retrace_path(node)
+
+        obstacles = [
+            ((0, 0, 100, 100), "kitchen_boundaries"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
 
         fig=self.plot_path(
             xvar='x_in',
             yvar='y_in',
             p=p,
+            obstacles=obstacles,
             title=f'SubAStar (bwd)<br>{str(node)}',
             save=os.path.join(
                 locs.logs, f'{os.path.basename(os.path.join(locs.logs, "ASTAR-bwd-path.html"))}'

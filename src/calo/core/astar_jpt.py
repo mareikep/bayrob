@@ -3,12 +3,14 @@ from collections import defaultdict
 from typing import List, Dict, Any, Tuple
 
 import dnutils
+import numpy as np
 import pyximport
 
 import jpt
 from calo.core.astar import AStar, Node
 from calo.utils.constants import calologger
 from calo.utils.utils import fmt
+from jpt.base.errors import Unsatisfiability
 from jpt.distributions import Distribution, Bool, Multinomial
 from jpt.variables import Variable
 
@@ -90,6 +92,7 @@ class SubAStar(AStar):
         self.models = models
         self.state_t = type(initstate)
         self.goal_t = type(goal)
+
         super().__init__(
             initstate,
             goal,
@@ -109,34 +112,36 @@ class SubAStar(AStar):
 
         heapq.heappush(self.open, (n_.f, n_))
 
+    @staticmethod
+    def dist(s1, s2):
+        # return mean of distances between respective distributions in states s1 and s2
+        dists = []
+        for k, v in s2.items():
+            if k in s1:
+                from jpt.distributions import Numeric
+                dists.append(Numeric.distance(s1[k], v))
+        return np.mean(dists)
+
     def isgoal(
             self,
             node: Node
     ) -> bool:
         # if not all required fields of the goal are contained in the state of the current node, it cannot match
         # the goal specification
-        if not set([k.replace('_out', '_in') for k in self.goal.keys()]).issubset(set(node.state.keys())): return False
-
-        # otherwise, return whether probability that the current state matches the goal specification is greater or
-        # equal to the user-defined goal-confidence, i.e. return true, if current belief state is sufficiently
-        # similar to goal
-        # return all(
-        #     [
-        #         node.state[var.replace('_out', '_in')].p(self.goal[var]) >= self.goal_confidence if isinstance(node.state[var.replace('_out', '_in')], Distribution) else
-        #         1 if node.state[var.replace('_out', '_in')].mpe()[0] == self.goal[var] else
-        #         0 for var in self.goal
-        #     ]
-        # )
+        if not set(self.goal.keys()).issubset(set(node.state.keys())): return False
 
         vars_valid = []
         for var in self.goal:
-            if isinstance(node.state[var.replace('_out', '_in')], Distribution):
+            if isinstance(node.state[var], Distribution):
                 if isinstance(self.goal[var], (set, ContinuousSet)):
-                    vars_valid.append(node.state[var.replace('_out', '_in')].mpe()[0] in self.goal[var])
+                    # case var has numeric distribution
+                    vars_valid.append(node.state[var].mpe()[0] in self.goal[var])
                 else:
-                    vars_valid.append(node.state[var.replace('_out', '_in')].mpe()[0] == self.goal[var])
+                    # case var has multinomial distribution
+                    vars_valid.append(node.state[var].mpe()[0] == self.goal[var])
             else:
-                vars_valid.append(node.state[var.replace('_out', '_in')] == self.goal[var])
+                # case var is anything else
+                vars_valid.append(node.state[var] == self.goal[var])
 
         return all(vars_valid)
 
@@ -154,77 +159,49 @@ class SubAStar(AStar):
         # TODO: remove else case once ppf exists for Integer
         evidence = {
             var: ContinuousSet(node.state[var].ppf(.05), node.state[var].ppf(.95)) if hasattr(node.state[var], 'ppf') else node.state[var].mpe()[0] for var in node.state.keys()
-            # var: node.state[var].mpe()[1]  # for Integer variables
         }
 
-        # condtrees = [
-        #     [
-        #         tn,
-        #         tree.conditional_jpt(
-        #             evidence=tree.bind(
-        #                 {k: v for k, v in evidence.items() if k in tree.varnames},
-        #                 allow_singular_values=False
-        #             ),
-        #             fail_on_unsatisfiability=False)
-        #     ] for tn, tree in self.models.items()
-        # ]
-
-        posteriors = [
+        condtrees = [
             [
                 tn,
-                tree.posterior(
-                    variables=tree.targets,
+                tree,
+                tree.conditional_jpt(
                     evidence=tree.bind(
                         {k: v for k, v in evidence.items() if k in tree.varnames},
                         allow_singular_values=False
                     ),
-                    fail_on_unsatisfiability=False
-                )
+                    fail_on_unsatisfiability=False)
             ] for tn, tree in self.models.items()
         ]
+        posteriors = [
+            [
+                tn,
+                c.posterior(
+                    variables=tree.targets
+                )
+            ] for tn, tree, c in condtrees
+        ]
 
-        # return [(leaf, treename, tree) for treename, tree in condtrees if tree is not None for _, leaf in tree.leaves.items()]
+        # posteriors = [
+        #     [
+        #         tn,
+        #         tree.posterior(
+        #             variables=tree.targets,
+        #             evidence=tree.bind(
+        #                 {k: v for k, v in evidence.items() if k in tree.varnames},
+        #                 allow_singular_values=False
+        #             ),
+        #             fail_on_unsatisfiability=False
+        #         )
+        #     ] for tn, tree in self.models.items()
+        # ]
+
         return posteriors
 
     def generate_successors(
             self,
             node
     ) -> List[Node]:
-        # successors = []
-        # for succ, tn, t in self.generate_steps(node):
-        #
-        #     # copy previous state
-        #     s_ = self.state_t()
-        #     s_.update({k: v for k, v in node.state.items()})
-        #
-        #     # update tree and leaf that represent this step
-        #     s_.tree = tn
-        #     s_.leaf = succ.idx
-        #
-        #     # update belief state of potential predecessor
-        #     for vn, d in succ.distributions.items():
-        #         # generate new distribution adding position delta distribution to original dist
-        #         # belief state
-        #         if vn.name != vn.name.replace('_in', '_out') and vn.name.replace('_in', '_out') in succ.distributions:
-        #
-        #             if vn.name in s_:
-        #                 # if the _in variable is already contained in the state, update it by adding the delta
-        #                 # from the leaf distribution
-        #                 nsegments = len(s_[vn.name].cdf.functions)
-        #                 s_[vn.name] = s_[vn.name] + succ.distributions[vn.name.replace('_in', '_out')]
-        #             else:
-        #                 # else save the result of the _in from the leaf distribution shifted by its delta (_out)
-        #                 nsegments = len(d.pdf.functions)
-        #                 s_[vn.name] = d + succ.distributions[vn.name.replace('_in', '_out')]
-        #
-        #             # reduce complexity from adding two distributions to complexity of previous, unaltered distribution
-        #             # TODO: remove condition once ppf exists for Integer
-        #             if hasattr(s_[vn.name], 'approximate'):
-        #                 nsegments = min(10, nsegments)
-        #                 s_[vn.name] = s_[vn.name].approximate(
-        #                     n_segments=nsegments,
-        #                     # error_max=.1
-        #                 )
 
         successors = []
         # for best, tn, t in self.generate_steps(node):
@@ -236,32 +213,38 @@ class SubAStar(AStar):
 
             # update tree and leaf that represent this step
             s_.tree = tn
-            # s_.leaf = best.idx
-            s_.leaf = None
+            s_.leaf = None  # best.idx
 
             # update belief state of potential predecessor
-            # for vn, d in best.distributions.items():
             for vn, d in best.items():
-                outvar = vn.name
+                vname = vn.name
+                outvar = vn.name.replace('_in', '_out')
                 invar = vn.name.replace('_out', '_in')
 
-                if outvar != invar and invar in s_:
+                # update belief state of potential predecessor for vn, d in best.distributions.items():
+                if vname.endswith('_out') and vname.replace('_out', '_in') in s_:
                     # if the _in variable is already contained in the state, update it by adding the delta
                     # from the leaf distribution
-                    if isinstance(s_[invar], (Bool, Multinomial)):
-                        s_[invar] = best[outvar]
-                    else:
-                        if len(s_[invar].cdf.functions) > 20:
-                            s_[invar] = s_[invar].approximate(n_segments=20)
-                        if len(best[outvar].cdf.functions) > 20:
-                            best[outvar] = best[outvar].approximate(n_segments=20)
-
-                        s_[invar] = s_[invar] + best[outvar]
+                    indist = s_[invar]
+                    outdist = best[outvar]
+                    if len(indist.cdf.functions) > 20:
+                        print(f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions")
+                        indist = indist.approximate(n_segments=20)
+                    if len(outdist.cdf.functions) > 20:
+                        print(
+                            f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions")
+                        outdist = outdist.approximate(n_segments=20)
+                    vname = invar
+                    s_[vname] = indist + outdist
+                elif vname.endswith('_in') and vname in s_:
+                    # do not overwrite '_in' distributions
+                    continue
                 else:
-                    s_[invar] = d
+                    s_[vname] = d
 
-                if hasattr(s_[invar], 'approximate'):
-                    s_[invar] = s_[invar].approximate(n_segments=20)
+                if hasattr(s_[vname], 'approximate'):
+                    print(f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions")
+                    s_[vname] = s_[vname].approximate(n_segments=20)
 
             successors.append(
                 Node(
@@ -308,13 +291,9 @@ class SubAStarBW(SubAStar):
             self,
             node: Node
     ) -> bool:
-        # true, if current belief state is sufficiently similar to init state and ancestor (i.e. first element in parent
-        # chain) matches goal specification
-        # a = SubAStarBW.get_ancestor(node)  # TODO: this should be
 
         # if not all required fields of the initstate are contained in the state of the current node, it does not match
         if not set(self.initstate.keys()).issubset(set(node.state.keys())): return False
-        # if not set(self.goal.keys()).issubset(set(node.state.keys())): return False
 
         sims = []
         for var in self.initstate:
@@ -325,22 +304,7 @@ class SubAStarBW(SubAStar):
                 # otherwise it must be the defined Goal in Step 0
                 sims.append(1 if self.initstate[var].mpe()[0] in node.state[var] else 0)
 
-        return min(sims) >= self.state_similarity
-
-        # otherwise, return the probability that the current state matches the initial state TODO: greater equal state similarity??
-        # return self.state_similarity <= reduce(
-        #     operator.mul,
-        #     [
-        #         self.initstate[var].p(node.state[var].mpe()[1] if isinstance(node.state[var], Distribution) else
-        #                               node.state[var]) for var in self.initstate]) #\
-            # and reduce(operator.mul, [a.state[var].p(self.goal[var]) for var in self.goal]) >= self.goal_confidence
-
-    # [
-    #     node.state[var.replace('_out', '_in')].p(self.goal[var]) if isinstance(node.state[var.replace('_out', '_in')],
-    #                                                                            Distribution) else
-    #     1 if node.state[var.replace('_out', '_in')].mpe()[1] == self.goal[var] else
-    #     0 for var in self.goal
-    # ]
+        return np.mean(sims) >= self.state_similarity
 
     @staticmethod
     def get_ancestor(
@@ -351,25 +315,24 @@ class SubAStarBW(SubAStar):
             current_node = current_node.parent
         return current_node
 
+
     def reverse(
             self,
             t: jpt.trees.JPT,
             query: Dict,
-            confidence: float = .0,
             treename: str = None,
-    ) -> Tuple:
+    ) -> List:
         """
         Determines the leaf nodes that match query best and returns them along with their respective confidence.
 
         :param query: a mapping from featurenames to either numeric value intervals or an iterable of categorical values
-        :param confidence:  the confidence level for this MPE inference
         :returns: a tuple of probabilities and jpt.trees.Leaf objects that match requirement (representing path to root)
         """
 
         # if none of the target variables is present in the query, there is no match possible
         # only check variable names, because multiple trees can have the (semantically) same variable, which differs as
         # python object
-        if set([v.name if isinstance(v, Variable) else v for v in query.keys()] + [v.name.replace('_out', '_in') if isinstance(v, Variable) else v.replace('_out', '_in') for v in query.keys()]).isdisjoint(set(t.varnames)):
+        if set([v.name if isinstance(v, Variable) else v for v in query.keys()]).isdisjoint(set(t.varnames)):
             return []
 
         q_ = t.bind(
@@ -400,52 +363,54 @@ class SubAStarBW(SubAStar):
             #  result of adding the delta to the _in variable (i.e. the actual outcome of performing the action
             #  represented by the leaf)
             conf = defaultdict(float)
+            s_ = self.state_t()
+            s_.tree = treename
+            s_.leaf = l.idx
+
             for v, _ in l.distributions.items():
                 vname = v.name
                 invar = vname.replace('_out', '_in')
                 outvar = vname.replace('_in', '_out')
 
-                if vname.endswith('_out'):
-                    # if the current variable is an _out variable, the leaf _MUST_ contain the respective _in variable
-                    # distribution, therefore add the two distributions and calculate probability on resulting
+                if vname.endswith('_in') and vname.replace('_in', '_out') in l.distributions:
+                    # if the current variable is an _in variable, and contains the respective _out variable
+                    # distribution, add the two distributions and calculate probability on resulting
                     # distribution
                     outdist = l.distributions[outvar]
-                    if len(outdist.cdf.functions) > 20:
-                        outdist = outdist.approximate(n_segments=20)
                     indist = l.distributions[invar]
-                    if len(indist.cdf.functions) > 20:
-                        indist = indist.approximate(n_segments=20)
 
+                    # determine probability that this action (leaf) produces desired output for this variable
                     tmp_dist = indist + outdist
-                    tmp_dist = tmp_dist.approximate(n_segments=20)
+                    c_ = tmp_dist.p(query_[vname])
 
-                    c_ = tmp_dist.p(query_[v])
-                elif vname.endswith('_in') and vname.replace('_in', '_out') in query and vname.replace('_in', '_out') not in l.distributions:
-                    # if the current variable is an _in variable, and it has no corresponding _out variable in this tree
-                    # but is part of the original query, it is considered to be left unchanged by the "execution"
-                    # of the action represented by the leaf. Therefore, the distribution of the input variable is
-                    # taken as basis for calculating the probability
-                    # Note: check if outvar in query but take value from query_, as this is preprocessed and MIGHT differ
-                    c_ = l.distributions[v].p(query[vname.replace('_in', '_out')])
-                    vname = outvar
+                    # determine distribution from which the execution of this action (leaf) produces desired output
+                    try:
+                        cond = tmp_dist.crop(query_[vname])
+                        tmp_diff = cond - outdist
+                        tmp_diff = tmp_dist.approximate(n_segments=20)
+                        d_ = tmp_diff
+                    except Unsatisfiability:
+                        c_ = 0
                 else:
                     # default case
-                    c_ = l.distributions[v].p(query_[v])
+                    c_ = l.distributions[vname].p(query_[vname])
+                    d_ = l.distributions[vname]
 
-                if c_ < confidence:
-                    # if treename == "move":
-                    #     logger.warning(f'confidence too low, skipping...\n {v.name}: {c_}')
+                # drop entire leaf if only one variable has probability 0
+                if not c_ > 0:
                     return
                 conf[vname] = c_
-                # logger.debug(f"          {c_}")
-            return conf
+                s_[vname] = d_
+            return s_, conf
 
         # find the leaf (or the leaves) that matches the query best
-        # for i, (k, l) in enumerate([(l.idx, l) for l in [t.leaves[3476], t.leaves[3791], t.leaves[4793]]] if self.first else t.leaves.items()):
+        steps = []
         for i, (k, l) in enumerate(t.leaves.items()):
-            conf = determine_leaf_confs(l)
-            if conf is None: continue
-            yield conf, l
+            res = determine_leaf_confs(l)
+            if res is not None:
+                steps.append(res)
+
+        return steps
 
     def generate_steps(
             self,
@@ -455,21 +420,32 @@ class SubAStarBW(SubAStar):
         """
         # ascertain in generate_successors, that node.state only contains _out variables
         query = {
-            var.replace('_in', '_out'):
+            var:
                 node.state[var] if isinstance(node.state[var], (set, ContinuousSet)) else
                 node.state[var].mpe()[0] for var in node.state.keys()
         }
 
-        steps = [
-            (leaf, treename, tree) for treename, tree in self.models.items() for _, leaf in self.reverse(
-                t=tree,
-                treename=treename,
-                query=query,
-                confidence=.13  #.1  # FIXME: self.goal_confidence?
+        # steps contains triples of (state, confidence, leaf prior) generated by self.reverse
+        steps = []
+        for treename, tree in self.models.items():
+            steps.extend(
+                self.reverse(
+                    t=tree,
+                    treename=treename,
+                    query=query
+                )
             )
-        ]
 
-        return steps
+        # sort candidates according to overall confidence (=probability to reach) and select 10 best ones
+        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:10]
+
+        # add info so selected_steps contains tuples (step, confidence, distance to init state, leaf prior)
+        selected_steps_ = [(s, c, self.h(s)) for s, c in selected_steps]
+
+        # sort remaining candidates according to distance to init state (=goal in reverse)
+        selected_steps_wasserstein = sorted(selected_steps_, key=lambda x: x[2])
+
+        return selected_steps_wasserstein
 
     def generate_successors(
             self,
@@ -477,26 +453,13 @@ class SubAStarBW(SubAStar):
     ) -> List[Node]:
 
         predecessors = []
-        for pred, tn, t in self.generate_steps(node):
-
-            # copy previous state
-            s_ = self.state_t()
-            s_.update({k: v for k, v in node.state.items()})
-
-            # update tree and leaf that represent this step
-            s_.tree = tn
-            s_.leaf = pred.idx
-
-            # update belief state of potential predecessor
-            for v, d in pred.distributions.items():
-                if v not in t.features: continue  # TODO: take all FEATURE variables, not only _in ones
-                s_[v.name] = d
+        for s_, conf, dist in self.generate_steps(node):
 
             predecessors.append(
                 Node(
                     state=s_,
                     g=node.g + self.stepcost(s_),
-                    h=self.h(s_),
+                    h=dist,  # self.h(s_),  # do not calculate distance twice
                     parent=node
                 )
             )

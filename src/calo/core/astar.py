@@ -163,7 +163,7 @@ class AStar:
     def search(self) -> Any:
         ts = datetime.now()
         logger.debug(f'{ts.strftime("%Y-%m-%d_%H:%M:%S")} Searching path from {self.initstate} to {self.goal}')
-        plotme = False
+        plotme = True
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
             if plotme:

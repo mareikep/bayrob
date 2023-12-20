@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import List, Tuple, Dict, Any
 
 import dnutils
@@ -20,26 +21,26 @@ from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
-
-defaultconfig = dict(
-    displaylogo=False,
-    toImageButtonOptions=dict(
-        format='svg',  # one of png, svg, jpeg, webp
-        filename='calo_plot',
-        scale=1  # Multiply title/legend/axis/canvas sizes by this factor
-    ),
-    # autosizable=True,
-    # responsive=True,
-    # fillFrame=True,
-   #  modeBarButtonsToAdd=[  # allow drawing tools to highlight important regions before downloading snapshot
-   #      'drawline',
-   #      'drawopenpath',
-   #      'drawclosedpath',
-   #      'drawcircle',
-   #      'drawrect',
-   #      'eraseshape'
-   # ]
-)
+def defaultconfig(fname=None):
+    return dict(
+        displaylogo=False,
+        toImageButtonOptions=dict(
+            format='svg',  # one of png, svg, jpeg, webp
+            filename=Path(fname).stem if fname is not None else 'calo_plot',
+            scale=1  # Multiply title/legend/axis/canvas sizes by this factor
+        ),
+        # autosizable=True,
+        # responsive=True,
+        # fillFrame=True,
+       #  modeBarButtonsToAdd=[  # allow drawing tools to highlight important regions before downloading snapshot
+       #      'drawline',
+       #      'drawopenpath',
+       #      'drawclosedpath',
+       #      'drawcircle',
+       #      'drawrect',
+       #      'eraseshape'
+       # ]
+    )
 
 def fig_from_json_file(fname) -> Figure:
     with open(fname) as f:
@@ -50,7 +51,7 @@ def fig_to_file(fig, fname) -> None:
     if fname.endswith('html'):
         fig.write_html(
             fname,
-            config=defaultconfig,
+            config=defaultconfig(fname),
             include_plotlyjs="cdn"
         )
         fig.write_json(fname.replace("html", "json"))
@@ -240,8 +241,8 @@ def gendata(
     # remove or replace by eliminating values > median
     # Z[Z > np.median(Z)] = np.median(Z)
 
-    lbl = f'Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"} ' \
-          f'{params.get("action")}({",".join([f"{k}: {v}" for k,v in params.items() if k != "action"])})'
+    lbl = f'<b>Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"}</b> ' \
+          f'{"<br>".join([f"<b>{k}:</b> {v}" for k,v in params.items()])}'
 
     return x, y, Z, lbl
 
@@ -418,7 +419,7 @@ def plotly_animation(
         fig_to_file(fig, save)
 
     if show:
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig(save))
 
     return fig
 
@@ -523,7 +524,7 @@ def plot_heatmap(
         fig_to_file(fig, save)
 
     if show:
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig(save))
 
     return fig
 
@@ -591,6 +592,25 @@ def plot_tree_dist(
         show=show
     )
 
+def pathdata(
+        xvar,
+        yvar,
+        p: List,
+        exp: bool = False
+) -> List:
+    return [
+        (
+            s[xvar].expectation() if exp else np.mean([s[xvar].mpe()[0].lower, s[xvar].mpe()[0].upper]),  # x
+            s[yvar].expectation() if exp else np.mean([s[yvar].mpe()[0].lower, s[yvar].mpe()[0].upper]),  # y
+            s['xdir_in'].expectation() if exp else np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),  # dx
+            s['ydir_in'].expectation() if exp else np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),  # dy
+            f'Step {i}: {param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})'.ljust(50),
+            f'<b>Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br>'
+            f'<b>MPEs:</b><br>{"<br>".join(f"{k}: {v.mpe()[0]}" for k, v in s.items())}<br>'
+            f'<b>Expectations:</b><br>{"<br>".join(f"{k}: {v.expectation()}" for k, v in s.items())}',  # lbl
+            1
+        ) for i, (s, param) in enumerate(p) if {'x_in', 'y_in'}.issubset(set(s.keys()))
+    ]
 
 def plot_path(
         xvar,
@@ -603,26 +623,7 @@ def plot_path(
 ) -> Figure:
 
     # generate data points
-    d = [
-        (
-            s[xvar].expectation(),
-            s[yvar].expectation(),
-            s['xdir_in'].expectation(),
-            s['ydir_in'].expectation(),
-            f'Step {i}: {param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})'.ljust(50),
-            f'Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}<br>'
-            f'{param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})',
-            1
-        ) if 'xdir_in' in s and 'ydir_in' in s else (
-            first(s[xvar]) if isinstance(s[xvar], set) else s[xvar].lower + abs(s[xvar].upper - s[xvar].lower)/2,
-            first(s[yvar]) if isinstance(s[yvar], set) else s[yvar].lower + abs(s[yvar].upper - s[yvar].lower)/2,
-            0,
-            0,
-            f'Step {i}: {param.get("action")}({",".join([f"{k}: {v}" for k,v in param.items() if k != "action"])})'.ljust(50),
-            f"Goal",
-            1
-        ) for i, (s, param) in enumerate(p)
-    ]
+    d = pathdata(xvar, yvar, p, exp=False)
 
     # draw scatter points and quivers
     data = pd.DataFrame(
@@ -653,7 +654,7 @@ def plot_path(
     )
 
     if show:
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig(save))
 
     return fig
 
@@ -773,7 +774,7 @@ def plot_scatter_quiver(
     colors_discr = sample_colorscale(
         px.colors.sequential.dense,
         max(2, len(data)),
-        low=.1,  # the first few values are very light and not easy to see on a plot, so we start higher up
+        low=.2,  # the first few values are very light and not easy to see on a plot, so we start higher up
         high=1.,
         colortype="rgb"
     )
@@ -836,7 +837,7 @@ def plot_scatter_quiver(
             [row[yvar]],
             [dx],
             [dy],
-            scale=.5,
+            scale=3,
             name=row['lbl']
         )
 
@@ -860,7 +861,7 @@ def plot_scatter_quiver(
         fig_to_file(mainfig, save)
 
     if show:
-        mainfig.show(config=defaultconfig)
+        mainfig.show(config=defaultconfig(save))
 
     return mainfig
 
@@ -958,7 +959,7 @@ def plot_data_subset(
         return
 
     if show:
-        fig_s.show(config=defaultconfig)
+        fig_s.show(config=defaultconfig(save))
 
     if save:
         fig_to_file(fig_s, save)

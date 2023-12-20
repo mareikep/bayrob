@@ -147,6 +147,8 @@ def main(DT, args):
         from perception import perception as mod
     elif args.example == 'pr2':
         from pr2 import pr2 as mod
+    elif args.example == 'pr2_exp':
+        from pr2_exp import pr2_ as mod
     else:
         from perception import perception as mod
         args.example = 'perception'

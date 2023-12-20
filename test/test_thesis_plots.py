@@ -1044,22 +1044,43 @@ class ThesisPlotsTests(unittest.TestCase):
         df = pd.read_parquet(os.path.join(self.recent_perception, 'data', f'000-perception.parquet'))
 
         print(f"Loading tree from {self.recent_perception}")
+        objects = ['cup', 'cutlery', 'bowl', 'sink', 'milk', 'beer', 'cereal', 'stovetop', 'pot']
+        detected_objects = [f'detected({o})' for o in objects]
+        containers = ['fridge_door', 'cupboard_door_left', 'cupboard_door_right', 'kitchen_unit_drawer']
+        open_containers = [f'open({c})' for c in containers]
 
         # constraints/query values
         # the postype determines a category, tp
         queries = {
             # "apriori": [
-            #     ({}, ['positions'])
+            #     ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
             # ],
             "milk-detected": [
-                # ({'detected(milk)': True, 'daytime': ['morning']}, ['positions']),
-                # ({'detected(milk)': True, 'daytime': ['night']}, ['positions']),
-                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions']),
-                # ({'detected(beer)': True, 'daytime': ['night']}, ['positions']),
-                # ({'nearest_furniture': 'kitchen_island'}, ['positions']),
-                # ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions']),
-                # ({'detected(milk)': True, 'open(fridge_door)': False, 'daytime': ['night']}, ['positions']),  # breaks! -> no datapoints
+                ({'detected(milk)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
             ],
+            # "beer-detected": [
+            #     ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            # ],
+            # "bowl-detected": [
+            #     ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            # ],
+            # "nearest_furniture": [
+            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            # ],
+            # "open": [
+            #     ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #
+            # ],
         }
 
         for postype, queries in queries.items():
@@ -1174,11 +1195,13 @@ class ThesisPlotsTests(unittest.TestCase):
                         )
 
                         # plot distribution of variable
+                        print('PLOTTING DIST', plot)
                         if plot in post:
                             post[plot].plot(
                                 view=True,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                save=os.path.join(plotdir, f"{prefix}-{plot}-dist.html"),
+                                fname=f"{prefix}-{plot}-dist.html",
+                                directory=plotdir,
                             )
 
 
@@ -1196,19 +1219,19 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries_ = {
-            # "apriori": [
-            #     ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
-            # ],
+            "apriori": [
+                ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
+            ],
             "failure": [  # failed actions
                 ({'success': False}, ['type', "positions", "failure"]),
-                # ({'type': "Grasping", "success": False}, ["positions", "failure"]),
-                # ({'type': "Placing", "success": False}, ["positions", "failure"]),
+                ({'type': "Grasping", "success": False}, ["positions", "failure"]),
+                ({'type': "Placing", "success": False}, ["positions", "failure"]),
             ],
-            # "success": [
-            #     ({"success": True, 'type': "Grasping"}, ["positions", "bodyPartsUsed", "type"]),
-            #     ({"success": True, 'type': "Placing"}, ["positions", "bodyPartsUsed", "type"]),
-            #     ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
-            # ],
+            "success": [
+                ({"success": True, 'type': "Grasping"}, ["positions", "bodyPartsUsed", "type"]),
+                ({"success": True, 'type': "Placing"}, ["positions", "bodyPartsUsed", "type"]),
+                ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
+            ],
         }
 
         for postype, queries in queries_.items():
@@ -1297,7 +1320,7 @@ class ThesisPlotsTests(unittest.TestCase):
                             limx=limx,
                             limy=limy,
                             show=True,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.svg"),
+                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"),
                             showbuttons=False
                         )
 
@@ -1320,17 +1343,19 @@ class ThesisPlotsTests(unittest.TestCase):
                             yvar=None,
                             constraints=query,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
-                            show=True,
+                            show=False,
                             plot_type="histogram"
                         )
 
                         # plot distribution of variable
                         if plot in post:
                             post[plot].plot(
-                                view=True,
+                                view=False,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                save=os.path.join(plotdir, f"{prefix}-{plot}-dist.html"),
+                                fname=f"{prefix}-{plot}-dist.html",
+                                directory=plotdir,
                             )
+
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, 0, -1]
@@ -1364,50 +1389,39 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         cmds = [
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-15, -12)}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -9)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 17)}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-12, -10)}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-5, -3)}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(3, 5)}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(15, 16)}},  # STOP
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},  # STOP
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 30}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 12}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 10}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -18)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-14, -10)}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-20, -10)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': ContinuousSet(-10, -8)}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle':  ContinuousSet(-8, -3)}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}}
         ]
 
@@ -1428,13 +1442,21 @@ class ThesisPlotsTests(unittest.TestCase):
 
             # candidate is the conditional tree
             # t_ = self.generate_steps(evidence, t)
-            best = t.posterior(
-                variables=t.targets,
+            # best = t.posterior(
+            #     variables=t.targets,
+            #     evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
+            #         allow_singular_values=False
+            #     ),
+            #     fail_on_unsatisfiability=False
+            # )
+            cond = t.conditional_jpt(
                 evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
                     allow_singular_values=False
                 ),
                 fail_on_unsatisfiability=False
             )
+
+            best = cond.posterior(variables=t.targets,)
 
             if best is None:
                 print('skipping command', cmd, 'unsatisfiable!')
@@ -1448,29 +1470,39 @@ class ThesisPlotsTests(unittest.TestCase):
 
             # update belief state of potential predecessor
             for vn, d in best.items():
-                outvar = vn.name
+                vname = vn.name
+                outvar = vn.name.replace('_in', '_out')
                 invar = vn.name.replace('_out', '_in')
-                if outvar != invar and invar in s_:
+
+                if vname.endswith('_out') and vname.replace('_out', '_in') in s_:
                     # if the _in variable is already contained in the state, update it by adding the delta
                     # from the leaf distribution
                     if shift:
                         s_[invar] = Numeric().set(
                             QuantileDistribution.from_cdf(s_[invar].cdf.xshift(-best[outvar].expectation())))
                     else:
-                        if len(s_[invar].cdf.functions) > 20:
-                            s_[invar] = s_[invar].approximate(n_segments=20)
+                        indist = s_[invar]
+                        outdist = best[outvar]
+                        if len(indist.cdf.functions) > 20:
+                            print(f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions")
+                            indist = indist.approximate(n_segments=20)
                             # s_[invar] = s_[invar].approximate_fast(eps=.01)
-                        if len(best[outvar].cdf.functions) > 20:
-                            best[outvar] = best[outvar].approximate(n_segments=20)
+                        if len(outdist.cdf.functions) > 20:
+                            print(f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions")
+                            outdist = outdist.approximate(n_segments=20)
                             # best[outvar] = best[outvar].approximate_fast(eps=.01)
-                        s_[invar] = s_[invar] + best[outvar]
+                        vname = invar
+                        s_[vname] = indist + outdist
+                elif vname.endswith('_in') and vname in s_:
+                    # do not overwrite '_in' distributions
+                    continue
                 else:
-                    s_[invar] = d
+                    s_[vname] = d
 
                 if not shift:
-                    if hasattr(s_[invar], 'approximate'):
-                        s_[invar] = s_[invar].approximate(n_segments=20)
-                        # s_[invar] = s_[invar].approximate_fast(eps=.01)
+                    if hasattr(s_[vname], 'approximate'):
+                        print(f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions")
+                        s_[vname] = s_[vname].approximate(n_segments=20)
 
             p.append([s_, cmd['params']])
             s = State_()
@@ -1499,11 +1531,11 @@ class ThesisPlotsTests(unittest.TestCase):
 
         fig.write_html(
             os.path.join(locs.logs, f'test_astar_cram_path.html'),
-            config=defaultconfig,
+            config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')),
             include_plotlyjs="cdn"
         )
 
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')))
 
         # plot animation of heatmap representing position distribution update
         plot_pos(
@@ -1536,8 +1568,8 @@ class ThesisPlotsTests(unittest.TestCase):
             path=p,
             save=os.path.join(locs.logs, f'test_astar_cram_path-dirxy.html'),
             show=True,
-            limx=(0, 100),
-            limy=(0, 100)
+            limx=(-3, 3),
+            limy=(-3, 3)
         )
 
         # plot_xyvars(
@@ -1674,11 +1706,11 @@ class ThesisPlotsTests(unittest.TestCase):
 
         fig.write_html(
             os.path.join(locs.logs, f'test_move_till_collision.html'),
-            config=defaultconfig,
+            config=defaultconfig(os.path.join(locs.logs, f'test_move_till_collision.html')),
             include_plotlyjs="cdn"
         )
 
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig(os.path.join(locs.logs, f'test_move_till_collision.html')))
 
         # print heatmap representing position distribution update
         plot_pos(
@@ -1696,6 +1728,17 @@ class ThesisPlotsTests(unittest.TestCase):
             save=os.path.join(locs.logs, f'test_move_till_collision-collision-anmiation.html'),
             show=True
         )
+
+    def test_reduce_tree(self):
+        t = self.models['000-move.tree']
+
+        for l in t.leaves.values():
+            for var, d in l.distributions.items():
+                if hasattr(d, 'approximate') and len(d.cdf.functions) > 20:
+                    print(f'Approximating dist {var.name} of leaf {l.idx} with {len(d.cdf.functions)} functions')
+                    l.distributions[var] = d.approximate(n_segments=20)
+
+        t.save(os.path.join(self.recent_move, '000-move-approximated.tree'))
 
     def test_plot_kaleido_error(self) -> None:
         # small values around 0 (i.e. values smaller
@@ -1784,7 +1827,7 @@ class ThesisPlotsTests(unittest.TestCase):
             )
         )
 
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig())
 
     def test_data_point_one_turn(self) -> None:
         # plot image representing 3 single turns
@@ -1856,7 +1899,7 @@ class ThesisPlotsTests(unittest.TestCase):
             )
         )
 
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig())
 
     def test_data_point_one_move(self) -> None:
 
@@ -1908,7 +1951,7 @@ class ThesisPlotsTests(unittest.TestCase):
             )
         )
 
-        fig.show(config=defaultconfig)
+        fig.show(config=defaultconfig())
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)
