@@ -469,9 +469,11 @@ def plot_heatmap(
         limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
     if limz is None:
-        limz = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
+        limz_ = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
+    else:
+        limz_ = limz
 
-    addargs = {"zmin" if fun == "heatmap" else "cmin": limz[0], "zmax" if fun == "heatmap" else "cmax": limz[1]}
+    addargs = {} if limz is None else {"zmin" if fun == "heatmap" else "cmin": limz_[0], "zmax" if fun == "heatmap" else "cmax": limz_[1]}
     fun = {"heatmap": go.Heatmap, "surface": go.Surface}.get(fun, go.Heatmap)
 
     frames = [
@@ -479,9 +481,7 @@ def plot_heatmap(
             fun(
                 x=d[xvar],
                 y=d[yvar].T,
-                z=d['z'] if limz is None else np.clip(d['z'], *limz),
-                # zmin=limz[0],
-                # zmax=limz[1],
+                z=d['z'] if limz is None else np.clip(d['z'], *limz_),
                 customdata=d["lbl"] if "lbl" in data.columns and data["lbl"].shape == d["z"].shape else np.full(d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
                 colorscale=px.colors.sequential.dense,
                 colorbar=dict(
