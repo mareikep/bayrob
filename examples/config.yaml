@@ -1,0 +1,35 @@
+pr2:
+  options:
+    example: pr2
+turn:
+  options:
+    args:
+      max_depth: 5
+      tgtidx: 3
+    example: turn
+    learn: true
+    min-samples-leaf: 1
+    obstacles: true
+    plot: true
+perception:
+  options:
+    example: perception
+    obstacles: True
+    learn: true
+    plot: true
+    min-samples-leaf: 0.01
+move:
+  options:
+    example: move
+    obstacles: true
+    learn: true
+    plot: true
+    min-samples-leaf: 400
+move_exp:
+  options:
+    example: move_exp
+    obstacles: true
+    learn: true
+    defaultlearn: true
+    plot: true
+    min-samples-leaf: 400

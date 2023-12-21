@@ -1,0 +1,5 @@
+turn: 		--examplee turn --obstacles --learn --plot --min-samples-leaf 1 --args tgtidx 3 --args max_depth 5
+perception:	--example perception --obstacles --learn --plot --min-samples-leaf 0.01
+move: 		--example move --obstacles --learn --plot --min-samples-leaf 400
+move_exp:	--example move_exp --obstacles --learn --plot --min-samples-leaf 400 --modulelearn
+pr2:		--example pr2 -l --min-samples-leaf 0.001
