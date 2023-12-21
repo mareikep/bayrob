@@ -1388,6 +1388,7 @@ class ThesisPlotsTests(unittest.TestCase):
             }
         )
 
+        # alter this and comment out cmds below for playing around
         cmds = [
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
@@ -1401,28 +1402,27 @@ class ThesisPlotsTests(unittest.TestCase):
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 30}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 12}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 10}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}}
+        ]
+
+        # do not touch, diss-plot configuration!
+        cmds = [
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
         ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
