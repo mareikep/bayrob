@@ -1052,35 +1052,35 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries = {
-            # "apriori": [
-            #     ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
-            # ],
+            "apriori": [
+                ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
+            ],
             "milk-detected": [
                 ({'detected(milk)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
             ],
-            # "beer-detected": [
-            #     ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            # ],
-            # "bowl-detected": [
-            #     ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            # ],
-            # "nearest_furniture": [
-            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            # ],
-            # "open": [
-            #     ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #
-            # ],
+            "beer-detected": [
+                ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "bowl-detected": [
+                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "nearest_furniture": [
+                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "open": [
+                ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+
+            ],
         }
 
         for postype, queries in queries.items():
@@ -1190,7 +1190,7 @@ class ThesisPlotsTests(unittest.TestCase):
                             yvar=None,
                             constraints=query,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
-                            show=True,
+                            show=False,
                             plot_type="histogram"
                         )
 
@@ -1198,7 +1198,7 @@ class ThesisPlotsTests(unittest.TestCase):
                         print('PLOTTING DIST', plot)
                         if plot in post:
                             post[plot].plot(
-                                view=True,
+                                view=False,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
                                 fname=f"{prefix}-{plot}-dist.html",
                                 directory=plotdir,
@@ -1401,7 +1401,7 @@ class ThesisPlotsTests(unittest.TestCase):
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 30}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 12}},
             # {'tree': '000-move.tree', 'params': {'action': 'move'}},
             # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 10}},
@@ -1429,7 +1429,7 @@ class ThesisPlotsTests(unittest.TestCase):
         s = initstate
         p = [[s, {}]]
         for i, cmd in enumerate(cmds):
-            print(f'Step {i} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
+            print(f'Step {i+1} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
             t = self.models[cmd['tree']]
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
