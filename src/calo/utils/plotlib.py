@@ -10,7 +10,6 @@ import plotly.figure_factory as ff
 import plotly.graph_objects as go
 import plotly.io as pio
 from _plotly_utils.colors import sample_colorscale
-from dnutils import first
 from jpt.base.intervals import ContinuousSet
 from plotly.graph_objs import Figure
 
@@ -18,8 +17,10 @@ from calo.utils.constants import calologger
 from calo.utils.utils import unit
 from jpt import JPT
 from jpt.distributions import Gaussian
+from jpt.plotting.helpers import color_to_rgb
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+
 
 def defaultconfig(fname=None):
     return dict(
@@ -42,9 +43,11 @@ def defaultconfig(fname=None):
        # ]
     )
 
+
 def fig_from_json_file(fname) -> Figure:
     with open(fname) as f:
         return pio.from_json(json.dumps(json.load(f)))
+
 
 def fig_to_file(fig, fname) -> None:
     logger.debug(f"Saving plot to file {fname}...")
@@ -247,6 +250,49 @@ def gendata(
     return x, y, Z, lbl
 
 
+def gendata_multiple(
+        vars: List[Tuple],
+        states: List,
+        params: Dict = {},
+        conf: float = None
+):
+    '''
+    Generates data points
+    :param vars:
+    :param states:
+    :param params:
+    :param conf:
+    :return:
+    '''
+
+    data = []
+    for (xvar, yvar), state in zip(vars, states):
+
+        # generate datapoints
+        x = state[xvar].pdf.boundaries()
+        y = state[yvar].pdf.boundaries()
+
+        X, Y = np.meshgrid(x, y)
+        Z = np.array(
+            [
+                state[xvar].pdf(a) * state[yvar].pdf(b)
+                for a, b, in zip(X.ravel(), Y.ravel())
+            ]).reshape(X.shape)
+
+        # show only values above a certain threshold, consider lower values as high-uncertainty areas
+        if conf is not None:
+            Z[Z < conf] = 0.
+
+        # remove or replace by eliminating values > median
+        # Z[Z > np.median(Z)] = np.median(Z)
+
+        lbl = f'<b>Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"}</b> ' \
+              f'{"<br>".join([f"<b>{k}:</b> {v}" for k,v in params.items()])}'
+
+        data.append([x, y, Z, lbl])
+    return data
+
+
 def plotly_animation(
         data: List[Any],
         names: List[str] = None,
@@ -422,6 +468,60 @@ def plotly_animation(
         fig.show(config=defaultconfig(save))
 
     return fig
+
+
+def plot_dists_layered(
+        xvar: str,
+        yvar: str,
+        data: pd.DataFrame,
+        limx: Tuple = None,
+        limy: Tuple = None,
+        save: str = None,
+        show: bool = False
+) -> Figure:
+
+    mainfig = go.Figure()
+
+    for i, d in data.iterrows():
+        mainfig.add_trace(
+            go.Heatmap(
+                x=d[xvar],
+                y=d[yvar].T,
+                z=d['z'],
+                customdata=d["lbl"] if "lbl" in data.columns and data["lbl"].shape == d["z"].shape else np.full(
+                    d['z'].shape, d["lbl"] if "lbl" in data.columns else ""),
+                colorscale=px.colors.sequential.dense,
+                colorbar=dict(
+                    title=f"P({xvar},{yvar})",
+                    orientation='v',
+                    titleside="top",
+                ),
+                hovertemplate='x: %{x}<br>'
+                              'y: %{y}<br>'
+                              'z: %{z}'
+                              '<extra>%{customdata}</extra>',
+                showscale=False
+            )
+        )
+
+    mainfig.update_layout(
+        width=1000,
+        height=1000,
+        xaxis=dict(
+            range=[*limx]
+        ),
+        yaxis=dict(
+            range=[*limy]
+        ),
+    )
+
+    if show:
+        mainfig.show(config=defaultconfig(save))
+
+    if save:
+        fig_to_file(mainfig, save)
+
+    return mainfig
 
 
 def plot_heatmap(
@@ -632,10 +732,13 @@ def plot_path(
     )
 
     fig = go.Figure()
+
+    # plot obstacles in background
     if obstacles is not None:
         for (o, on) in obstacles:
             fig.add_trace(
                 plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
+
 
     fig_ = plot_scatter_quiver(
         xvar,
@@ -662,9 +765,12 @@ def plot_path(
 def plotly_pt(
         pt: Tuple,
         dir: Tuple = None,
-        name: str = None
+        name: str = None,
+        color: str = "rgb(15,21,110)"
 ) -> Any:
     ix, iy = pt
+    rgb, rgba = to_rgb(color, opacity=1)
+    _, rgba1 = to_rgb(color, opacity=0.1)
 
     fig = go.Figure()
     fig.add_trace(
@@ -673,9 +779,9 @@ def plotly_pt(
             y=[iy],
             marker=dict(
                 symbol='star',
-                color='rgb(0,125,0)'
+                color=rgb
             ),
-            fillcolor='rgb(0,125,0)',
+            fillcolor=rgba1,
             name=name,
             showlegend=False
         )
@@ -706,7 +812,7 @@ def plotly_sq(
         legend: bool = True
 ) -> Any:
     gxl, gyl, gxu, gyu = area
-    rgb, rgba = to_rgb(color, opacity=0.4)
+    rgb, rgba = to_rgb(color, opacity=1)
     _, rgba1 = to_rgb(color, opacity=0.1)
 
     return go.Scatter(
@@ -717,7 +823,11 @@ def plotly_sq(
             textfont=dict(color=rgb),
             marker=dict(
                 symbol='circle',
-                color=rgba
+                color=rgb,
+                line=dict(
+                    color=rgb,
+                    width=5
+                )
             ),
             fillcolor=rgba1,
             name=lbl,
@@ -773,43 +883,45 @@ def plot_scatter_quiver(
     # sample colors from continuous color palette to get discrete color sequence
     colors_discr = sample_colorscale(
         px.colors.sequential.dense,
-        max(2, len(data)),
+        max(2, len(data)+2),
         low=.2,  # the first few values are very light and not easy to see on a plot, so we start higher up
         high=1.,
         colortype="rgb"
     )
 
-    colors_discr = colors_discr[:min(len(data), len(colors_discr))]
+    colors_discr = colors_discr[:min(len(data)+1, len(colors_discr))]
+    colors_discr_a = [color_to_rgb(c, 1)[1] for c in colors_discr]
 
     # scatter positions
-    fig_s = px.scatter(
-        data,
-        x=xvar,
-        y=yvar,
-        title=title,
-        color_discrete_sequence=colors_discr,
-        custom_data=['dx', 'dy', 'lbl'],
-        color="step",
-        labels=[f'Step {i}' for i in data['step']],
-        size='size' if 'size' in data.columns else [1]*len(data),
-        size_max=12,
-        width=1000,
-        height=1000,
-    )
-
-    fig_s.update_traces(
+    fig_s = go.Scatter(
+        x=data[xvar],
+        y=data[yvar],
+        marker=dict(
+            color=list(range(len(colors_discr_a))),  # set color equal to a variable
+            colorscale=colors_discr_a,
+            size=15,
+            line=dict(
+                color='rgba(255,255,255,1.0)',
+                # color=list(range(len(colors_discr))),
+                # colorscale=colors_discr,
+                width=2
+            )
+        ),
+        customdata=data[['dx', 'dy', 'lbl']],
         hovertemplate='pos: (%{x:.2f},%{y:.2f})<br>'
                       'dir: (%{customdata[0]:.2f},%{customdata[1]:.2f})<br>'
-                      '<extra>%{customdata[2]}</extra>'
+                      '<extra>%{customdata[2]}</extra>',
+        mode="markers",
+        text=data['step'],
+        showlegend=False,
     )
+
+    mainfig.add_trace(fig_s)
 
     # align x- and y-axis (scale ticks)
-    fig_s.update_layout(
-        yaxis=dict(scaleanchor="x", scaleratio=1)
-    )
-
-    mainfig.add_traces(
-        data=fig_s.data
+    mainfig.update_layout(
+        yaxis=dict(scaleanchor="x", scaleratio=1),
+        title=title
     )
 
     # draw line connecting points to create a path
@@ -851,11 +963,7 @@ def plot_scatter_quiver(
         )
 
     # do not draw colorax and legend
-    mainfig.layout = fig_s.layout
-
-    # mainfig.update_coloraxes(
-    #     showscale=False,
-    # )
+    # mainfig.layout = fig_s.layout
 
     if save is not None:
         fig_to_file(mainfig, save)
@@ -905,7 +1013,9 @@ def plot_data_subset(
         limy=None,
         save=None,
         show=False,
-        plot_type='scatter'
+        plot_type='scatter',
+        normalize=False,
+        color='rgb(15,21,110)'
 ):
     if limx is None:
         limx = [df[xvar].min(), df[xvar].max()]
@@ -917,22 +1027,44 @@ def plot_data_subset(
 
     logger.debug('Returned subset of shape:', df_.shape)
 
+    # extract rgb colors from given hex, rgb or rgba string
+    rgb, rgba = color_to_rgb(color)
+
     if df_.shape[0] == 0:
         logger.warning('EMPTY DATAFRAME!')
         return
 
     print(df_.shape[0])
 
+    fig_s = go.Figure()
     if plot_type == "scatter":
-        fig_s = px.scatter(
-            df_,
-            x=xvar,
-            y=yvar,
-            size=[1]*len(df_),
-            size_max=5,
-            width=1000,
-            height=1000,
+        fig_s.add_trace(
+            go.Scatter(
+                x=df_[xvar],
+                y=df_[yvar],
+                marker=dict(
+                    color=rgba,
+                    size=3,
+                    line=dict(
+                        color=rgb,
+                        width=1
+                    )
+                ),
+                fillcolor=rgba,
+                mode="markers",
+                showlegend=False
+            )
         )
+        # fig_s = px.scatter(
+        #     df_,
+        #     x=xvar,
+        #     y=yvar,
+        #     size=[1]*len(df_),
+        #     size_max=5,
+        #     width=1000,
+        #     height=1000,
+        #     color=rgb
+        # )
 
         fig_s.update_layout(
             xaxis=dict(
@@ -943,20 +1075,34 @@ def plot_data_subset(
             ),
         )
     elif plot_type == "histogram":
-        fig_s = px.histogram(
-            x=df_[xvar].value_counts().index.tolist(),
-            y=[df_[xvar].value_counts()]
-        )
-        fig_s.update_layout(
-            xaxis_title=xvar,
-            yaxis_title=f"count({xvar})",
-            showlegend=False,
-            width=1000,
-            height=1000
+        x = df_[xvar].value_counts().index.tolist()
+        y = list(df_[xvar].value_counts(normalize=normalize))
+        fig_s.add_trace(
+            go.Bar(
+                x=x,
+                y=y,
+                text=y,
+                orientation='v',
+                marker=dict(
+                    color=rgba,
+                    line=dict(color=rgb, width=3)
+                )
+            )
         )
     else:
         logger.error("Can only plot scatter or histogram")
         return
+
+    fig_s.update_layout(
+        xaxis_title=xvar,
+        yaxis_title=f"count({xvar})",
+        showlegend=False,
+        width=1000,
+        height=1000,
+        yaxis=dict(
+            range=(0, 1)
+        ) if normalize else {}
+    )
 
     if show:
         fig_s.show(config=defaultconfig(save))
@@ -992,3 +1138,58 @@ def gaussian(
     Z = Z.reshape(X.shape)
 
     return x, y, Z, np.full(x.shape, f"test {i}")
+
+
+def plot_multiple_dists(
+        gaussians,
+        limx: Tuple = None,
+        limy: Tuple = None,
+        save: str = None,
+        show: bool = False
+):
+    mainfig = go.Figure()
+
+    for g in gaussians:
+        # generate datapoints
+        x = g[0].pdf.boundaries()
+        y = g[1].pdf.boundaries()
+
+        X, Y = np.meshgrid(x, y)
+        Z = np.array(
+            [
+                g[0].pdf(a) * g[1].pdf(b)
+                for a, b, in zip(X.ravel(), Y.ravel())
+            ]).reshape(X.shape)
+
+        mainfig.add_trace(
+            go.Surface(
+                x=x,
+                y=y,
+                z=Z,
+                colorscale='dense',
+                contours_z=dict(
+                    show=True,
+                    usecolormap=True,
+                    highlightcolor="limegreen",
+                    project_z=True
+                ),
+                showscale=False
+            ),
+        )
+
+    mainfig.update_layout(
+        width=1000,
+        height=1000,
+        xaxis=dict(
+            range=[*limx]
+        ),
+        yaxis=dict(
+            range=[*limy]
+        ),
+    )
+
+    if show:
+        mainfig.show(config=defaultconfig(save))
+
+    if save:
+        fig_to_file(mainfig, save)
