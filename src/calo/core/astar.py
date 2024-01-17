@@ -37,33 +37,28 @@ class Node:
     ) -> bool:
         return self.f < other.f
 
-    def __eq__(self, other):
-        if other is None:
-            return False
+    def __eq__(
+            self,
+            other: 'Node'
+    ) -> bool:
+        if type(other) is not Node: return False
         return self.state == other.state and self.parent == other.parent
 
     def __str__(self) -> str:  # TODO: remove! --> only for debugging
-        plen = 1
+        return f"Node({len(self)}): {str(self.state)}"
+
+    def __repr__(self) -> str:
         path = ""
         current_node = self
         while current_node.parent is not None:
-            plen += 1
             path = f" {repr(current_node.state)}{' ==>' if path else ''}{path}"
             current_node = current_node.parent
-        return f"<NODE ({plen}): {path}>"
-
-    def __repr__(self) -> str:
-        plen = 1
-        current_node = self
-        while current_node.parent is not None:
-            plen += 1
-            current_node = current_node.parent
-        return f"<Node ({plen}): {repr(self.state)}>"
+        return f"<Node({len(self)}): {path}>"
 
     def __len__(self) -> int:
         cnt = 1
         cn = self
-        while cn is not None:
+        while cn.parent is not None:
             cnt += 1
             cn = cn.parent
         return cnt
@@ -131,7 +126,8 @@ class AStar:
 
     def stepcost(
             self,
-            state: Any
+            state: Any,
+            parent: Any
     ) -> float:
         raise NotImplementedError
 
