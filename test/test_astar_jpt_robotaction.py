@@ -1,21 +1,19 @@
 import os
 import unittest
-from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from jpt.base.intervals import ContinuousSet, R
+from jpt.base.intervals import ContinuousSet
 
-from calo.application.astar_jpt_app import State_, SubAStar_, SubAStarBW_
+from calo.application.astar_jpt_app import SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar, Node
 from calo.core.astar_jpt import Goal, State
 from calo.utils import locs
 from calo.utils.plotlib import gendata, plot_heatmap
 from calo.utils.utils import recent_example
-from jpt import JPT
-from jpt.base.errors import Unsatisfiability
-from jpt.distributions import Numeric, Gaussian
+from jpt import JPT, SymbolicVariable, SymbolicType
+from jpt.distributions import Numeric, Gaussian, Bool
+from utils import uniform_numeric
 
 
 class AStarRobotActionJPTTests(unittest.TestCase):
@@ -46,9 +44,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             ]
         )
 
-        cls.init = State_()
-        cls.goal = Goal()
-
         # plot initial distributions over x/y positions
         t = cls.models['move']
         # plot_tree_dist(
@@ -62,11 +57,10 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         #     show=True
         # )
 
-        initx, inity, initdirx, initdiry = [3, 60, 1, 0]
-        goalx, goaly = [5, 60]
-        tolerance_pos = 2
+        initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75] #  [3, 60, 1, 0]
+        goalx, goaly = [6, 60]
+        tolerance_pos = 0.05
         tolerance_dir = .01
-        tol = .5
 
         dx = Gaussian(initx, tolerance_pos).sample(500)
         distx = Numeric()
@@ -84,8 +78,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
-
-        cls.init.update(
+        cls.init = State(
             {
                 'x_in': distx,
                 'y_in': disty,
@@ -95,7 +88,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         )
         # cls.initstate.plot(show=True)
 
-        cls.goal.update(
+        tol = .5
+        cls.goal = Goal(
             {
                 'x_in': ContinuousSet(goalx - tol, goalx + tol),
                 'y_in': ContinuousSet(goaly - tol, goaly + tol)
@@ -103,9 +97,15 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         )
 
     def test_isgoal_fw_t(self) -> None:
+        g = Goal()
+        g.update({
+                'x_in': ContinuousSet(1.5, 4.5),
+                'y_in': ContinuousSet(57.5, 62.5)
+        })
+
         self.a_star = SubAStar_(
             self.init,
-            self.goal,
+            g,
             models=self.models
         )
 
@@ -115,14 +115,13 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             h=0,
             parent=None,
         )
-
         self.assertTrue(self.a_star.isgoal(n))
 
     def test_isgoal_fw_f(self) -> None:
         g = Goal()
         g.update({
-                'x_in': ContinuousSet(70, 72),
-                'y_in': ContinuousSet(50, 52)
+            'x_in': ContinuousSet(70, 72),
+            'y_in': ContinuousSet(50, 52)
         })
 
         self.a_star = SubAStar_(
@@ -165,19 +164,188 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         pass
 
     # @unittest.skip
-    def test_astar_fw_path(self) -> None:
+    def test_astar_fw_path_single(self) -> None:
+        initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75]  # [3, 60, 1, 0]
+        goalx, goaly = [5, 60]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        tol = .5
+        goal = Goal(
+            {
+                'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                'y_in': ContinuousSet(goaly - tol, goaly + tol)
+            }
+        )
+
+        init = State(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
         self.a_star = SubAStar_(
-            self.init,
-            self.goal,
+            init,
+            goal,
             models=self.models
         )
         self.path = list(self.a_star.search())
 
-    # @unittest.skip
-    def test_astar_bw_path(self) -> None:
+    def test_astar_fw_path_multiple(self) -> None:
+        initx, inity, initdirx, initdiry = [3.5, 58.5, 0, 1]  # [3, 60, 1, 0]
+        goalx, goaly = [10, 65]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        tol = 1.5
+        goal = Goal(
+            {
+                'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                'y_in': ContinuousSet(goaly - tol, goaly + tol)
+            }
+        )
+
+        init = State(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
+        self.a_star = SubAStar_(
+            init,
+            goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+
+    def test_astar_bw_path_single(self) -> None:
+        initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75]  # [3, 60, 1, 0]
+        goalx, goaly = [5, 60]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        tol = .5
+        goal = Goal(
+            {
+                'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                'y_in': ContinuousSet(goaly - tol, goaly + tol)
+            }
+        )
+
+        init = State(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
         self.a_star = SubAStarBW_(
-            self.init,
-            self.goal,
+            init,
+            goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+        self.path.reverse()
+
+    # @unittest.skip
+    def test_astar_bw_path_multiple(self) -> None:
+        initx, inity, initdirx, initdiry = [3.5, 58.5, 0, 1]  # [3, 60, 1, 0]
+        goalx, goaly = [10, 65]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        tol = 1.5
+        goal = Goal(
+            {
+                'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                'y_in': ContinuousSet(goaly - tol, goaly + tol)
+            }
+        )
+
+        init = State(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
+        self.a_star = SubAStarBW_(
+            init,
+            goal,
             models=self.models
         )
         self.path = list(self.a_star.search())
@@ -195,7 +363,647 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         self.path = list(self.a_star.search())
 
-    # @unittest.skip
+    def test_distance(self):
+        # Arrange
+        v1 = self.init['x_in']
+        v2 = uniform_numeric(self.goal['x_in'].lower, self.goal['x_in'].upper)
+
+        # Act
+        res = Numeric.distance(v1, v2)
+
+        # Assert
+        self.assertAlmostEqual(res, 3., delta=.1)
+
+    def test_distance_fw_multiple(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True},
+            'v2': {"green", "red", "blue"},
+            'v3': {1, 2, 5},
+            # 'v4': ContinuousSet(0, 3)
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.3, .3, .1, .1, .1, .1])
+        v3_ = SymbolicType('IntVar', labels=[1, 2, 3, 4, 5])().set([.2, .2, .1, .1, .4])
+
+        v4 = Gaussian(1.3, .4).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+            'v2': v2_,
+            'v3': v3_,
+            'v4': v4_
+        })
+
+        # Act
+        res = SubAStar_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(res, .27, delta=.1)
+
+    def test_distance_fw_bool_t(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True},
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+        })
+
+        # Act
+        res = SubAStar_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(res, 1/3, 5)
+
+    def test_distance_fw_bool_f(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {False},
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+        })
+
+        # Act
+        res = SubAStar_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(res, 2/3, 5)
+
+    def test_distance_fw_multinomial_t(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v2': {"green", "red", "blue"}
+        })
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set(
+            [.2, .1, .1, .3, .1, .2])
+
+        s1 = State()
+        s1.update({
+            'v2': v2_,
+        })
+
+        # Act
+        res = SubAStar_.dist(s1, g)
+
+        # Assert
+        self.assertEqual(res, .6)
+
+    def test_distance_fw_symmetric(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True, False},
+            'v2': {"green", "red", "blue"},
+            'v3': {1, 2, 5},
+            'v4': ContinuousSet(1, 3)
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.2, .1, .1, .3, .1, .2])
+        v3_ = SymbolicType('IntVar', labels=[1, 2, 3, 4, 5])().set([.2, .2, .1, .1, .4])
+
+        v4 = Gaussian(1, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(5, .2).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+            # 'v2': v2_,
+            # 'v3': v3_,
+            'v4': v4_
+        })
+
+        # Act
+        res1 = SubAStar_.dist(s1, g)
+        res2 = SubAStar_.dist(g, s1)
+
+        # Assert
+        self.assertEqual(res1, res2)
+
+    def test_distance_fw_numeric(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v4': ContinuousSet(1, 3)
+        })
+
+        v4 = Gaussian(1, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(5, .2).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v4': v4_
+        })
+
+        # Act
+        res1 = SubAStar_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(0.98, res1, delta=.1)
+
+    def test_distance_bw_multiple(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True},
+            'v2': {"green", "red", "blue"},
+            'v3': {1, 2, 5},
+            'v4': ContinuousSet(0, 3)
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.3, .3, .1, .1, .1, .1])
+        v3_ = SymbolicType('IntVar', labels=[1, 2, 3, 4, 5])().set([.2, .2, .1, .1, .4])
+
+        v4 = Gaussian(1.3, .4).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+            'v2': v2_,
+            'v3': v3_,
+            'v4': v4_
+        })
+
+        # Act
+        res = SubAStarBW_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(res, .27, delta=.02)
+
+    def test_distance_bw_bool_t(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True},
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+        })
+
+        # Act
+        res = SubAStar_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(res, 1/3, 5)
+
+    def test_distance_bw_bool_f(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {False},
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+        })
+
+        # Act
+        res = SubAStarBW_.dist(s1, g)
+
+        # Assert
+        self.assertAlmostEqual(res, 2/3, 5)
+
+    def test_distance_bw_multinomial_t(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v2': {"green", "red", "blue"}
+        })
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set(
+            [.2, .1, .1, .3, .1, .2])
+
+        s1 = State()
+        s1.update({
+            'v2': v2_,
+        })
+
+        # Act
+        res = SubAStarBW_.dist(s1, g)
+
+        # Assert
+        self.assertEqual(res, .6)
+
+    def test_distance_bw_symmetric(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True, False},
+            'v2': {"green", "red", "blue"},
+            'v3': {1, 2, 5},
+            'v4': ContinuousSet(1, 3)
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.2, .1, .1, .3, .1, .2])
+        v3_ = SymbolicType('IntVar', labels=[1, 2, 3, 4, 5])().set([.2, .2, .1, .1, .4])
+
+        v4 = Gaussian(1, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(5, .2).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+            # 'v2': v2_,
+            # 'v3': v3_,
+            'v4': v4_
+        })
+
+        # Act
+        res1 = SubAStarBW_.dist(s1, g)
+        res2 = SubAStarBW_.dist(g, s1)
+
+        # Assert
+        self.assertEqual(res1, res2)
+
+    def test_distance_bw_numeric(self):
+        # Arrange
+        g = Goal({'v4': ContinuousSet(1, 3)})
+
+        v4 = Gaussian(1, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(5, .2).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        # Act
+        res1 = SubAStarBW_.dist(State({'v4': v4_}), g)
+        res2 = SubAStarBW_.dist(State({'v4': v5_}), g)
+
+        # Assert
+        self.assertAlmostEqual(res1, 0.98, delta=.2)
+        self.assertAlmostEqual(res2, 3, delta=.2)
+
+    def test_isgoal_fw_numeric_clear_cases(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v4': ContinuousSet(1, 3)
+        })
+
+        v4 = Gaussian(2, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(5, .2).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v4': v4_
+        })
+
+        s2 = State()
+        s2.update({
+            'v4': v5_
+        })
+
+        astar1 = SubAStar_(
+            s1,
+            g,
+            models=self.models
+        )
+
+        astar2 = SubAStar_(
+            s1,
+            g,
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=s1, g=0, h=0))
+        res2 = astar2.isgoal(Node(state=s2, g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertFalse(res2)
+
+    def test_isgoal_fw_numeric_margins(self):
+        # Arrange
+        v4 = Gaussian(1.3, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(2.8, .5).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        s1 = State({'v4': v4_})
+        s2 = State({'v4': v5_})
+
+        astar1 = SubAStar_(
+            s1,
+            Goal({'v4': ContinuousSet(1, 3)}),
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=s1, g=0, h=0))
+        res2 = astar1.isgoal(Node(state=s2, g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertFalse(res2)
+
+    def test_isgoal_fw_multinomial(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v2': {"red", "green", "blue"}
+        })
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.3, .3, .1, .1, .1, .1])
+        v3_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.2, .1, .1, .3, .1, .2])
+
+        s1 = State()
+        s1.update({
+            'v2': v2_
+        })
+
+        s2 = State()
+        s2.update({
+            'v2': v3_
+        })
+
+        astar1 = SubAStar_(
+            s1,
+            Goal({
+                'v2': {"red", "green", "blue"}
+            }),
+            models=self.models
+        )
+
+        astar2 = SubAStar_(
+            s1,
+            g,
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=s1, g=0, h=0))
+        res2 = astar2.isgoal(Node(state=s2, g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertFalse(res2)
+
+    def test_isgoal_fw_multiple(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True},
+            'v2': {"green", "red", "blue"},
+            'v3': {1, 2, 5},
+            'v4': ContinuousSet(1, 3)
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.3, .3, .1, .1, .1, .1])
+        v3_ = SymbolicType('IntVar', labels=[1, 2, 3, 4, 5])().set([.2, .2, .1, .1, .4])
+
+        v4 = Gaussian(1.3, .4).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+            'v2': v2_,
+            'v3': v3_,
+            'v4': v4_
+        })
+
+        astar1 = SubAStar_(
+            s1,
+            g,
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=s1, g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+
+    def test_isgoal_bw_numeric_init_is_goal(self):
+        # Arrange
+        i = Gaussian(2, .2).sample(500)
+        i_ = Numeric()
+        i_ = i_.fit(i.reshape(-1, 1), col=0)
+
+        v4 = Gaussian(2, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        astar1 = SubAStarBW_(
+            State({'v4': i_}),
+            Goal({'v4': ContinuousSet(1, 3)}),
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=Goal({'v4': ContinuousSet(1, 3)}), g=0, h=0))
+        res2 = astar1.isgoal(Node(state=Goal({'v4': ContinuousSet(3, 4)}), g=0, h=0))
+        res3 = astar1.isgoal(Node(state=State({'v4': v4_}), g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertFalse(res2)
+        self.assertTrue(res3)
+
+    def test_isgoal_bw_numeric_clear_cases(self):
+        # Arrange
+        i = Gaussian(2, .2).sample(500)
+        i_ = Numeric()
+        i_ = i_.fit(i.reshape(-1, 1), col=0)
+
+        v4 = Gaussian(2, .2).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(5, .2).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        v6 = Gaussian(2, 1).sample(500)
+        v6_ = Numeric()
+        v6_ = v6_.fit(v6.reshape(-1, 1), col=0)
+
+        astar1 = SubAStarBW_(
+            State({'v4': i_}),
+            Goal({'v4': ContinuousSet(1, 3)}),
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=State({'v4': i_}), g=0, h=0))
+        res2 = astar1.isgoal(Node(state=State({'v4': v4_}), g=0, h=0))
+        res3 = astar1.isgoal(Node(state=State({'v4': v5_}), g=0, h=0))
+        res4 = astar1.isgoal(Node(state=State({'v4': v6_}), g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertTrue(res2)
+        self.assertFalse(res3)
+        self.assertFalse(res4)
+
+    def test_isgoal_bw_numeric_margins(self):
+        # Arrange
+        g = Goal({'v4': ContinuousSet(1, 3)})
+
+        i = Gaussian(1.3, .5).sample(500)
+        i_ = Numeric()
+        i_ = i_.fit(i.reshape(-1, 1), col=0)
+
+        v4 = Gaussian(1.3, .51).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        v5 = Gaussian(2.8, .5).sample(500)
+        v5_ = Numeric()
+        v5_ = v5_.fit(v5.reshape(-1, 1), col=0)
+
+        i = State({'v4': i_})
+
+        astar1 = SubAStarBW_(
+            i,
+            g,
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=State({'v4': v4_}), g=0, h=0))
+        res2 = astar1.isgoal(Node(state=State({'v4': v5_}), g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertFalse(res2)
+
+    def test_isgoal_bw_multinomial(self):
+        # Arrange
+        i = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.4, .2, .1, .1, .1, .1])
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.3, .3, .1, .1, .1, .1])
+        v3_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.2, .1, .1, .3, .1, .2])
+
+        s1 = State({'v2': v2_})
+        s2 = State({'v2': v3_})
+
+        astar1 = SubAStarBW_(
+            State({'v2': i}),
+            Goal({'v2': {"red", "green", "blue"}}),
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=s1, g=0, h=0))
+        res2 = astar1.isgoal(Node(state=s2, g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+        self.assertFalse(res2)
+
+    def test_isgoal_bw_multiple(self):
+        # Arrange
+        g = Goal()
+        g.update({
+            'v1': {True},
+            'v2': {"green", "red", "blue"},
+            'v3': {1, 2, 5},
+            'v4': ContinuousSet(1, 3)
+        })
+
+        v1_ = SymbolicVariable('BoolVar', Bool)
+        v1_ = v1_.distribution().set(2/3)
+
+        v2_ = SymbolicType('MultiVar', labels=["green", "red", "blue", "yellow", "black", "orange"])().set([.3, .3, .1, .1, .1, .1])
+        v3_ = SymbolicType('IntVar', labels=[1, 2, 3, 4, 5])().set([.2, .2, .1, .1, .4])
+
+        v4 = Gaussian(1.3, .4).sample(500)
+        v4_ = Numeric()
+        v4_ = v4_.fit(v4.reshape(-1, 1), col=0)
+
+        s1 = State()
+        s1.update({
+            'v1': v1_,
+            'v2': v2_,
+            'v3': v3_,
+            'v4': v4_
+        })
+
+        astar1 = SubAStarBW_(
+            s1,
+            g,
+            models=self.models
+        )
+
+        # Act
+        res1 = astar1.isgoal(Node(state=s1, g=0, h=0))
+
+        # Assert
+        self.assertTrue(res1)
+
+    @unittest.skip
     def test_astar_single_action_update(self) -> None:
         s0 = self.init  # = [-61, 61, 0, -1]
         tm = self.models['move']
@@ -246,7 +1054,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # update pos
         # create successor state
-        s1 = State_()
+        s1 = State()
         s1.update({k: v for k, v in s0.items()})
 
         n_segments = 20
@@ -317,7 +1125,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
         # update dir
         # create successor state
-        s2 = State_()
+        s2 = State()
         s2.update({k: v for k, v in s1.items()})
 
         n_segments = 20
@@ -343,173 +1151,218 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             show=True
         )
 
+    # @unittest.skip
     def test_astar_single_predecessor_update(self) -> None:
-        tm = self.models['move']
-        print(self.goal)
+        initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75]  # [3, 60, 1, 0]
+        goalx, goaly = [6, 60]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+        tol = .5
 
-        def dist(s1, s2):
-            # return mean of distances to each required variable in init state (=goal in reverse)
-            dists = []
-            for k, v in s2.items():
-                if k in s1:
-                    dists.append(Numeric.distance(s1[k], v))
-            return np.mean(dists)
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
 
-        num_preds = 50
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
 
-        query = {
-            var:
-                self.goal[var] if isinstance(self.goal[var], (set, ContinuousSet)) else
-                self.goal[var].mpe()[0] for var in self.goal.keys()
-        }
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
 
-        # predecessor from move action model
-        q_ = tm.bind(
-            {
-                k: v for k, v in query.items() if k in tm.varnames
-            },
-            allow_singular_values=False
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        self.a_star = SubAStarBW_(
+            State(
+                {
+                    'x_in': distx,
+                    'y_in': disty,
+                    'xdir_in': distdx,
+                    'ydir_in': distdy
+                }
+            ),
+            Goal(
+                {
+                    'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                    'y_in': ContinuousSet(goaly - tol, goaly + tol)
+                }
+            ),
+            # Goal(
+            #     {
+            #         'x_in': ContinuousSet(4.5, 5.5),
+            #         'y_in': ContinuousSet(59.5, 60.5)
+            #     }
+            # ),
+            models=self.models
         )
+        self.path = list(self.a_star.search())
 
-        # Transform into internal values/intervals (symbolic values to their indices)
-        query_ = tm._preprocess_query(
-            q_,
-            skip_unknown_variables=True
-        )
-
-        for i, var in enumerate(tm.variables):
-            if var in query_: continue
-            if var.numeric:
-                query_[var] = R
-            else:
-                query_[var] = set(var.domain.labels.values())
-
-        def determine_leaf_confs(l):
-            #  assuming, that the _out variables are deltas and querying for _in semantically means querying for the
-            #  result of adding the delta to the _in variable (i.e. the actual outcome of performing the action
-            #  represented by the leaf)
-            conf = defaultdict(float)
-            s_ = State()
-            s_.tree = "move"
-            s_.leaf = l.idx
-
-            if l.idx in [3476, 3791, 4793]:
-                pass
-            for v, _ in l.distributions.items():
-                vname = v.name
-                invar = vname.replace('_out', '_in')
-                outvar = vname.replace('_in', '_out')
-
-                if vname.endswith('_in') and vname.replace('_in', '_out') in l.distributions:
-                    # if the current variable is an _in variable, and contains the respective _out variable
-                    # distribution, add the two distributions and calculate probability on resulting
-                    # distribution
-                    outdist = l.distributions[outvar]
-                    indist = l.distributions[invar]
-
-                    # determine probability that this action (leaf) produces desired output for this variable
-                    tmp_dist = indist + outdist
-                    c_ = tmp_dist.p(query_[vname])
-
-                    # determine distribution from which the execution of this action (leaf) produces desired output
-                    try:
-                        cond = tmp_dist.crop(query_[vname])
-                        tmp_diff = cond - outdist
-                        tmp_diff = tmp_dist.approximate(n_segments=20)
-                        d_ = tmp_diff
-                    except Unsatisfiability:
-                        c_ = 0
-                else:
-                    # default case
-                    c_ = l.distributions[vname].p(query_[vname])
-                    d_ = l.distributions[vname]
-
-                # drop entire leaf if only one variable has probability 0
-                if not c_ > 0:
-                    return
-                conf[vname] = c_
-                s_[vname] = d_
-            return s_, conf
-
-        # find the leaf (or the leaves) that matches the query best
-        steps = []
-        for i, (k, l) in enumerate(tm.leaves.items()):
-            res = determine_leaf_confs(l)
-            if res is not None:
-                steps.append(res)
-
-        # sort candidates according to overall confidence (=probability to reach) and select `num_preds` best ones
-        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:num_preds]
-
-        # add info so selected_steps contains tuples (step, confidence, distance to init state, leaf prior)
-        selected_steps_ = [(s, c, dist(s, self.init), tm.leaves[s.leaf].prior) for s, c in selected_steps]
-
-        # sort remaining candidates according to distance to init state (=goal in reverse)
-        selected_steps_wasserstein = sorted(selected_steps_, key=lambda x: x[2])  # zum start belief state
-
-        # TODO: for the first num_preds steps, plot leaf distributions for xin/yin variables
-
-        d = pd.DataFrame(
-            data=[
-                gendata(
-                    'x_in',
-                    'y_in',
-                    state=state,
-                    params={
-                        "confidence": "<br>".join([f"{k}: {v}" for k,v in conf.items()]),
-                        "leaf prior": prior,
-                        "distance": dist,
-                        "MPE x_in": state["x_in"].mpe()[0],
-                        "MPE y_in": state["y_in"].mpe()[0],
-                        "EXP x_in": state["x_in"].expectation(),
-                        "EXP y_in": state["y_in"].expectation(),
-                    }
-                ) for (state, conf, dist, prior) in selected_steps_wasserstein
-            ],
-            columns=['x', 'y', 'z', 'lbl'])
-
-        plot_heatmap(
-            xvar='x',
-            yvar='y',
-            data=d,
-            title="$\\text{Predecessors } P(x_{in},y_{in})$",
-            limx=(0, 100),
-            limy=(0, 100),
-            save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-absolute.html"),
-            show=True,
-            fun="heatmap"
-        )
-
-        d = pd.DataFrame(
-            data=[
-                gendata(
-                    'x_out',
-                    'y_out',
-                    state=state,
-                    params={
-                        "confidence": "<br>".join([f"{k}: {v}" for k, v in conf.items()]),
-                        "leaf prior": prior,
-                        "distance": dist,
-                        "MPE x_out": state["x_out"].mpe()[0],
-                        "MPE y_out": state["y_out"].mpe()[0],
-                        "EXP x_out": state["x_out"].expectation(),
-                        "EXP y_out": state["y_out"].expectation(),
-                    }
-                ) for (state, conf, dist, prior) in selected_steps_wasserstein
-            ],
-            columns=['x', 'y', 'z', 'lbl'])
-
-        plot_heatmap(
-            xvar='x',
-            yvar='y',
-            data=d,
-            title="$\\text{Predecessors } P(x_{out},y_{out})$",
-            limx=(-3, 3),
-            limy=(-3, 3),
-            save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-delta.html"),
-            show=True,
-            fun="heatmap"
-        )
+        # # def dist(s1, s2):
+        # #     # return mean of distances to each required variable in init state (=goal in reverse)
+        # #     dists = []
+        # #     for k, v in s2.items():
+        # #         if k in s1:
+        # #             dists.append(Numeric.distance(s1[k], v))
+        # #     return np.mean(dists)
+        #
+        # num_preds = 50
+        #
+        # query = {
+        #     var:
+        #         self.goal[var] if isinstance(self.goal[var], (set, ContinuousSet)) else
+        #         self.goal[var].mpe()[0] for var in self.goal.keys()
+        # }
+        #
+        # # predecessor from move action model
+        # q_ = tm.bind(
+        #     {
+        #         k: v for k, v in query.items() if k in tm.varnames
+        #     },
+        #     allow_singular_values=False
+        # )
+        #
+        # # Transform into internal values/intervals (symbolic values to their indices)
+        # query_ = tm._preprocess_query(
+        #     q_,
+        #     skip_unknown_variables=True
+        # )
+        #
+        # for i, var in enumerate(tm.variables):
+        #     if var in query_: continue
+        #     if var.numeric:
+        #         query_[var] = R
+        #     else:
+        #         query_[var] = set(var.domain.labels.values())
+        #
+        # def determine_leaf_confs(l):
+        #     #  assuming, that the _out variables are deltas and querying for _in semantically means querying for the
+        #     #  result of adding the delta to the _in variable (i.e. the actual outcome of performing the action
+        #     #  represented by the leaf)
+        #     conf = defaultdict(float)
+        #     s_ = State()
+        #     s_.tree = "move"
+        #     s_.leaf = l.idx
+        #
+        #     if l.idx in [3476, 3791, 4793]:
+        #         pass
+        #     for v, _ in l.distributions.items():
+        #         vname = v.name
+        #         invar = vname.replace('_out', '_in')
+        #         outvar = vname.replace('_in', '_out')
+        #
+        #         if vname.endswith('_in') and vname.replace('_in', '_out') in l.distributions:
+        #             # if the current variable is an _in variable, and contains the respective _out variable
+        #             # distribution, add the two distributions and calculate probability on resulting
+        #             # distribution
+        #             outdist = l.distributions[outvar]
+        #             indist = l.distributions[invar]
+        #
+        #             # determine probability that this action (leaf) produces desired output for this variable
+        #             tmp_dist = indist + outdist
+        #             c_ = tmp_dist.p(query_[vname])
+        #
+        #             # determine distribution from which the execution of this action (leaf) produces desired output
+        #             try:
+        #                 cond = tmp_dist.crop(query_[vname])
+        #                 tmp_diff = cond - outdist
+        #                 tmp_diff = tmp_dist.approximate(n_segments=20)
+        #                 d_ = tmp_diff
+        #             except Unsatisfiability:
+        #                 c_ = 0
+        #         else:
+        #             # default case
+        #             c_ = l.distributions[vname].p(query_[vname])
+        #             d_ = l.distributions[vname]
+        #
+        #         # drop entire leaf if only one variable has probability 0
+        #         if not c_ > 0:
+        #             return
+        #         conf[vname] = c_
+        #         s_[vname] = d_
+        #     return s_, conf
+        #
+        # # find the leaf (or the leaves) that matches the query best
+        # steps = []
+        # for i, (k, l) in enumerate(tm.leaves.items()):
+        #     res = determine_leaf_confs(l)
+        #     if res is not None:
+        #         steps.append(res)
+        #
+        # # sort candidates according to overall confidence (=probability to reach) and select `num_preds` best ones
+        # selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:num_preds]
+        #
+        # # add info so selected_steps contains tuples (step, confidence, distance to init state, leaf prior)
+        # selected_steps_ = [(s, c, dist(s, self.init), tm.leaves[s.leaf].prior) for s, c in selected_steps]
+        #
+        # # sort remaining candidates according to distance to init state (=goal in reverse)
+        # selected_steps_wasserstein = sorted(selected_steps_, key=lambda x: x[2])  # zum start belief state
+        #
+        # # TODO: for the first num_preds steps, plot leaf distributions for xin/yin variables
+        #
+        # d = pd.DataFrame(
+        #     data=[
+        #         gendata(
+        #             'x_in',
+        #             'y_in',
+        #             state=state,
+        #             params={
+        #                 "confidence": "<br>".join([f"{k}: {v}" for k,v in conf.items()]),
+        #                 "leaf prior": prior,
+        #                 "distance": dist,
+        #                 "MPE x_in": state["x_in"].mpe()[0],
+        #                 "MPE y_in": state["y_in"].mpe()[0],
+        #                 "EXP x_in": state["x_in"].expectation(),
+        #                 "EXP y_in": state["y_in"].expectation(),
+        #             }
+        #         ) for (state, conf, dist, prior) in selected_steps_wasserstein
+        #     ],
+        #     columns=['x', 'y', 'z', 'lbl'])
+        #
+        # plot_heatmap(
+        #     xvar='x',
+        #     yvar='y',
+        #     data=d,
+        #     title="$\\text{Predecessors } P(x_{in},y_{in})$",
+        #     limx=(0, 100),
+        #     limy=(0, 100),
+        #     save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-absolute.html"),
+        #     show=True,
+        #     fun="heatmap"
+        # )
+        #
+        # d = pd.DataFrame(
+        #     data=[
+        #         gendata(
+        #             'x_out',
+        #             'y_out',
+        #             state=state,
+        #             params={
+        #                 "confidence": "<br>".join([f"{k}: {v}" for k, v in conf.items()]),
+        #                 "leaf prior": prior,
+        #                 "distance": dist,
+        #                 "MPE x_out": state["x_out"].mpe()[0],
+        #                 "MPE y_out": state["y_out"].mpe()[0],
+        #                 "EXP x_out": state["x_out"].expectation(),
+        #                 "EXP y_out": state["y_out"].expectation(),
+        #             }
+        #         ) for (state, conf, dist, prior) in selected_steps_wasserstein
+        #     ],
+        #     columns=['x', 'y', 'z', 'lbl'])
+        #
+        # plot_heatmap(
+        #     xvar='x',
+        #     yvar='y',
+        #     data=d,
+        #     title="$\\text{Predecessors } P(x_{out},y_{out})$",
+        #     limx=(-3, 3),
+        #     limy=(-3, 3),
+        #     save=os.path.join(locs.logs, f"test_astar_single_predecessor_update-delta.html"),
+        #     show=True,
+        #     fun="heatmap"
+        # )
 
     def tearDown(self) -> None:
         # draw path steps into grid (use action symbols)
