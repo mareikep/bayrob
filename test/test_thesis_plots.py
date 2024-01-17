@@ -16,10 +16,12 @@ from pandas import DataFrame
 from calo.application.astar_jpt_app import State_
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe
+    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
+
+from jpt.base.functions import PiecewiseFunction
 from jpt.distributions import Gaussian, Numeric
 from jpt.distributions.quantile.quantiles import QuantileDistribution
 
@@ -48,8 +50,8 @@ class ThesisPlotsTests(unittest.TestCase):
             toImageButtonOptions=dict(
                 format='svg',  # one of png, svg, jpeg, webp
                 filename='calo_plot',
-                height=500,
-                width=700,
+                height=1000,
+                width=1100,
                 scale=1  # Multiply title/legend/axis/canvas sizes by this factor
             )
        )
@@ -284,7 +286,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 x=x,
                 y=pdfg1,
                 mode='lines',
-                name=f'$X_1 \sim \cal{{N}}({mu1},{v1})$',
+                name=f'$X_1 \sim D_1; D2 = \cal{{N}}({mu1},{v1})$',
                 line=dict(
                     color='rgba(0,104,180,1)',
                     width=4,
@@ -385,12 +387,252 @@ class ThesisPlotsTests(unittest.TestCase):
 
         mainfig.write_html(
             os.path.join(locs.logs, f'test_plot_dist_similarity_continuous.html'),
-            config=self.defaultconfig,
+            config=defaultconfig('test_plot_dist_similarity_continuous.html'),
             include_plotlyjs="cdn"
         )
 
         mainfig.show(
-            config=self.defaultconfig
+            config=defaultconfig('test_plot_dist_similarity_continuous.html')
+        )
+
+    def test_plot_dist_similarity_continuous_3(self) -> None:
+        # plot for explaining similarity of continuous dists
+        # Arrange
+
+        limx = (-5, 15)
+        mu1, mu2, mu3 = [-2, 3, 12]
+        v1, v2, v3 = [.4, .4, .4]
+        gauss1 = Gaussian(mu1, v1)
+        gauss2 = Gaussian(mu2, v2)
+        gauss3 = Gaussian(mu3, v3)
+
+        x = np.linspace(*limx, 300)
+        pdfg1 = gauss1.pdf(x)
+        pdfg2 = gauss2.pdf(x)
+        pdfg3 = gauss3.pdf(x)
+
+        # Act
+        mainfig = go.Figure()
+
+        mainfig.add_trace(
+            go.Scatter(
+                x=x,
+                y=pdfg1,
+                mode='lines',
+                name=f'$X_1 \sim d_1; d_1 = \cal{{N}}({mu1},{v1})$',
+                line=dict(
+                    color='rgba(0,104,180,1)',
+                    width=4,
+                )
+            )
+        )
+
+        mainfig.add_trace(
+            go.Scatter(
+                x=x,
+                y=pdfg2,
+                mode='lines',
+                name=f'$X_2 \sim d_2; d_2 = \cal{{N}}({mu2},{v2})$',
+                line=dict(
+                    color='rgba(134, 129, 177,1)',
+                    width=4,
+                )
+            )
+        )
+
+        mainfig.add_trace(
+            go.Scatter(
+                x=x,
+                y=pdfg3,
+                mode='lines',
+                name=f'$X_d \sim d_3; d_3 = \cal{{N}}({mu3},{v3})$',
+                line=dict(
+                    color='rgba(138, 203, 183,1)',
+                    width=4,
+                    # dash="dot"
+                )
+            )
+        )
+
+        mainfig.update_layout(
+            xaxis=dict(
+                title='$x$',
+                range=limx
+            ),
+            yaxis=dict(
+                title='$P(x)$',
+                range=[0, 1]
+            ),
+            legend=dict(
+                yanchor="top",
+                y=0.98,
+                xanchor="left",
+                x=0.01
+            ),
+            height=1000,
+            width=1000,
+        )
+
+        mainfig.write_image(
+            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_3.svg'),
+            scale=1
+        )
+
+        mainfig.write_html(
+            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_3.html'),
+            config=defaultconfig('test_plot_dist_similarity_continuous_3.html'),
+            include_plotlyjs="cdn"
+        )
+
+        mainfig.show(
+            config=defaultconfig('test_plot_dist_similarity_continuous_3.html')
+        )
+
+    def test_plot_dist_similarity_continuous_wasserstein(self) -> None:
+        # plot for explaining similarity of continuous dists
+        # Arrange
+
+        limx = (-5, 15)
+        mu1, mu2, mu3 = [-2, 3, 12]
+        v1, v2, v3 = [.4, .4, .4]
+        gauss1 = Gaussian(mu1, v1)
+        gauss2 = Gaussian(mu2, v2)
+        gauss3 = Gaussian(mu3, v3)
+
+        x = np.linspace(*limx, 300)
+
+        # generate dists to
+        d1 = gauss1.sample(500)
+        dist1 = Numeric()
+        dist1.fit(d1.reshape(-1, 1), col=0)
+        figd1 = dist1.plot(view=False, color='rgba(0,104,180,1)', xlabel='x', title=f'$X_1 \sim D_2; D2 = \cal{{N}}({mu1},{v1})$')
+
+        d2 = gauss2.sample(500)
+        dist2 = Numeric()
+        dist2.fit(d2.reshape(-1, 1), col=0)
+        figd2 = dist2.plot(view=False, color='rgba(134, 129, 177,1)', xlabel='x', title=f'$X_2 \sim D_2; D2 = \cal{{N}}({mu2},{v2})$')
+
+        d3 = gauss3.sample(500)
+        dist3 = Numeric()
+        dist3.fit(d3.reshape(-1, 1), col=0)
+        figd3 = dist3.plot(view=False, color='rgba(138, 203, 183,1)', xlabel='x', title=f'$X_3 \sim D_1; D1 = \cal{{N}}({mu3},{v3})$')
+
+        diff1 = PiecewiseFunction.abs(dist1.cdf - dist2.cdf)
+        dist4 = Numeric().set(params=QuantileDistribution.from_cdf(diff1))
+        figd4 = dist4.plot(view=False, color='#383838', xlabel='x', title=f'$d_3 | d_1 - d_2 |$')
+        figd4.data[0].update(dict(
+            fill='tozeroy',
+            fillcolor="#d3d3d3",
+            fillpattern=dict(shape='/'),
+            line=dict(color="#383838"),
+            name="diff1",
+            opacity=0.5
+        ))
+
+        diff2 = PiecewiseFunction.abs(dist2.cdf - dist3.cdf)
+        dist5 = Numeric().set(params=QuantileDistribution.from_cdf(diff2))
+        figd5 = dist5.plot(view=False, color='#383838', xlabel='x', title=f'$d_3 | d_1 - d_2 |$')
+        figd5.data[0].update(dict(
+            fill='tozeroy',
+            fillcolor="#d3d3d3",
+            fillpattern=dict(shape='x'),
+            line=dict(color="#383838"),
+            name="diff2",
+            opacity=0.5
+        ))
+
+        d12 = dist1.distance(dist2)
+        d13 = dist1.distance(dist3)
+        d23 = dist2.distance(dist3)
+
+        s12 = dist1.similarity(dist2)
+        s13 = dist1.similarity(dist3)
+        s23 = dist2.similarity(dist3)
+
+        print('Wasserstein', d12, d13, d23)
+        print('Jaccard', s12, s13, s23)
+
+        # Act
+        mainfig = go.Figure()
+
+        mainfig.add_traces(figd4.data)
+        mainfig.add_traces(figd5.data)
+        mainfig.add_traces(figd1.data)
+        mainfig.add_traces(figd2.data)
+        mainfig.add_traces(figd3.data)
+
+        # mainfig.add_trace(
+        #     go.Scatter(
+        #         x=x,
+        #         y=pdfg1,
+        #         mode='lines',
+        #         name=f'$X_1 \sim \cal{{N}}({mu1},{v1})$',
+        #         line=dict(
+        #             color='rgba(0,104,180,1)',
+        #             width=4,
+        #         )
+        #     )
+        # )
+        #
+        # mainfig.add_trace(
+        #     go.Scatter(
+        #         x=x,
+        #         y=pdfg2,
+        #         mode='lines',
+        #         name=f'$X_2 \sim \cal{{N}}({mu2},{v2})$',
+        #         line=dict(
+        #             color='rgba(134, 129, 177,1)',
+        #             width=4,
+        #         )
+        #     )
+        # )
+        #
+        # mainfig.add_trace(
+        #     go.Scatter(
+        #         x=x,
+        #         y=pdfg3,
+        #         mode='lines',
+        #         name=f'$X_3 \sim \cal{{N}}({mu3},{v3})$',
+        #         line=dict(
+        #             color='rgba(138, 203, 183,1)',
+        #             width=4,
+        #             # dash="dot"
+        #         )
+        #     )
+        # )
+
+        mainfig.update_layout(
+            xaxis=dict(
+                title='$x$',
+                range=limx
+            ),
+            yaxis=dict(
+                title='$P(x)$',
+                range=[0, 1]
+            ),
+            legend=dict(
+                yanchor="top",
+                y=0.98,
+                xanchor="left",
+                x=0.01
+            ),
+            height=1000,
+            width=1000,
+        )
+
+        mainfig.write_image(
+            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_wasserstein.svg'),
+            scale=1
+        )
+
+        mainfig.write_html(
+            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_wasserstein.html'),
+            config=defaultconfig('test_plot_dist_similarity_continuous_wasserstein.html'),
+            include_plotlyjs="cdn"
+        )
+
+        mainfig.show(
+            config=defaultconfig('test_plot_dist_similarity_continuous_wasserstein.html')
         )
 
 
@@ -1052,35 +1294,35 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries = {
-            "apriori": [
-                ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
-            ],
+            # "apriori": [
+            #     ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
+            # ],
             "milk-detected": [
-                ({'detected(milk)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True}, ["open(fridge_door)"])#['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                # ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
             ],
-            "beer-detected": [
-                ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            ],
-            "bowl-detected": [
-                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            ],
-            "nearest_furniture": [
-                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            ],
-            "open": [
-                ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-
-            ],
+            # "beer-detected": [
+            #     ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            # ],
+            # "bowl-detected": [
+            #     ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            # ],
+            # "nearest_furniture": [
+            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            # ],
+            # "open": [
+            #     ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #     ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            #
+            # ],
         }
 
         for postype, queries in queries.items():
@@ -1190,18 +1432,21 @@ class ThesisPlotsTests(unittest.TestCase):
                             yvar=None,
                             constraints=query,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
-                            show=False,
-                            plot_type="histogram"
+                            show=True,
+                            plot_type="histogram",
+                            normalize=True,
+                            color='rgb(0,104,180)'
                         )
 
                         # plot distribution of variable
                         print('PLOTTING DIST', plot)
                         if plot in post:
                             post[plot].plot(
-                                view=False,
+                                view=True,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
                                 fname=f"{prefix}-{plot}-dist.html",
                                 directory=plotdir,
+                                color='rgb(134,129,177)'
                             )
 
 
@@ -1219,9 +1464,6 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries_ = {
-            "apriori": [
-                ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
-            ],
             "failure": [  # failed actions
                 ({'success': False}, ['type', "positions", "failure"]),
                 ({'type': "Grasping", "success": False}, ["positions", "failure"]),
@@ -1231,6 +1473,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 ({"success": True, 'type': "Grasping"}, ["positions", "bodyPartsUsed", "type"]),
                 ({"success": True, 'type': "Placing"}, ["positions", "bodyPartsUsed", "type"]),
                 ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
+            ],
+            "apriori": [
+                ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
             ],
         }
 
@@ -1344,7 +1589,9 @@ class ThesisPlotsTests(unittest.TestCase):
                             constraints=query,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
                             show=False,
-                            plot_type="histogram"
+                            plot_type="histogram",
+                            normalize=True,
+                            color='rgb(0,104,180)'
                         )
 
                         # plot distribution of variable
@@ -1354,12 +1601,13 @@ class ThesisPlotsTests(unittest.TestCase):
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
                                 fname=f"{prefix}-{plot}-dist.html",
                                 directory=plotdir,
+                                color='rgb(134,129,177)'
                             )
 
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, 0, -1]
-        shift = False
+        shift = True
         tolerance = .01
 
         dx = Gaussian(initx, tolerance).sample(500)
@@ -1388,6 +1636,7 @@ class ThesisPlotsTests(unittest.TestCase):
             }
         )
 
+        # alter this and comment out cmds below for playing around
         cmds = [
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
@@ -1401,35 +1650,34 @@ class ThesisPlotsTests(unittest.TestCase):
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 30}},
+        ]
+
+        # do not touch, diss-plot configuration!
+        cmds = [
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 12}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 10}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}}
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
         ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = initstate
         p = [[s, {}]]
         for i, cmd in enumerate(cmds):
-            print(f'Step {i+1} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
+            print(f'Step {i} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
             t = self.models[cmd['tree']]
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -1583,6 +1831,37 @@ class ThesisPlotsTests(unittest.TestCase):
         #     save=f'test_astar_cram_path_posxy',
         #     show=False
         # )
+
+    def test_two_gaussians_diff(self) -> None:
+
+        g1x = Gaussian(-.25, .2)
+        g1y = Gaussian(-.25, .1)
+        d1x = g1x.sample(500)
+        d1y = g1y.sample(500)
+        dist1x = Numeric()
+        dist1y = Numeric()
+        dist1x.fit(d1x.reshape(-1, 1), col=0)
+        dist1y.fit(d1y.reshape(-1, 1), col=0)
+
+        g2x = Gaussian(1, .2)
+        g2y = Gaussian(.5, .05)
+        d2x = g2x.sample(500)
+        d2y = g2y.sample(500)
+        dist2x = Numeric()
+        dist2y = Numeric()
+        dist2x.fit(d2x.reshape(-1, 1), col=0)
+        dist2y.fit(d2y.reshape(-1, 1), col=0)
+
+        dist3x = Numeric().set(QuantileDistribution.from_cdf(dist2x.cdf.xshift(-5)))
+        dist3y = Numeric().set(QuantileDistribution.from_cdf(dist2y.cdf.xshift(-1)))
+
+        plot_multiple_dists(
+            [[dist1x, dist1y], [dist2x, dist2y], [dist3x, dist3y]],
+            # [[dist2x, dist2y], [dist3x, dist3y]],
+            limx=(-2, 8),
+            limy=(2, 2),
+            show=True
+        )
 
     def test_move_till_collision(self) -> None:
         # position near obstacle or wall and move a couple of stepps, observe state of collision variable

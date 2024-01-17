@@ -525,10 +525,8 @@ def recent_example(
 
 def fmt(val, prec=2):
     # helper function to format a value for __str__ and __repr__ functions of Node, State, Goal classes
-    if isinstance(val, Numeric):
-        return f"{val.expectation():.{prec}f}"
-    elif isinstance(val, (Integer, Bool, Multinomial)):
-        return f"{val.mpe()[1]}"
+    if isinstance(val, (Numeric, Integer, Bool, Multinomial)):
+        return fmt(val.mpe()[0], prec=prec)
     elif isinstance(val, float):
         return f"{val:.{prec}f}"
     elif isinstance(val, ContinuousSet):
