@@ -51,7 +51,8 @@ def generate_data(fp, args):
         df = df.drop(columns=['q_x', 'q_y', 'q_z', 'q_w'])
 
         # drop columns that are not necessary for learning
-        df = df.drop(columns=['id_x', 'startTime', 'endTime', 'parent', 'angle_x', 'angle_y'])
+        # df = df.drop(columns=['id_x', 'startTime', 'endTime', 'parent', 'angle_x', 'angle_y'])
+        df = df.drop(columns=['id_x', 'endTime', 'parent', 'angle_x', 'angle_y'])
 
         logger.debug(f"saving merged file to {os.path.join(fp, 'data', f'{path.name}.parquet')}")
         df.to_parquet(os.path.join(fp, 'data', f'{path.name}.parquet'))
@@ -66,7 +67,7 @@ def generate_data(fp, args):
     cols = {
         # 'id_x': str,
         'type': str,
-        # 'startTime': np.float32,  # 'datetime64[s]',
+        'startTime': np.int32,  # 'datetime64[s]',
         # 'endTime': np.float32,  # 'datetime64[s]',
         'duration': np.float32,
         'success': bool,
