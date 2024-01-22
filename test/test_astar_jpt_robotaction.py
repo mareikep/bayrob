@@ -211,7 +211,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
 
     def test_astar_fw_path_multiple(self) -> None:
-        initx, inity, initdirx, initdiry = [3.5, 58.5, 0, 1]  # [3, 60, 1, 0]
+        initx, inity, initdirx, initdiry = [3.5, 58.5, .6, .3]  # [3, 60, 1, 0]
         goalx, goaly = [10, 65]
         tolerance_pos = 0.05
         tolerance_dir = .01
@@ -303,9 +303,118 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
         self.path.reverse()
 
+    def test_astar_bw_path_single_multinomialgoal(self) -> None:
+        initx, inity, initdirx, initdiry = [60, 72, .8, .1]  # [3, 60, 1, 0]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        goal = Goal(
+            {
+                'detected(milk)': {True},
+            }
+        )
+
+        init = State(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
+        self.a_star = SubAStarBW_(
+            init,
+            goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+        self.path.reverse()
+
+    def test_astar_bw_path_single_step_from_beliefstate(self) -> None:
+        tp = self.models['perception']
+        lp = tp.leaves[167]
+        goal = Goal({k.name: v for k, v in lp.distributions.items()})
+        goal.tree = 'perception'
+        goal.leaf = lp.idx
+
+        tm = self.models['move']
+        lm = tm.leaves[666]
+        init = State({k.name: v for k, v in lm.distributions.items() if k.name not in ['x_out', 'y_out', 'collided']})
+        init.tree = 'move'
+        init.leaf = lm.idx
+
+        self.a_star = SubAStarBW_(
+            init,
+            goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+        self.path.reverse()
+
+    def test_astar_fw_path_single_multinomialgoal(self) -> None:
+        initx, inity, initdirx, initdiry = [63, 74, -.75, -.75]  # [3, 60, 1, 0]
+        tolerance_pos = 0.05
+        tolerance_dir = .01
+
+        dx = Gaussian(initx, tolerance_pos).sample(500)
+        distx = Numeric()
+        distx.fit(dx.reshape(-1, 1), col=0)
+
+        dy = Gaussian(inity, tolerance_pos).sample(500)
+        disty = Numeric()
+        disty.fit(dy.reshape(-1, 1), col=0)
+
+        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        distdx = Numeric()
+        distdx.fit(ddx.reshape(-1, 1), col=0)
+
+        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        distdy = Numeric()
+        distdy.fit(ddy.reshape(-1, 1), col=0)
+
+        goal = Goal(
+            {
+                'detected(milk)': {True},
+            }
+        )
+
+        init = State(
+            {
+                'x_in': distx,
+                'y_in': disty,
+                'xdir_in': distdx,
+                'ydir_in': distdy
+            }
+        )
+
+        self.a_star = SubAStar_(
+            init,
+            goal,
+            models=self.models
+        )
+        self.path = list(self.a_star.search())
+        self.path.reverse()
+
     # @unittest.skip
     def test_astar_bw_path_multiple(self) -> None:
-        initx, inity, initdirx, initdiry = [3.5, 58.5, 0, 1]  # [3, 60, 1, 0]
+        initx, inity, initdirx, initdiry = [3.5, 58.5, .3, .6]  # [3, 60, 1, 0]
         goalx, goaly = [10, 65]
         tolerance_pos = 0.05
         tolerance_dir = .01

@@ -106,8 +106,7 @@ class State(dict):
             )
 
     def __str__(self) -> str:
-        return f'{self.__class__.__name__}({", ".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])})' + \
-            f'[{self.tree}({self.leaf})]'
+        return f'{self.__class__.__name__}[{self.tree}({self.leaf})]'
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}[{";".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])}]' + \
@@ -500,15 +499,18 @@ class SubAStarBW(SubAStar):
         if self.dist(node.state, self.initstate) <= 0.11: return True
 
         for var, val in node.state.items():
-            if var not in self.initstate.keys(): continue  # skip check for variables not present in the initstate
             if isinstance(val, Distribution):
+                # skip check for variables not present in the initstate as the initstate might be underspecified and
+                # variables not set are considered "wild cards"
+                if var not in self.initstate.keys(): continue
                 # default: node.state is belief state (values of both node.state and self.initstate are distributions)
-                # if node.state[var].p(self.initstate[var].mpe()[0]) < .7 and type(node.state[var]).jaccard_similarity(node.state[var], self.initstate[var]) < .8:
                 if type(val).jaccard_similarity(self.initstate[var], val) < .7:
                     return False
             else:
                 # first step: node.state is Goal object (values are sets or ContinuousSets)
-                # if less than 70% of the node.state match the goal spec, return false
+                # if less than 70% of the node.state match the goal spec or if any of the variables in the goal
+                # specification is not present in the initstate at all, return false
+                if var not in self.initstate.keys(): return False
                 intersection = val.intersection(self.initstate[var].mpe()[0])
                 if self.jaccard_similarity(intersection, val) < .7:
                     return False
@@ -556,14 +558,6 @@ class SubAStarBW(SubAStar):
             skip_unknown_variables=True
         )
 
-        # update non-query variables to allow all possible values
-        for i, var in enumerate(t.variables):
-            if var in query_: continue
-            if var.numeric:
-                query_[var] = R
-            else:
-                query_[var] = set(var.domain.labels.values())
-
         def determine_leaf_confs(l):
             #  assuming, that the _out variables are deltas but querying for _out semantically means querying for the
             #  result of adding the delta to the _in variable (i.e. the actual outcome of performing the action
@@ -574,18 +568,29 @@ class SubAStarBW(SubAStar):
             s_.leaf = l.idx
 
             for v, _ in l.distributions.items():
+                if treename == "perception" and l.idx in [19,20]:
+                    print("stop")
                 vname = v.name
-                invar = vname.replace('_out', '_in')
-                outvar = vname.replace('_in', '_out')
 
-                if vname.endswith('_in') and vname.replace('_in', '_out') in l.distributions:
+                if vname.endswith('_out'):
+                    # skip to not write out variables into belief state
+                    continue
+                elif vname not in query:
+                    # if the current variable is not queried for, save expensive computations and directly set the
+                    # confidence to 1
+                    c_ = 1
+                    d_ = l.distributions[vname]
+                elif vname.endswith('_in') and vname.replace('_in', '_out') in l.distributions:
                     # if the current variable is an _in variable, and contains the respective _out variable
-                    # distribution, add the two distributions and calculate probability on resulting
+                    # distribution, add the two distributions and calculate the probability on the resulting
                     # distribution
+                    invar = vname.replace('_out', '_in')
+                    outvar = vname.replace('_in', '_out')
+
                     outdist = l.distributions[outvar]
                     indist = l.distributions[invar]
 
-                    # determine probability that this action (leaf) produces desired output for this variable
+                    # determine probability of this action (leaf) producing desired output for variable `v`
                     tmp_dist = indist + outdist
                     c_ = tmp_dist.p(query_[vname])
 
@@ -600,9 +605,6 @@ class SubAStarBW(SubAStar):
                         d_ = tmp_diff.approximate(n_segments=20)
                     except Unsatisfiability:
                         return
-                elif vname.endswith('_out'):
-                    # do not write out variables into belief state
-                    continue
                 else:
                     # default case
                     c_ = l.distributions[vname].p(query_[vname])

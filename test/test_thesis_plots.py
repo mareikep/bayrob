@@ -13,10 +13,10 @@ import plotly.graph_objects as go
 from matplotlib import pyplot as plt
 from pandas import DataFrame
 
-from calo.application.astar_jpt_app import State_
+from calo.core.astar_jpt import State
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists
+    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
@@ -45,17 +45,6 @@ class ThesisPlotsTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-       cls.defaultconfig = dict(
-            displaylogo=False,
-            toImageButtonOptions=dict(
-                format='svg',  # one of png, svg, jpeg, webp
-                filename='calo_plot',
-                height=1000,
-                width=1100,
-                scale=1  # Multiply title/legend/axis/canvas sizes by this factor
-            )
-       )
-
        cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
        cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
        cls.recent_perception = recent_example(os.path.join(locs.examples, 'perception'))
@@ -247,19 +236,10 @@ class ThesisPlotsTests(unittest.TestCase):
             )
         )
 
-        mainfig.write_image(
-            os.path.join(locs.logs, f'test_plot_dist_add_continuous.svg'),
-            scale=1
-        )
-
-        mainfig.write_html(
-            os.path.join(locs.logs, f'test_plot_dist_add_continuous.html'),
-            config=self.defaultconfig,
-            include_plotlyjs="cdn"
-        )
+        fig_to_file(mainfig, os.path.join(locs.logs, f'test_plot_dist_add_continuous.html'), ftypes=['.svg', '.html'])
 
         mainfig.show(
-            config=self.defaultconfig
+            config=defaultconfig('test_plot_dist_similarity_continuous')
         )
 
     def test_plot_dist_similarity_continuous(self) -> None:
@@ -967,7 +947,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # load data and JPT that has been learnt from this data
         j = self.models['000-move.tree']
-        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
 
         # set settings
         limx = (-3, 3)
@@ -978,51 +958,55 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
             "free-pos": [  # random position in obstacle-free area
+                (20, 70, -.7, -.7),
+                (20, 70, .7, -.7),
+                (20, 70, .7, .7),
+                (20, 70, -.7, .7),
+                (20, 70, -1, 0),
+                (20, 70, 1, 0),
+                (20, 70, 0, 1),
+                (20, 70, 0, -1),
+                (50, 50, None, None),
                 (None, None, None, None),
-                # (50,50, None, None),
-                # (20, 70, -.7, -.7),
-                # (20, 70, .7, -.7),
-                # (20, 70, .7, .7),
-                # (20, 70, -.7, .7),
             ],
-            # "no-pos": [  # all directions without given pos
-            #     (None, None, 0, -1),
-                # (None, None, 0, 1),
-                # (None, None, .5, -.5),
-                # (None, None, .5, .5),
-                # (None, None, -.5, -.5),
-                # (None, None, -.5, .5),
-                # (None, None, 1, 0),
-                # (None, None, -1, 0),
-                # (None, None, -1, None),
-                # (None, None, 1, None),
-                # (None, None, None, -1),
-                # (None, None, None, 1),
-            # ],
-            # "grid-corners": [  # all corners of gridworld
-            #     (0, 0, None, None),
-            #     (0, 100, None, None),  # broken!
-            #     (100, 0, None, None),  # broken!
-            #     (100, 100, None, None)  # broken!
-            # ],
-            # "grid-edges": [  # all edges of gridworld (center)
-            #     (0, 50, None, None),
-            #     (100, 10, None, None),
-            #     (50, 0, None, None),
-            #     (50, 100, None, None)
-            # ],
-            # "obstacle-corners": [  # all corners of one obstacle
-            #     (ox1, oy1, None, None),
-            #     (ox2, oy2, None, None),
-            #     (ox1, oy2, None, None),
-            #     (ox2, oy1, None, None)
-            # ],
-            # "obstacle-edges": [  # all edges of one obstacle
-            #     (ox1, oy1+(oy2-oy1)/2, None, None),
-            #     (ox2, oy1+(oy2-oy1)/2, None, None),
-            #     (ox1+(ox2-ox1)/2, oy1, None, None),
-            #     (ox1+(ox2-ox1)/2, oy2, None, None)
-            # ],
+            "no-pos": [  # all directions without given pos
+                (None, None, 0, -1),
+                (None, None, 0, 1),
+                (None, None, 1, 0),
+                (None, None, -1, 0),
+                (None, None, .5, -.5),
+                (None, None, .5, .5),
+                (None, None, -.5, -.5),
+                (None, None, -.5, .5),
+                (None, None, -1, None),
+                (None, None, 1, None),
+                (None, None, None, -1),
+                (None, None, None, 1),
+            ],
+            "grid-corners": [  # all corners of gridworld
+                (0, 0, None, None),
+                (0, 100, None, None),  # broken!
+                (100, 0, None, None),  # broken!
+                (100, 100, None, None)  # broken!
+            ],
+            "grid-edges": [  # all edges of gridworld (center)
+                (0, 50, None, None),
+                (100, 10, None, None),
+                (50, 0, None, None),
+                (50, 100, None, None)
+            ],
+            "obstacle-corners": [  # all corners of one obstacle
+                (ox1, oy1, None, None),
+                (ox2, oy2, None, None),
+                (ox1, oy2, None, None),
+                (ox2, oy1, None, None)
+            ],
+            "obstacle-edges": [  # all edges of one obstacle
+                (ox1, oy1+(oy2-oy1)/2, None, None),
+                (ox2, oy1+(oy2-oy1)/2, None, None),
+                (ox1+(ox2-ox1)/2, oy1, None, None),
+                (ox1+(ox2-ox1)/2, oy2, None, None)
+            ],
         }
 
         for postype, pos in positions.items():
@@ -1065,17 +1049,11 @@ class ThesisPlotsTests(unittest.TestCase):
                     fail_on_unsatisfiability=False
                 )
 
-                post = j.posterior(evidence=j.bind(
-                        {k: v for k, v in pdfvars.items() if k in j.varnames},
-                        allow_singular_values=False
-                    ),
-                    fail_on_unsatisfiability=False)
-
                 print(len(j.allnodes), len(cond.allnodes))
 
                 # data generation
-                x = np.linspace(*limx, 50)
-                y = np.linspace(*limy, 50)
+                x = np.linspace(*limx, 200)
+                y = np.linspace(*limy, 200)
 
                 X, Y = np.meshgrid(x, y)
                 Z = np.array(
@@ -1107,7 +1085,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
-                    save=os.path.join(plotdir, f"{prefix}-gt.svg"),
+                    save=os.path.join(plotdir, f"{prefix}-gt.html"),
                     show=False
                 )
 
@@ -1294,35 +1272,36 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries = {
-            # "apriori": [
-            #     ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
-            # ],
-            "milk-detected": [
-                ({'detected(milk)': True}, ["open(fridge_door)"])#['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                # ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            "apriori": [
+                ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
+                # ({}, detected_objects)
             ],
-            # "beer-detected": [
-            #     ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            # ],
-            # "bowl-detected": [
-            #     ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            # ],
-            # "nearest_furniture": [
-            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            # ],
-            # "open": [
-            #     ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #     ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-            #
-            # ],
+            "milk-detected": [
+                ({'detected(milk)': True}, ["open(fridge_door)"]),#['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "beer-detected": [
+                ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "bowl-detected": [
+                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "nearest_furniture": [
+                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+            ],
+            "open": [
+                ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+
+            ],
         }
 
         for postype, queries in queries.items():
@@ -1353,26 +1332,28 @@ class ThesisPlotsTests(unittest.TestCase):
                     ),
                     fail_on_unsatisfiability=False
                 )
-
-                j.plot(
-                    filename=f'{prefix}-orig',
-                    directory=os.path.join(plotdir),
-                    leaffill='#CCDAFF',
-                    nodefill='#768ABE',
-                    alphabet=True,
-                    view=False
-                )
-                cond.plot(
-                    filename=f'{prefix}-conditional',
-                    directory=os.path.join(plotdir),
-                    leaffill='#CCDAFF',
-                    nodefill='#768ABE',
-                    alphabet=True,
-                    view=False
-                )
+                #
+                # j.plot(
+                #     filename=f'{prefix}-orig',
+                #     directory=os.path.join(plotdir),
+                #     leaffill='#CCDAFF',
+                #     nodefill='#768ABE',
+                #     alphabet=True,
+                #     view=False
+                # )
+                # cond.plot(
+                #     filename=f'{prefix}-conditional',
+                #     directory=os.path.join(plotdir),
+                #     leaffill='#CCDAFF',
+                #     nodefill='#768ABE',
+                #     alphabet=True,
+                #     view=False
+                # )
 
                 for plot in plots:
                     print(f'Plotting {plot}')
+                    limx = (0, 100)
+                    limy = (0, 100)
 
                     # plot ground truth
                     if plot == "positions":
@@ -1380,14 +1361,14 @@ class ThesisPlotsTests(unittest.TestCase):
                             df,
                             xvar='x_in',
                             yvar='y_in',
+                            limx=limx,
+                            limy=limy,
                             constraints=query,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
-                            show=True
+                            show=False
                         )
 
                         # data generation
-                        limx = (0, 100)
-                        limy = (0, 100)
                         x = np.linspace(*limx, 200)
                         y = np.linspace(*limy, 200)
 
@@ -1408,7 +1389,7 @@ class ThesisPlotsTests(unittest.TestCase):
                             title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
                             limx=limx,
                             limy=limy,
-                            show=True,
+                            show=False,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.svg"),
                             showbuttons=False
                         )
@@ -1421,7 +1402,7 @@ class ThesisPlotsTests(unittest.TestCase):
                             title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
                             limx=limx,
                             limy=limy,
-                            show=True,
+                            show=False,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-dist-surface.html"),
                             fun="surface"
                         )
@@ -1432,7 +1413,7 @@ class ThesisPlotsTests(unittest.TestCase):
                             yvar=None,
                             constraints=query,
                             save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
-                            show=True,
+                            show=False,
                             plot_type="histogram",
                             normalize=True,
                             color='rgb(0,104,180)'
@@ -1442,7 +1423,7 @@ class ThesisPlotsTests(unittest.TestCase):
                         print('PLOTTING DIST', plot)
                         if plot in post:
                             post[plot].plot(
-                                view=True,
+                                view=False,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
                                 fname=f"{prefix}-{plot}-dist.html",
                                 directory=plotdir,
@@ -1626,7 +1607,7 @@ class ThesisPlotsTests(unittest.TestCase):
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
-        initstate = State_()
+        initstate = State()
         initstate.update(
             {
                 'x_in': distx,
@@ -1664,13 +1645,13 @@ class ThesisPlotsTests(unittest.TestCase):
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
+            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
         ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
@@ -1711,7 +1692,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 continue
 
             # create successor state
-            s_ = State_()
+            s_ = State()
             s_.update({k: v for k, v in s.items()})
             s_.tree = cmd['tree']
             s_.leaf = None
@@ -1753,7 +1734,7 @@ class ThesisPlotsTests(unittest.TestCase):
                         s_[vname] = s_[vname].approximate(n_segments=20)
 
             p.append([s_, cmd['params']])
-            s = State_()
+            s = State()
             s.update({k: v for k, v in s_.items()})
 
         # plot annotated rectangles representing the obstacles and world boundaries
@@ -1886,7 +1867,7 @@ class ThesisPlotsTests(unittest.TestCase):
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
-        initstate = State_()
+        initstate = State()
         initstate.update(
             {
                 'x_in': distx,
@@ -1930,7 +1911,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 continue
 
             # create successor state
-            s_ = State_()
+            s_ = State()
             s_.update({k: v for k, v in s.items()})
             s_.tree = '000-move.tree'
             s_.leaf = None
@@ -1960,7 +1941,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     s_[invar] = s_[invar].approximate(n_segments=20)
 
             p.append([s_, {'action': 'move'}])
-            s = State_()
+            s = State()
             s.update({k: v for k, v in s_.items()})
 
         # plot annotated rectangles representing the obstacles and world boundaries

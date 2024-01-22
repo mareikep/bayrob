@@ -268,10 +268,11 @@ class SubAStar_(SubAStar):
         )
 
         # determine corners of goal area
-        gxl = self.goal[xvar].lower if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
-        gxu = self.goal[xvar].upper if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
-        gyl = self.goal[yvar].lower if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
-        gyu = self.goal[yvar].upper if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
+        if xvar in self.goal and yvar in self.goal:
+            gxl = self.goal[xvar].lower if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
+            gxu = self.goal[xvar].upper if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
+            gyl = self.goal[yvar].lower if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
+            gyu = self.goal[yvar].upper if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
 
         # determine position and direction of initstate
         ix = np.mean([self.initstate[xvar].mpe()[0].lower, self.initstate[xvar].mpe()[0].upper])
@@ -315,14 +316,15 @@ class SubAStar_(SubAStar):
         )
 
         # generate goal area plot
-        fig_initstate.add_trace(
-            plotly_sq(
-                area=(gxl, gyl, gxu, gyu),
-                lbl=f"Goal Area",
-                legend=False,
-                color='rgb(0,127,0)'
+        if xvar in self.goal and yvar in self.goal:
+            fig_initstate.add_trace(
+                plotly_sq(
+                    area=(gxl, gyl, gxu, gyu),
+                    lbl=f"Goal Area",
+                    legend=False,
+                    color='rgb(0,127,0)'
+                )
             )
-        )
 
         # add initstate and goal area plots to main plot
         mainfig.add_traces(
@@ -613,7 +615,12 @@ class SubAStarBW_(SubAStarBW):
                 np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),     # dx
                 np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),     # dy
                 f'Step {i}',                    # step
-                f'<b>Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br><b>MPEs:</b><br>{"<br>".join(f"{k}: {fmt(v)}" for k, v in s.items())}',  # lbl
+                f'<b>{"ROOT" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br>'
+                f'<b>MPEs:</b><br>'
+                f'{"<br>".join(f"<i>{k}:</i> {fmt(v)}" for k, v in s.items())}<br>'
+                f'<b>Expectations:</b><br>'
+                f'{"<br>".join(f"<i>{k}:</i> {fmt(v.expectation())}" for k, v in s.items())}<br>',
+                # f'<b>Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br><b>MPEs:</b><br>{"<br>".join(f"{k}: {fmt(v)}" for k, v in s.items())}',  # lbl
                 1                               # size
             )
             for i, s in enumerate(p) if not isinstance(s, Goal)
@@ -650,10 +657,11 @@ class SubAStarBW_(SubAStarBW):
         )
 
         # determine corners of goal area
-        gxl = self.goal[xvar].lower if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
-        gxu = self.goal[xvar].upper if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
-        gyl = self.goal[yvar].lower if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
-        gyu = self.goal[yvar].upper if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
+        if xvar in self.goal and yvar in self.goal:
+            gxl = self.goal[xvar].lower if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
+            gxu = self.goal[xvar].upper if isinstance(self.goal[xvar], ContinuousSet) else first(self.goal[xvar])
+            gyl = self.goal[yvar].lower if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
+            gyu = self.goal[yvar].upper if isinstance(self.goal[yvar], ContinuousSet) else first(self.goal[yvar])
 
         # determine position and direction of initstate
         ix = np.mean([self.initstate[xvar].mpe()[0].lower, self.initstate[xvar].mpe()[0].upper])
@@ -697,14 +705,15 @@ class SubAStarBW_(SubAStarBW):
         )
 
         # generate goal area plot
-        fig_initstate.add_trace(
-            plotly_sq(
-                area=(gxl, gyl, gxu, gyu),
-                lbl=f"Goal Area",
-                legend=False,
-                color='rgb(0,127,0)'
+        if xvar in self.goal and yvar in self.goal:
+            fig_initstate.add_trace(
+                plotly_sq(
+                    area=(gxl, gyl, gxu, gyu),
+                    lbl=f"Goal Area",
+                    legend=False,
+                    color='rgb(0,127,0)'
+                )
             )
-        )
 
         # add initstate and goal area plots to main plot
         mainfig.add_traces(

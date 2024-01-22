@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from _plotly_utils.colors import sample_colorscale
 from jpt.base.intervals import ContinuousSet
+from pandas import DataFrame
 from plotly.graph_objs import Figure
 
 from calo.utils.constants import calologger
@@ -49,17 +50,37 @@ def fig_from_json_file(fname) -> Figure:
         return pio.from_json(json.dumps(json.load(f)))
 
 
-def fig_to_file(fig, fname) -> None:
-    logger.debug(f"Saving plot to file {fname}...")
-    if fname.endswith('html'):
-        fig.write_html(
-            fname,
-            config=defaultconfig(fname),
-            include_plotlyjs="cdn"
-        )
-        fig.write_json(fname.replace("html", "json"))
-    else:
-        fig.write_image(fname)
+def fig_to_file(fig, fname, ftypes=None) -> None:
+    '''Writes figure to file with name `fname`. If multiple extensions are given in ftypes, the same figure is saved
+    to multiple file formats.
+    '''
+    fpath = Path(fname)
+    suffix = fpath.suffix
+    fname = fpath.stem
+
+    if ftypes is None:
+        ftypes = []
+
+    if suffix:
+        ftypes.append(suffix)
+
+    ftypes = set([f".{ft}" if not ft.startswith('.') else ft for ft in ftypes])
+
+    for ft in ftypes:
+        if ft == '.html':
+            logger.debug(f"Saving plot html and json file: {fpath.with_suffix(ft)}...")
+            fig.write_json(fpath.with_suffix(ft))
+            fig.write_html(
+                fpath.with_suffix(ft),
+                config=defaultconfig(fname),
+                include_plotlyjs="cdn"
+            )
+        elif ft == '.json':
+            logger.debug(f"Saving plot json file: {fpath.with_suffix(ft)}...")
+            fig.write_json(fpath.with_suffix(ft))
+        else:
+            logger.debug(f"Saving plot {ft} file: {fpath.with_suffix(ft)}...")
+            fig.write_image(fpath.with_suffix(ft))
 
 
 def hextorgb(col):
@@ -942,6 +963,35 @@ def plot_scatter_quiver(
     )
 
     # draw direction arrows (iteration over data as workaround to get differently colored arrows)
+    # dxx = []
+    # dyy = []
+    # for idx, row in data.iterrows():
+    #     dx, dy = unit([row['dx'], row['dy']])
+    #     dxx.append(dx)
+    #     dyy.append(dy)
+    #
+    # f_q = ff.create_quiver(
+    #     data[xvar],
+    #     data[yvar],
+    #     dxx,
+    #     dyy,
+    #     scale=3,
+    #     customdata=data.loc[list(data.index.repeat(3)) + list(data.index.repeat(4)), ['dx', 'dy', 'lbl']], #data[['dx', 'dy', 'lbl']],
+    #     hovertemplate='pos: (%{x:.2f},%{y:.2f})<br>'
+    #                   'dir: (%{customdata[0]:.2f},%{customdata[1]:.2f})<br>'
+    #                   '<extra>%{customdata[2]}</extra>',
+    #     showlegend=False
+    # )
+    #
+    # f_q.update_traces(
+    #     line_color=colors_discr[idx % len(colors_discr)],
+    #     showlegend=False
+    # )
+    #
+    # mainfig.add_traces(
+    #     data=f_q.data
+    # )
+
     for idx, row in data.iterrows():
         dx, dy = unit([row['dx'], row['dy']])
         f_q = ff.create_quiver(
@@ -950,7 +1000,11 @@ def plot_scatter_quiver(
             [dx],
             [dy],
             scale=3,
-            name=row['lbl']
+            name=f"Step {idx}",
+            customdata=data.loc[[idx] * 7, ['dx', 'dy', 'lbl']],
+            hovertemplate='pos: (%{x:.2f},%{y:.2f})<br>'
+                          'dir: (%{customdata[0]:.2f},%{customdata[1]:.2f})<br>'
+                          '<extra>%{customdata[2]}</extra>',
         )
 
         f_q.update_traces(
@@ -1025,8 +1079,6 @@ def plot_data_subset(
 
     df_ = filter_dataframe(df, constraints)
 
-    logger.debug('Returned subset of shape:', df_.shape)
-
     # extract rgb colors from given hex, rgb or rgba string
     rgb, rgba = color_to_rgb(color)
 
@@ -1055,16 +1107,6 @@ def plot_data_subset(
                 showlegend=False
             )
         )
-        # fig_s = px.scatter(
-        #     df_,
-        #     x=xvar,
-        #     y=yvar,
-        #     size=[1]*len(df_),
-        #     size_max=5,
-        #     width=1000,
-        #     height=1000,
-        #     color=rgb
-        # )
 
         fig_s.update_layout(
             xaxis=dict(
@@ -1095,7 +1137,7 @@ def plot_data_subset(
 
     fig_s.update_layout(
         xaxis_title=xvar,
-        yaxis_title=f"count({xvar})",
+        yaxis_title=yvar if plot_type == "scatter" else f"count({xvar})",
         showlegend=False,
         width=1000,
         height=1000,
@@ -1193,3 +1235,47 @@ def plot_multiple_dists(
 
     if save:
         fig_to_file(mainfig, save)
+
+
+if __name__ == "__main__":
+    robot_positions = {
+        "kitchen_unit": [
+            (30, 72, [15, .07], [.07, 1], 0, 1, 30, 15),
+        ],
+        "fridge": [
+            (63, 72, [5, -.07], [-.07, 1], .7, .7, 20, 5)
+        ],
+        "stove": [
+            (72, 50, [.2, -.07], [-.07, 10], 1, 0, 20, 15),
+        ],
+        "kitchen_island": [
+            (30, 55, [15, .07], [.07, 1], 0, -1, 30, 15),
+            (55, 40, [0.2, -.07], [-.07, 10], -1, 0, 20, 7)
+        ],
+        "chair2": [
+            (55, 15, [0.2, -.07], [-.07, 10], -1, 0, 20, 5)
+        ]
+    }
+
+    gaussians = [(name, Gaussian([mx_, my_], [stdx_, stdy_])) for name, query in robot_positions.items() for mx_, my_, stdx_, stdy_, dx, dy, angle, nums in query]
+    dfs = [(name, DataFrame(data=g.sample(50), columns=['x', 'y'])) for name, g in gaussians]
+    colors = ["#FF0000", "#FFC900", "#00FF00", "#00D4FF", "#0014FF", "#8E00FF", "#111111"]
+    colors = {n[0]: c for n, c in zip(dfs, colors)}
+
+    fig = go.Figure()
+    for i, (c, df) in enumerate(dfs):
+        fig.add_trace(
+            go.Scatter(
+                x=df['x'],
+                y=df['y'],
+                marker=dict(
+                    symbol='circle',
+                    color=colors[c]
+                ),
+                mode="markers",
+                fillcolor=colors[c],
+                name=c,
+            )
+        )
+
+    fig.show()
