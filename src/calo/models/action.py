@@ -19,7 +19,7 @@ class Move:
     DIST_U = .05
 
     # desired distance moved in one step
-    STEPSIZE = 2
+    STEPSIZE = 1
 
     def __init__(
             self,
