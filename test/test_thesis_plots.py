@@ -953,59 +953,65 @@ class ThesisPlotsTests(unittest.TestCase):
         limx = (-3, 3)
         limy = (-3, 3)
 
-        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
+        # coords = (0, 0, 100, 100)
+        xl, yl, xu, yu = (0, 0, 30, 30)
+
+        # oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
+        oxl, oyl, oxu, oyu = (5, 5, 20, 10)
+
+        # --example move --obstacles --learn --plot --min-samples-leaf 400 --data --args tgtidx 4 --args lrturns 50
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            "free-pos": [  # random position in obstacle-free area
-                (20, 70, -.7, -.7),
-                (20, 70, .7, -.7),
-                (20, 70, .7, .7),
-                (20, 70, -.7, .7),
-                (20, 70, -1, 0),
-                (20, 70, 1, 0),
-                (20, 70, 0, 1),
-                (20, 70, 0, -1),
-                (50, 50, None, None),
-                (None, None, None, None),
-            ],
-            "no-pos": [  # all directions without given pos
-                (None, None, 0, -1),
-                (None, None, 0, 1),
-                (None, None, 1, 0),
-                (None, None, -1, 0),
-                (None, None, .5, -.5),
-                (None, None, .5, .5),
-                (None, None, -.5, -.5),
-                (None, None, -.5, .5),
-                (None, None, -1, None),
-                (None, None, 1, None),
-                (None, None, None, -1),
-                (None, None, None, 1),
-            ],
+            # "free-pos": [  # random position in obstacle-free area
+            #     (20, 20, -.7, -.7),  # 20, 70 pos (orig)
+            #     (20, 20, .7, -.7),
+            #     (20, 20, .7, .7),
+            #     (20, 20, -.7, .7),
+            #     (20, 20, -1, 0),
+            #     (20, 20, 1, 0),
+            #     (20, 20, 0, 1),
+            #     (20, 20, 0, -1),
+            #     (20, 10, None, None),  # 50, 50 pos (orig)
+            #     (None, None, None, None),
+            # ],
+            # "no-pos": [  # all directions without given pos
+            #     (None, None, 0, -1),
+            #     (None, None, 0, 1),
+            #     (None, None, 1, 0),
+            #     (None, None, -1, 0),
+            #     (None, None, .5, -.5),
+            #     (None, None, .5, .5),
+            #     (None, None, -.5, -.5),
+            #     (None, None, -.5, .5),
+            #     (None, None, -1, None),
+            #     (None, None, 1, None),
+            #     (None, None, None, -1),
+            #     (None, None, None, 1),
+            # ],
             "grid-corners": [  # all corners of gridworld
-                (0, 0, None, None),
-                (0, 100, None, None),  # broken!
-                (100, 0, None, None),  # broken!
-                (100, 100, None, None)  # broken!
+                (xl, yl, None, None),  # lower left
+                (xl, yu, None, None),  # upper left
+                (xu, yl, None, None),  # lower right
+                (xu, yu, None, None)  # upper right
             ],
             "grid-edges": [  # all edges of gridworld (center)
-                (0, 50, None, None),
-                (100, 10, None, None),
-                (50, 0, None, None),
-                (50, 100, None, None)
+                (xl, yl + (yu-yl)/2, None, None),  # left edge
+                (xu, yl + (yu-yl)/2, None, None),  # right edge
+                (xl + (xu-xl)/2, yl, None, None),  # lower edge
+                (xl + (xu-xl)/2, yu, None, None)  # upper edge
             ],
             "obstacle-corners": [  # all corners of one obstacle
-                (ox1, oy1, None, None),
-                (ox2, oy2, None, None),
-                (ox1, oy2, None, None),
-                (ox2, oy1, None, None)
+                (oxl, oxl, None, None),  # lower left
+                (oxl, oyu, None, None),  # upper left
+                (oxu, oyl, None, None),  # lower right
+                (oxu, oyu, None, None)  # upper right
             ],
             "obstacle-edges": [  # all edges of one obstacle
-                (ox1, oy1+(oy2-oy1)/2, None, None),
-                (ox2, oy1+(oy2-oy1)/2, None, None),
-                (ox1+(ox2-ox1)/2, oy1, None, None),
-                (ox1+(ox2-ox1)/2, oy2, None, None)
+                (oxl, oyl + (oyu-oyl)/2, None, None),  # left edge
+                (oxu, oyl + (oyu-oyl)/2, None, None),  # right edge
+                (oxl + (oxu-oxl)/2, oyl, None, None),  # lower edge
+                (oxl + (oxu-oxl)/2, oyu, None, None)  # upper edge
             ],
         }
 
@@ -1049,7 +1055,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     fail_on_unsatisfiability=False
                 )
 
-                print(len(j.allnodes), len(cond.allnodes))
+                print(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
 
                 # data generation
                 x = np.linspace(*limx, 200)
