@@ -172,13 +172,13 @@ def plot_world(fp, args) -> go.Figure:
 
 # init agent and world
 w = Grid(
-    x=[0, 30],  # [0, 100]
-    y=[0, 30]  # [0, 100]
+    x=[0, 100],  # [0, 30],
+    y=[0, 100]  # [0, 30]
 )
 
 move = Move(
-    degu=0,
-    distu=0
+    # degu=0,
+    # distu=0
 )
 
 
@@ -187,13 +187,13 @@ def init(fp, args):
 
     if args.obstacles:
         obstacles = [
-            ((5, 5, 20, 10), "kitchen_island"),
-            # ((15, 10, 25, 20), "chair1"),
-            # ((35, 10, 45, 20), "chair2"),
-            # ((10, 30, 50, 50), "kitchen_island"),
-            # ((80, 30, 100, 70), "stove"),
-            # ((10, 80, 50, 100), "kitchen_unit"),
-            # ((60, 80, 80, 100), "fridge"),
+            # ((5, 5, 20, 10), "kitchen_island"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
         ]
 
         for o, n in obstacles:
