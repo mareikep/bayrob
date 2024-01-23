@@ -62,10 +62,10 @@ def generate_data(fp, args):
         for degi in np.random.uniform(low=-90, high=90, size=lrturns):
 
             # turn to new starting direction
-            Move.turndeg(a, degi)
+            move.turndeg(a, degi)
 
             # move forward and save new position/direction
-            Move.moveforward(a, 1)
+            move.moveforward(a, 1)
             dm_.append(np.array(
                 [[
                     *initpos,
@@ -91,6 +91,9 @@ def generate_data(fp, args):
         'y_out': np.float32,
         'collided': bool
     })
+
+    # remove collision data points
+    # data_moveforward = data_moveforward[(data_moveforward['x_out'] != 0) | (data_moveforward['y_out'] != 0)]
 
     logger.debug(f"...done! Saving {data_moveforward.shape[0]} data points to {os.path.join(fp, 'data', f'000-{args.example}.parquet')}...")
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'), index=False)
@@ -171,6 +174,11 @@ def plot_world(fp, args) -> go.Figure:
 w = Grid(
     x=[0, 30],  # [0, 100]
     y=[0, 30]  # [0, 100]
+)
+
+move = Move(
+    degu=0,
+    distu=0
 )
 
 

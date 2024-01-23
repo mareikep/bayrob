@@ -48,8 +48,12 @@ class ThesisPlotsTests(unittest.TestCase):
        cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
        cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
        cls.recent_perception = recent_example(os.path.join(locs.examples, 'perception'))
-       cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
-       print(f"loading examples from: \n{cls.recent_move}\n{cls.recent_turn}\n{cls.recent_perception}\n{cls.recent_pr2}")
+       # cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
+       print(f"loading examples from:")
+       print(cls.recent_move)
+       print(cls.recent_turn)
+       print(cls.recent_perception)
+       # print(cls.recent_pr2)
 
        cls.models = dict(
            [
@@ -57,7 +61,7 @@ class ThesisPlotsTests(unittest.TestCase):
                    treefile.name,
                    JPT.load(str(treefile))
                )
-               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception, cls.recent_pr2]
+               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception]#, cls.recent_pr2]
                for treefile in Path(p).rglob('*.tree')
            ]
        )
@@ -950,8 +954,8 @@ class ThesisPlotsTests(unittest.TestCase):
         df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
 
         # set settings
-        limx = (-3, 3)
-        limy = (-3, 3)
+        limx = (-1.5, 1.5)
+        limy = (-1.5, 1.5)
 
         # coords = (0, 0, 100, 100)
         xl, yl, xu, yu = (0, 0, 30, 30)
@@ -996,10 +1000,12 @@ class ThesisPlotsTests(unittest.TestCase):
                 (xu, yu, None, None)  # upper right
             ],
             "grid-edges": [  # all edges of gridworld (center)
-                (xl, yl + (yu-yl)/2, None, None),  # left edge
-                (xu, yl + (yu-yl)/2, None, None),  # right edge
-                (xl + (xu-xl)/2, yl, None, None),  # lower edge
-                (xl + (xu-xl)/2, yu, None, None)  # upper edge
+                (xl, None, -1, 0),  # left edge
+                (xl, None, 1, 0),  # left edge
+                (xl, None, None, None),  # left edge
+                (xu, None, None, None),  # right edge
+                (None, yl, None, None),  # lower edge
+                (None, yu, None, None)  # upper edge
             ],
             "obstacle-corners": [  # all corners of one obstacle
                 (oxl, oxl, None, None),  # lower left
@@ -1026,21 +1032,21 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = 1.5
+                tolerance_ = .5
 
                 pdfvars = {}
 
                 if x_ is not None:
-                    pdfvars['x_in'] = ContinuousSet(x_ - tolerance_, x_ + tolerance_)
+                    pdfvars['x_in'] = x_ if isinstance(x_, ContinuousSet) else ContinuousSet(x_ - tolerance_, x_ + tolerance_)
 
                 if y_ is not None:
-                    pdfvars['y_in'] = ContinuousSet(y_ - tolerance_, y_ + tolerance_)
+                    pdfvars['y_in'] = y_ if isinstance(y_, ContinuousSet) else ContinuousSet(y_ - tolerance_, y_ + tolerance_)
 
                 if xd is not None:
-                    pdfvars['xdir_in'] = ContinuousSet(xd - tolerance, xd + tolerance)
+                    pdfvars['xdir_in'] = xd if isinstance(xd, ContinuousSet) else ContinuousSet(xd - tolerance, xd + tolerance)
 
                 if yd is not None:
-                    pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
+                    pdfvars['ydir_in'] = yd if isinstance(yd, ContinuousSet) else ContinuousSet(yd - tolerance, yd + tolerance)
 
                 # pdfvars = {}
                 # pdfvars['x_in'] = ContinuousSet(99.9, 100)
@@ -1055,11 +1061,14 @@ class ThesisPlotsTests(unittest.TestCase):
                     fail_on_unsatisfiability=False
                 )
 
+                if cond is None:
+                    print(f"COND IS NONE, skipping {pdfvars}")
+                    continue
                 print(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
 
                 # data generation
-                x = np.linspace(*limx, 200)
-                y = np.linspace(*limy, 200)
+                x = np.linspace(*limx, 100)
+                y = np.linspace(*limy, 100)
 
                 X, Y = np.meshgrid(x, y)
                 Z = np.array(
