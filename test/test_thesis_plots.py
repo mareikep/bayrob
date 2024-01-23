@@ -48,12 +48,12 @@ class ThesisPlotsTests(unittest.TestCase):
        cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
        cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
        cls.recent_perception = recent_example(os.path.join(locs.examples, 'perception'))
-       # cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
+       cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
        print(f"loading examples from:")
        print(cls.recent_move)
        print(cls.recent_turn)
        print(cls.recent_perception)
-       # print(cls.recent_pr2)
+       print(cls.recent_pr2)
 
        cls.models = dict(
            [
@@ -61,7 +61,7 @@ class ThesisPlotsTests(unittest.TestCase):
                    treefile.name,
                    JPT.load(str(treefile))
                )
-               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception]#, cls.recent_pr2]
+               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception, cls.recent_pr2]
                for treefile in Path(p).rglob('*.tree')
            ]
        )

@@ -93,7 +93,7 @@ def generate_data(fp, args):
     })
 
     # remove collision data points
-    # data_moveforward = data_moveforward[(data_moveforward['x_out'] != 0) | (data_moveforward['y_out'] != 0)]
+    data_moveforward = data_moveforward[(data_moveforward['x_out'] != 0) | (data_moveforward['y_out'] != 0)]
 
     logger.debug(f"...done! Saving {data_moveforward.shape[0]} data points to {os.path.join(fp, 'data', f'000-{args.example}.parquet')}...")
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'), index=False)
