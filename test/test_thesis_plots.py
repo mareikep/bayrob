@@ -48,8 +48,12 @@ class ThesisPlotsTests(unittest.TestCase):
        cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
        cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
        cls.recent_perception = recent_example(os.path.join(locs.examples, 'perception'))
-       cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
-       print(f"loading examples from: \n{cls.recent_move}\n{cls.recent_turn}\n{cls.recent_perception}\n{cls.recent_pr2}")
+       # cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
+       print(f"loading examples from:")
+       print(cls.recent_move)
+       print(cls.recent_turn)
+       print(cls.recent_perception)
+       # print(cls.recent_pr2)
 
        cls.models = dict(
            [
@@ -57,7 +61,7 @@ class ThesisPlotsTests(unittest.TestCase):
                    treefile.name,
                    JPT.load(str(treefile))
                )
-               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception, cls.recent_pr2]
+               for p in [cls.recent_move, cls.recent_turn, cls.recent_perception]#, cls.recent_pr2]
                for treefile in Path(p).rglob('*.tree')
            ]
        )
@@ -950,62 +954,70 @@ class ThesisPlotsTests(unittest.TestCase):
         df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
 
         # set settings
-        limx = (-3, 3)
-        limy = (-3, 3)
+        limx = (-1.5, 1.5)
+        limy = (-1.5, 1.5)
 
-        ox1, oy1, ox2, oy2 = self.obstacle_kitchen_island
+        # coords = (0, 0, 100, 100)
+        xl, yl, xu, yu = (0, 0, 30, 30)
+
+        # oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
+        oxl, oyl, oxu, oyu = (5, 5, 20, 10)
+
+        # --example move --obstacles --learn --plot --min-samples-leaf 400 --data --args tgtidx 4 --args lrturns 50
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            "free-pos": [  # random position in obstacle-free area
-                (20, 70, -.7, -.7),
-                (20, 70, .7, -.7),
-                (20, 70, .7, .7),
-                (20, 70, -.7, .7),
-                (20, 70, -1, 0),
-                (20, 70, 1, 0),
-                (20, 70, 0, 1),
-                (20, 70, 0, -1),
-                (50, 50, None, None),
-                (None, None, None, None),
-            ],
-            "no-pos": [  # all directions without given pos
-                (None, None, 0, -1),
-                (None, None, 0, 1),
-                (None, None, 1, 0),
-                (None, None, -1, 0),
-                (None, None, .5, -.5),
-                (None, None, .5, .5),
-                (None, None, -.5, -.5),
-                (None, None, -.5, .5),
-                (None, None, -1, None),
-                (None, None, 1, None),
-                (None, None, None, -1),
-                (None, None, None, 1),
-            ],
+            # "free-pos": [  # random position in obstacle-free area
+            #     (20, 20, -.7, -.7),  # 20, 70 pos (orig)
+            #     (20, 20, .7, -.7),
+            #     (20, 20, .7, .7),
+            #     (20, 20, -.7, .7),
+            #     (20, 20, -1, 0),
+            #     (20, 20, 1, 0),
+            #     (20, 20, 0, 1),
+            #     (20, 20, 0, -1),
+            #     (20, 10, None, None),  # 50, 50 pos (orig)
+            #     (None, None, None, None),
+            # ],
+            # "no-pos": [  # all directions without given pos
+            #     (None, None, 0, -1),
+            #     (None, None, 0, 1),
+            #     (None, None, 1, 0),
+            #     (None, None, -1, 0),
+            #     (None, None, .5, -.5),
+            #     (None, None, .5, .5),
+            #     (None, None, -.5, -.5),
+            #     (None, None, -.5, .5),
+            #     (None, None, -1, None),
+            #     (None, None, 1, None),
+            #     (None, None, None, -1),
+            #     (None, None, None, 1),
+            # ],
             "grid-corners": [  # all corners of gridworld
-                (0, 0, None, None),
-                (0, 100, None, None),  # broken!
-                (100, 0, None, None),  # broken!
-                (100, 100, None, None)  # broken!
+                (xl, yl, None, None),  # lower left
+                (xl, yu, None, None),  # upper left
+                (xu, yl, None, None),  # lower right
+                (xu, yu, None, None)  # upper right
             ],
             "grid-edges": [  # all edges of gridworld (center)
-                (0, 50, None, None),
-                (100, 10, None, None),
-                (50, 0, None, None),
-                (50, 100, None, None)
+                (xl, None, -1, 0),  # left edge
+                (xl, None, 1, 0),  # left edge
+                (xl, None, None, None),  # left edge
+                (xu, None, None, None),  # right edge
+                (None, yl, None, None),  # lower edge
+                (None, yu, None, None)  # upper edge
             ],
             "obstacle-corners": [  # all corners of one obstacle
-                (ox1, oy1, None, None),
-                (ox2, oy2, None, None),
-                (ox1, oy2, None, None),
-                (ox2, oy1, None, None)
+                (oxl, oxl, None, None),  # lower left
+                (oxl, oyu, None, None),  # upper left
+                (oxu, oyl, None, None),  # lower right
+                (oxu, oyu, None, None)  # upper right
             ],
             "obstacle-edges": [  # all edges of one obstacle
-                (ox1, oy1+(oy2-oy1)/2, None, None),
-                (ox2, oy1+(oy2-oy1)/2, None, None),
-                (ox1+(ox2-ox1)/2, oy1, None, None),
-                (ox1+(ox2-ox1)/2, oy2, None, None)
+                (oxl, oyl + (oyu-oyl)/2, None, None),  # left edge
+                (oxu, oyl + (oyu-oyl)/2, None, None),  # right edge
+                (oxl + (oxu-oxl)/2, oyl, None, None),  # lower edge
+                (oxl + (oxu-oxl)/2, oyu, None, None)  # upper edge
             ],
         }
 
@@ -1020,21 +1032,21 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = 1.5
+                tolerance_ = .5
 
                 pdfvars = {}
 
                 if x_ is not None:
-                    pdfvars['x_in'] = ContinuousSet(x_ - tolerance_, x_ + tolerance_)
+                    pdfvars['x_in'] = x_ if isinstance(x_, ContinuousSet) else ContinuousSet(x_ - tolerance_, x_ + tolerance_)
 
                 if y_ is not None:
-                    pdfvars['y_in'] = ContinuousSet(y_ - tolerance_, y_ + tolerance_)
+                    pdfvars['y_in'] = y_ if isinstance(y_, ContinuousSet) else ContinuousSet(y_ - tolerance_, y_ + tolerance_)
 
                 if xd is not None:
-                    pdfvars['xdir_in'] = ContinuousSet(xd - tolerance, xd + tolerance)
+                    pdfvars['xdir_in'] = xd if isinstance(xd, ContinuousSet) else ContinuousSet(xd - tolerance, xd + tolerance)
 
                 if yd is not None:
-                    pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
+                    pdfvars['ydir_in'] = yd if isinstance(yd, ContinuousSet) else ContinuousSet(yd - tolerance, yd + tolerance)
 
                 # pdfvars = {}
                 # pdfvars['x_in'] = ContinuousSet(99.9, 100)
@@ -1049,11 +1061,14 @@ class ThesisPlotsTests(unittest.TestCase):
                     fail_on_unsatisfiability=False
                 )
 
-                print(len(j.allnodes), len(cond.allnodes))
+                if cond is None:
+                    print(f"COND IS NONE, skipping {pdfvars}")
+                    continue
+                print(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
 
                 # data generation
-                x = np.linspace(*limx, 200)
-                y = np.linspace(*limy, 200)
+                x = np.linspace(*limx, 100)
+                y = np.linspace(*limy, 100)
 
                 X, Y = np.meshgrid(x, y)
                 Z = np.array(

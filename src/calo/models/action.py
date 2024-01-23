@@ -19,7 +19,7 @@ class Move:
     DIST_U = .05
 
     # desired distance moved in one step
-    STEPSIZE = 2
+    STEPSIZE = 1
 
     def __init__(
             self,
@@ -79,7 +79,9 @@ class Move:
         agent.collided = agent.world.collides([agent.x + agent.dirx * dist, agent.y + agent.diry * dist])
         if not agent.collided:
             agent.pos = agent.x + agent.dirx * dist, agent.y + agent.diry * dist
-
+        else:
+            # add some Gaussian noise to the agent's position when a collision occurred
+            agent.pos = Gaussian(agent.x, 0.001).sample(1),  Gaussian(agent.y, 0.001).sample(1)
 
     @staticmethod
     def sampletrajectory(
