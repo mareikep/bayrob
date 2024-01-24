@@ -106,7 +106,6 @@ class ThesisPlotsTests(unittest.TestCase):
         d24 = Multinomial.jaccard_similarity(d2, d4)
         d34 = Multinomial.jaccard_similarity(d3, d4)
 
-
         print(d12, d13, d14, d23, d24, d34)
 
         # Act
@@ -164,7 +163,6 @@ class ThesisPlotsTests(unittest.TestCase):
                 x=0.01
             )
         )
-
 
         mainfig.write_image(
             os.path.join(locs.logs, f'test_plot_dist_similarity_discrete.svg'),
@@ -364,20 +362,7 @@ class ThesisPlotsTests(unittest.TestCase):
             )
         )
 
-        mainfig.write_image(
-            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous.svg'),
-            scale=1
-        )
-
-        mainfig.write_html(
-            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous.html'),
-            config=defaultconfig('test_plot_dist_similarity_continuous.html'),
-            include_plotlyjs="cdn"
-        )
-
-        mainfig.show(
-            config=defaultconfig('test_plot_dist_similarity_continuous.html')
-        )
+        fig_to_file(mainfig, os.path.join(locs.logs, f'test_plot_dist_similarity_continuous.html'), ftypes=['.svg', '.html'])
 
     def test_plot_dist_similarity_continuous_3(self) -> None:
         # plot for explaining similarity of continuous dists
@@ -457,20 +442,7 @@ class ThesisPlotsTests(unittest.TestCase):
             width=1000,
         )
 
-        mainfig.write_image(
-            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_3.svg'),
-            scale=1
-        )
-
-        mainfig.write_html(
-            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_3.html'),
-            config=defaultconfig('test_plot_dist_similarity_continuous_3.html'),
-            include_plotlyjs="cdn"
-        )
-
-        mainfig.show(
-            config=defaultconfig('test_plot_dist_similarity_continuous_3.html')
-        )
+        fig_to_file(mainfig, os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_3.html'), ftypes=['.svg', '.html'])
 
     def test_plot_dist_similarity_continuous_wasserstein(self) -> None:
         # plot for explaining similarity of continuous dists
@@ -603,22 +575,7 @@ class ThesisPlotsTests(unittest.TestCase):
             height=1000,
             width=1000,
         )
-
-        mainfig.write_image(
-            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_wasserstein.svg'),
-            scale=1
-        )
-
-        mainfig.write_html(
-            os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_wasserstein.html'),
-            config=defaultconfig('test_plot_dist_similarity_continuous_wasserstein.html'),
-            include_plotlyjs="cdn"
-        )
-
-        mainfig.show(
-            config=defaultconfig('test_plot_dist_similarity_continuous_wasserstein.html')
-        )
-
+        fig_to_file(mainfig, os.path.join(locs.logs, f'test_plot_dist_similarity_continuous_wasserstein.html'), ftypes=['.svg', '.html'])
 
     def test_reproduce_data_find_limits(self) -> None:
         # for constrained MOVE TARGET variables, plot heatmap, 3D and ground data of position (IN) distribution
@@ -643,9 +600,11 @@ class ThesisPlotsTests(unittest.TestCase):
         youtmax = y_out + tolerance
 
         pdfvars = {
-            # 'x_out': 0,#ContinuousSet(xoutmin, xoutmax),
-            # 'y_out': 0,#ContinuousSet(youtmin, youtmax),
-            'collided': True
+            # 'x_out': ContinuousSet(xoutmin, xoutmax),
+            # 'y_out': ContinuousSet(youtmin, youtmax),
+            'x_out': ContinuousSet(np.NINF, np.PINF),
+            'y_out': ContinuousSet(np.NINF, np.PINF),
+            # 'collided': True
         }
 
         # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
@@ -690,47 +649,31 @@ class ThesisPlotsTests(unittest.TestCase):
         prefix = f'{"_".join([f"{k}({v})" for k,v in pdfvars.items()])}'
 
         # plot JPT
-        plot_heatmap(
+        dist = plot_heatmap(
             xvar='x',
             yvar='y',
             data=data,
             limx=limx,
             limy=limy,
             limz=(0, 0.0002),
-            save=os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-dist-hm.html"),
+            save=None,
             show=True,
         )
-
-        plot_heatmap(
-            xvar='x',
-            yvar='y',
-            data=data,
-            limx=limx,
-            limy=limy,
-            limz=(0, 0.0002),
-            save=os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-dist-surface.html"),
-            show=True,
-            fun="surface"
-        )
-
-        # fig.write_html(
-        #     os.path.join(locs.logs, f'crampath.html'),
-        #     config=defaultconfig,
-        #     include_plotlyjs="cdn"
-        # )
+        fig_to_file(dist, os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-dist-hm.html"), ftypes=['.svg', '.html'])
 
         # plot ground truth
-        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
-        plot_data_subset(
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
+        gt = plot_data_subset(
             df,
             xvar="x_in",
             yvar="y_in",
             constraints=pdfvars,
             limx=limx,
             limy=limy,
-            save=os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-gt.html"),
+            save=None,
             show=True
         )
+        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-gt.html"), ftypes=['.svg', '.html'])
 
     def test_reproduce_data_single_jpt(self) -> None:
         # SINGLE set of constraints:
@@ -826,7 +769,7 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
         # plot ground truth
-        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.csv'))
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.csv'))
         plot_data_subset(
             df,
             "x_out",
@@ -840,7 +783,7 @@ class ThesisPlotsTests(unittest.TestCase):
     def test_face(self) -> None:
         # plot ground truth and distribution smiley face
         j = self.models['000-move.tree']
-        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-robotaction_move.parquet'))
+        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
         tolerance = .3
         limx = (-3, 3)
         limy = (-3, 3)
@@ -963,8 +906,6 @@ class ThesisPlotsTests(unittest.TestCase):
         # oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
         oxl, oyl, oxu, oyu = (5, 5, 20, 10)
 
-        # --example move --obstacles --learn --plot --min-samples-leaf 400 --data --args tgtidx 4 --args lrturns 50
-
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
             # "free-pos": [  # random position in obstacle-free area
@@ -1014,10 +955,10 @@ class ThesisPlotsTests(unittest.TestCase):
                 (oxu, oyu, None, None)  # upper right
             ],
             "obstacle-edges": [  # all edges of one obstacle
-                (oxl, oyl + (oyu-oyl)/2, None, None),  # left edge
-                (oxu, oyl + (oyu-oyl)/2, None, None),  # right edge
-                (oxl + (oxu-oxl)/2, oyl, None, None),  # lower edge
-                (oxl + (oxu-oxl)/2, oyu, None, None)  # upper edge
+                (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
+                (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
+                (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
+                (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
             ],
         }
 
@@ -1032,7 +973,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = .5
+                tolerance_ = 1.5
 
                 pdfvars = {}
 
@@ -1093,32 +1034,20 @@ class ThesisPlotsTests(unittest.TestCase):
                 prefix = f'POS({x_:{"+.1f" if x_ is not None else ""}},{y_:{"+.1f" if y_ is not None else ""}})_DIR({xd:{"+.1f" if xd is not None else ""}},{yd:{"+.1f" if yd is not None else ""}})'
 
                 # plot ground truth
-                plot_data_subset(
+                gt = plot_data_subset(
                     df,
                     xvar='x_out',
                     yvar='y_out',
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
-                    save=os.path.join(plotdir, f"{prefix}-gt.html"),
+                    save=None,
                     show=False
                 )
-
-                # plot JPT Heatmap
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    title=None,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    show=False,
-                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg"),
-                    showbuttons=False
-                )
+                fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'])
 
                 # plot JPT 3D-Surface
-                plot_heatmap(
+                dist = plot_heatmap(
                     xvar='x',
                     yvar='y',
                     data=data,
@@ -1126,9 +1055,10 @@ class ThesisPlotsTests(unittest.TestCase):
                     limx=limx,
                     limy=limy,
                     show=False,
-                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
-                    fun="surface"
+                    save=None,
+                    fun="heatmap"
                 )
+                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])
 
     def test_reproduce_data_turn(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1136,7 +1066,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # load data and JPT that has been learnt from this data
         j = self.models['000-turn.tree']
-        df = pd.read_parquet(os.path.join(self.recent, 'data', f'000-turn.parquet'))
+        df = pd.read_parquet(os.path.join(self.recent_turn, 'data', f'000-turn.parquet'))
 
         # set settings
         limx = (-1, 1)
@@ -1233,42 +1163,32 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 prefix = f'DIR({xd:{"+.1f" if xd is not None else ""}},{yd:{"+.1f" if yd is not None else ""}})_{angle:{"+.1f" if angle is not None else ""}}°'
 
-                # plot JPT Heatmap
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    show=False,
-                    save=os.path.join(plotdir, f"{prefix}-dist-hm.svg")
-                )
-
-                # plot JPT 3D-Surface
-                plot_heatmap(
-                    xvar='x',
-                    yvar='y',
-                    data=data,
-                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                    limx=limx,
-                    limy=limy,
-                    show=False,
-                    save=os.path.join(plotdir, f"{prefix}-dist-surface.html"),
-                    fun="surface"
-                )
-
                 # plot ground truth
-                plot_data_subset(
+                gt = plot_data_subset(
                     df,
                     xvar='xdir_out',
                     yvar='ydir_out',
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
-                    save=os.path.join(plotdir, f"{prefix}-ground-truth.svg"),
+                    save=None,
                     show=False
                 )
+                fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'])
+
+                # plot distribution
+                dist = plot_heatmap(
+                    xvar='x',
+                    yvar='y',
+                    data=data,
+                    title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                    limx=limx,
+                    limy=limy,
+                    show=False,
+                    save=None,
+                    fun="heatmap"
+                )
+                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])
 
     def test_reproduce_data_perception_multinomial_plots(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1281,40 +1201,40 @@ class ThesisPlotsTests(unittest.TestCase):
         print(f"Loading tree from {self.recent_perception}")
         objects = ['cup', 'cutlery', 'bowl', 'sink', 'milk', 'beer', 'cereal', 'stovetop', 'pot']
         detected_objects = [f'detected({o})' for o in objects]
-        containers = ['fridge_door', 'cupboard_door_left', 'cupboard_door_right', 'kitchen_unit_drawer']
+        containers = ['fridge_door', 'cupboard_door_left', 'cupboard_door_right', 'kitchhistoen_unit_drawer']
         open_containers = [f'open({c})' for c in containers]
 
         # constraints/query values
         # the postype determines a category, tp
         queries = {
             "apriori": [
-                ({}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers)
+                ({}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers)
                 # ({}, detected_objects)
             ],
             "milk-detected": [
-                ({'detected(milk)': True}, ["open(fridge_door)"]),#['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['morning']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(milk)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['morning']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['night']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
             ],
             "beer-detected": [
-                ({'detected(beer)': True, 'daytime': ['night']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(beer)': True, 'daytime': ['night']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
             ],
             "bowl-detected": [
-                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
             ],
             "nearest_furniture": [
-                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'stove'}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'stove'}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit'}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'stove'}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
             ],
             "open": [
-                ({'open(cupboard_door_left)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
-                ({'open(fridge_door)': True}, ['positions', 'daytime', 'nearest_furniture'] + detected_objects + open_containers),
+                ({'open(cupboard_door_left)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'open(fridge_door)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
 
             ],
         }
@@ -1372,16 +1292,17 @@ class ThesisPlotsTests(unittest.TestCase):
 
                     # plot ground truth
                     if plot == "positions":
-                        plot_data_subset(
+                        gt = plot_data_subset(
                             df,
                             xvar='x_in',
                             yvar='y_in',
                             limx=limx,
                             limy=limy,
                             constraints=query,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
+                            save=None,
                             show=False
                         )
+                        fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
                         # data generation
                         x = np.linspace(*limx, 200)
@@ -1397,7 +1318,7 @@ class ThesisPlotsTests(unittest.TestCase):
                         )
 
                         # plot JPT Heatmap
-                        plot_heatmap(
+                        hm = plot_heatmap(
                             xvar='x',
                             yvar='y',
                             data=data,
@@ -1408,43 +1329,31 @@ class ThesisPlotsTests(unittest.TestCase):
                             save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.svg"),
                             showbuttons=False
                         )
-
-                        # plot JPT 3D-Surface
-                        plot_heatmap(
-                            xvar='x',
-                            yvar='y',
-                            data=data,
-                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                            limx=limx,
-                            limy=limy,
-                            show=False,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-surface.html"),
-                            fun="surface"
-                        )
+                        fig_to_file(hm, os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"), ftypes=['.svg', '.html'])
                     else:
-                        plot_data_subset(
+                        gt = plot_data_subset(
                             df,
                             xvar=plot,
                             yvar=None,
                             constraints=query,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
+                            save=None,
                             show=False,
                             plot_type="histogram",
                             normalize=True,
                             color='rgb(0,104,180)'
                         )
+                        fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
                         # plot distribution of variable
                         print('PLOTTING DIST', plot)
                         if plot in post:
-                            post[plot].plot(
+                            dist = post[plot].plot(
                                 view=False,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                fname=f"{prefix}-{plot}-dist.html",
-                                directory=plotdir,
                                 color='rgb(134,129,177)'
                             )
-
+                            fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
+                            
 
     def test_reproduce_data_pr2_multinomial_plots(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1506,36 +1415,37 @@ class ThesisPlotsTests(unittest.TestCase):
                     fail_on_unsatisfiability=False
                 )
 
-                j.plot(
-                    filename=f'{prefix}-orig',
-                    directory=os.path.join(plotdir),
-                    leaffill='#CCDAFF',
-                    nodefill='#768ABE',
-                    alphabet=True,
-                    view=False
-                )
-                cond.plot(
-                    filename=f'{prefix}-conditional',
-                    directory=os.path.join(plotdir),
-                    leaffill='#CCDAFF',
-                    nodefill='#768ABE',
-                    alphabet=True,
-                    view=False
-                )
+                # j.plot(
+                #     filename=f'{prefix}-orig',
+                #     directory=os.path.join(plotdir),
+                #     leaffill='#CCDAFF',
+                #     nodefill='#768ABE',
+                #     alphabet=True,
+                #     view=False
+                # )
+                # cond.plot(
+                #     filename=f'{prefix}-conditional',
+                #     directory=os.path.join(plotdir),
+                #     leaffill='#CCDAFF',
+                #     nodefill='#768ABE',
+                #     alphabet=True,
+                #     view=False
+                # )
 
                 for plot in plots:
                     print(f'Plotting {plot}')
 
                     # plot ground truth
                     if plot == "positions":
-                        plot_data_subset(
+                        gt = plot_data_subset(
                             df,
                             xvar='t_x',
                             yvar='t_y',
                             constraints=query,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
+                            save=None,
                             show=True
                         )
+                        fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
                         # data generation
                         limx = (-3, 1)
@@ -1553,7 +1463,7 @@ class ThesisPlotsTests(unittest.TestCase):
                         )
 
                         # plot JPT Heatmap
-                        plot_heatmap(
+                        dist = plot_heatmap(
                             xvar='x',
                             yvar='y',
                             data=data,
@@ -1561,45 +1471,32 @@ class ThesisPlotsTests(unittest.TestCase):
                             limx=limx,
                             limy=limy,
                             show=True,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"),
+                            save=None,
                             showbuttons=False
                         )
-
-                        # plot JPT 3D-Surface
-                        plot_heatmap(
-                            xvar='x',
-                            yvar='y',
-                            data=data,
-                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                            limx=limx,
-                            limy=limy,
-                            show=True,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-surface.html"),
-                            fun="surface"
-                        )
+                        fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
                     else:
-                        plot_data_subset(
+                        gt = plot_data_subset(
                             df,
                             xvar=plot,
                             yvar=None,
                             constraints=query,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-gt.html"),
+                            save=None,
                             show=False,
                             plot_type="histogram",
                             normalize=True,
                             color='rgb(0,104,180)'
                         )
+                        fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
                         # plot distribution of variable
                         if plot in post:
-                            post[plot].plot(
+                            dist = post[plot].plot(
                                 view=False,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                fname=f"{prefix}-{plot}-dist.html",
-                                directory=plotdir,
                                 color='rgb(134,129,177)'
                             )
-
+                            fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, 0, -1]

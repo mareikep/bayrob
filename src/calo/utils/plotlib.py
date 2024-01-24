@@ -1117,8 +1117,13 @@ def plot_data_subset(
             ),
         )
     elif plot_type == "histogram":
-        x = df_[xvar].value_counts().index.tolist()
-        y = list(df_[xvar].value_counts(normalize=normalize))
+        # determine existent values in original (unfiltered) dataset to also add "zero-counts" to histogram
+        # which would otherwise not be identified by value_counts() of filtered dataset
+        base = {k: 0 for k, _ in df[xvar].value_counts().to_dict().items()}
+        counts = df_[xvar].value_counts(normalize=True).to_dict()
+        res = {**base, **counts}
+        x = list(res.keys())
+        y = list(res.values())
         fig_s.add_trace(
             go.Bar(
                 x=x,
