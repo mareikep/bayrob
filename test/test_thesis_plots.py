@@ -16,7 +16,7 @@ from pandas import DataFrame
 from calo.core.astar_jpt import State
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file
+    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq
 from calo.utils.utils import recent_example
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
@@ -66,12 +66,22 @@ class ThesisPlotsTests(unittest.TestCase):
            ]
        )
 
-       cls.obstacle_chair1 = [10, 10, 20, 20]  # chair1"
-       cls.obstacle_chair2 = [30, 10, 40, 20]  # "chair2"
+       cls.obstacle_chair1 = [15, 10, 25, 20]  # chair1"
+       cls.obstacle_chair2 = [35, 10, 45, 20]  # "chair2"
        cls.obstacle_kitchen_island = [10, 30, 50, 50]  # "kitchen_island"
        cls.obstacle_stove = [80, 30, 100, 70]  # "stove"
        cls.obstacle_kitchen_unit = [10, 80, 50, 100]  # "kitchen_unit"
        cls.obstacle_fridge = [60, 80, 80, 100]  # "fridge"
+
+       cls.obstacles = [
+           ((0, 0, 100, 100), "kitchen_boundaries"),
+           (cls.obstacle_chair1, "chair1"),
+           (cls.obstacle_chair2, "chair2"),
+           (cls.obstacle_kitchen_island, "kitchen_island"),
+           (cls.obstacle_stove, "stove"),
+           (cls.obstacle_kitchen_unit, "kitchen_unit"),
+           (cls.obstacle_fridge, "fridge"),
+       ]
 
     def test_plot_init_dist(self) -> None:
         # plot initial position (in) distribution of move tree
@@ -671,7 +681,8 @@ class ThesisPlotsTests(unittest.TestCase):
             limx=limx,
             limy=limy,
             save=None,
-            show=True
+            show=True,
+            color='rgb(0,104,180)'
         )
         fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_find_limits-{prefix}-gt.html"), ftypes=['.svg', '.html'])
 
@@ -777,7 +788,8 @@ class ThesisPlotsTests(unittest.TestCase):
             pdfvars,
             limx=limx,
             limy=limy,
-            show=True
+            show=True,
+            color='rgb(0,104,180)'
         )
 
     def test_face(self) -> None:
@@ -808,7 +820,8 @@ class ThesisPlotsTests(unittest.TestCase):
         #     constraints={},
         #     limx=limx,
         #     limy=limy,
-        #     show=True
+        #     show=True,
+        #     color = 'rgb(0,104,180)'
         # )
 
         from jpt import infer_from_dataframe
@@ -900,6 +913,53 @@ class ThesisPlotsTests(unittest.TestCase):
         limx = (-1.5, 1.5)
         limy = (-1.5, 1.5)
 
+        # plot init distributions
+        initdist = plot_tree_dist(
+            tree=j,
+            qvarx=j.varnames['x_in'],
+            qvary=j.varnames['y_in'],
+            limx=(0, 100),
+            limy=(0, 100),
+            save=None,
+            show=False
+        )
+        fig_to_file(initdist, os.path.join(locs.logs, f"test_reproduce_data_move-init_in-dist.html"), ftypes=['.svg', '.html'])
+        gt = plot_data_subset(
+            df,
+            xvar='x_in',
+            yvar='y_in',
+            constraints={},
+            limx=(0, 100),
+            limy=(0, 100),
+            save=None,
+            show=False,
+            color='rgb(0,104,180)'
+        )
+        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_move-init_in-gt.html"), ftypes=['.svg', '.html'])
+
+        initdisto = plot_tree_dist(
+            tree=j,
+            qvarx=j.varnames['x_out'],
+            qvary=j.varnames['y_out'],
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False
+        )
+        fig_to_file(initdisto, os.path.join(locs.logs, f"test_reproduce_data_move-init_out-dist.html"), ftypes=['.svg', '.html'])
+        gt = plot_data_subset(
+            df,
+            xvar='x_out',
+            yvar='y_out',
+            constraints={},
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False,
+            color='rgb(0,104,180)'
+        )
+        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_move-init_out-gt.html"), ftypes=['.svg', '.html'])
+
         # coords = (0, 0, 100, 100)
         xl, yl, xu, yu = (0, 0, 30, 30)
 
@@ -934,32 +994,32 @@ class ThesisPlotsTests(unittest.TestCase):
             #     (None, None, None, -1),
             #     (None, None, None, 1),
             # ],
-            "grid-corners": [  # all corners of gridworld
-                (xl, yl, None, None),  # lower left
-                (xl, yu, None, None),  # upper left
-                (xu, yl, None, None),  # lower right
-                (xu, yu, None, None)  # upper right
-            ],
-            "grid-edges": [  # all edges of gridworld (center)
-                (xl, None, -1, 0),  # left edge
-                (xl, None, 1, 0),  # left edge
-                (xl, None, None, None),  # left edge
-                (xu, None, None, None),  # right edge
-                (None, yl, None, None),  # lower edge
-                (None, yu, None, None)  # upper edge
-            ],
-            "obstacle-corners": [  # all corners of one obstacle
-                (oxl, oxl, None, None),  # lower left
-                (oxl, oyu, None, None),  # upper left
-                (oxu, oyl, None, None),  # lower right
-                (oxu, oyu, None, None)  # upper right
-            ],
-            "obstacle-edges": [  # all edges of one obstacle
-                (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
-                (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
-                (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
-                (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
-            ],
+            # "grid-corners": [  # all corners of gridworld
+            #     (xl, yl, None, None),  # lower left
+            #     (xl, yu, None, None),  # upper left
+            #     (xu, yl, None, None),  # lower right
+            #     (xu, yu, None, None)  # upper right
+            # ],
+            # "grid-edges": [  # all edges of gridworld (center)
+            #     (xl, None, -1, 0),  # left edge
+            #     (xl, None, 1, 0),  # left edge
+            #     (xl, None, None, None),  # left edge
+            #     (xu, None, None, None),  # right edge
+            #     (None, yl, None, None),  # lower edge
+            #     (None, yu, None, None)  # upper edge
+            # ],
+            # "obstacle-corners": [  # all corners of one obstacle
+            #     (oxl, oxl, None, None),  # lower left
+            #     (oxl, oyu, None, None),  # upper left
+            #     (oxu, oyl, None, None),  # lower right
+            #     (oxu, oyu, None, None)  # upper right
+            # ],
+            # "obstacle-edges": [  # all edges of one obstacle
+            #     (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
+            #     (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
+            #     (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
+            #     (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
+            # ],
         }
 
         for postype, pos in positions.items():
@@ -1042,7 +1102,8 @@ class ThesisPlotsTests(unittest.TestCase):
                     limx=limx,
                     limy=limy,
                     save=None,
-                    show=False
+                    show=False,
+                    color='rgb(0,104,180)'
                 )
                 fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'])
 
@@ -1069,38 +1130,84 @@ class ThesisPlotsTests(unittest.TestCase):
         df = pd.read_parquet(os.path.join(self.recent_turn, 'data', f'000-turn.parquet'))
 
         # set settings
-        limx = (-1, 1)
-        limy = (-1, 1)
+        limx = (-1.5, 1.5)
+        limy = (-1.5, 1.5)
+
+        # plot init distributions
+        initdist = plot_tree_dist(
+            tree=j,
+            qvarx=j.varnames['xdir_in'],
+            qvary=j.varnames['ydir_in'],
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False
+        )
+        fig_to_file(initdist, os.path.join(locs.logs, f"test_reproduce_data_turn-init_in-dist.html"), ftypes=['.svg', '.html'])
+        gt = plot_data_subset(
+            df,
+            xvar='xdir_in',
+            yvar='ydir_in',
+            constraints={},
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False,
+            color='rgb(0,104,180)'
+        )
+        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_turn-init_in-gt.html"), ftypes=['.svg', '.html'])
+
+        initdisto = plot_tree_dist(
+            tree=j,
+            qvarx=j.varnames['xdir_out'],
+            qvary=j.varnames['ydir_out'],
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False
+        )
+        fig_to_file(initdisto, os.path.join(locs.logs, f"test_reproduce_data_turn-init_out-dist.html"), ftypes=['.svg', '.html'])
+        gt = plot_data_subset(
+            df,
+            xvar='xdir_out',
+            yvar='ydir_out',
+            constraints={},
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False,
+            color='rgb(0,104,180)'
+        )
+        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_turn-init_out-gt.html"), ftypes=['.svg', '.html'])
 
         # constraints/query values (xdir_in, ydir_in, angle)
         dirs = {
-            "no-dir": [
-                (None, None, None),
-                (0, None, None),
-                (None, 0, None)
-            ],
-            "dir": [  # all directions
-                (-1, None, None),
-                (-1, 0, None),
-                (1, None, None),
-                (1, 0, None),
-                (-.5, None, None),
-                (-.5, .5, None),
-                (-.5, -.5, None),
-                (.5, None, None),
-                (.5, .5, None),
-                (.5, -.5, None),
-                (0, 1, None),
-                (0, -1, None),
-                (None, 1, None),
-                (None, .5, None),
-                (None, -1, None),
-                (None, -.5, None),
-            ],
-            "angle": [
-                (-1, None, None),
-
-            ]
+            # "no-dir": [
+            #     (None, None, None),
+            #     (0, None, None),
+            #     (None, 0, None)
+            # ],
+            # "dir": [  # all directions
+            #     (-1, None, None),
+            #     (-1, 0, None),
+            #     (1, None, None),
+            #     (1, 0, None),
+            #     (-.5, None, None),
+            #     (-.5, .5, None),
+            #     (-.5, -.5, None),
+            #     (.5, None, None),
+            #     (.5, .5, None),
+            #     (.5, -.5, None),
+            #     (0, 1, None),
+            #     (0, -1, None),
+            #     (None, 1, None),
+            #     (None, .5, None),
+            #     (None, -1, None),
+            #     (None, -.5, None),
+            # ],
+            # "angle": [
+            #     (-1, None, None),
+            # ]
         }
 
         for dirtype, d in dirs.items():
@@ -1172,7 +1279,8 @@ class ThesisPlotsTests(unittest.TestCase):
                     limx=limx,
                     limy=limy,
                     save=None,
-                    show=False
+                    show=False,
+                    color='rgb(0,104,180)'
                 )
                 fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'])
 
@@ -1196,46 +1304,47 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # load data and JPT that has been learnt from this data
         j = self.models['000-perception.tree']
+        addobstacles = True
         df = pd.read_parquet(os.path.join(self.recent_perception, 'data', f'000-perception.parquet'))
 
         print(f"Loading tree from {self.recent_perception}")
         objects = ['cup', 'cutlery', 'bowl', 'sink', 'milk', 'beer', 'cereal', 'stovetop', 'pot']
         detected_objects = [f'detected({o})' for o in objects]
-        containers = ['fridge_door', 'cupboard_door_left', 'cupboard_door_right', 'kitchhistoen_unit_drawer']
+        containers = ['fridge_door', 'cupboard_door_left', 'cupboard_door_right', 'kitchen_unit_drawer']
         open_containers = [f'open({c})' for c in containers]
 
         # constraints/query values
         # the postype determines a category, tp
         queries = {
-            "apriori": [
-                ({}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers)
-                # ({}, detected_objects)
-            ],
             "milk-detected": [
-                ({'detected(milk)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['morning']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['night']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(milk)': True}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'detected(milk)': True, 'daytime': ['morning']}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'detected(milk)': True, 'daytime': ['night']}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'detected(milk)': True, 'daytime': ['post-breakfast']}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'detected(milk)': True, 'open(fridge_door)': True, 'daytime': ['night']}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
             ],
             "beer-detected": [
-                ({'detected(beer)': True, 'daytime': ['night']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(beer)': True, 'daytime': ['night']}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
             ],
             "bowl-detected": [
-                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'detected(bowl)': True, 'daytime': ['post-breakfast']}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
             ],
             "nearest_furniture": [
-                ({'nearest_furniture': 'stove'}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit'}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'nearest_furniture': 'stove'}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'nearest_furniture': 'stove'}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'nearest_furniture': 'kitchen_unit'}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'nearest_furniture': 'kitchen_unit', 'open(kitchen_unit_drawer)': True}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_right)': True}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'nearest_furniture': 'kitchen_unit', 'open(cupboard_door_left)': True}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'nearest_furniture': 'stove'}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
             ],
             "open": [
-                ({'open(cupboard_door_left)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
-                ({'open(fridge_door)': True}, ['daytime', 'nearest_furniture', 'positions'] + detected_objects + open_containers),
+                ({'open(cupboard_door_left)': True}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
+                ({'open(fridge_door)': True}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions']),
 
+            ],
+            "apriori": [
+                ({}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions'])
+                # ({}, detected_objects)
             ],
         }
 
@@ -1292,7 +1401,17 @@ class ThesisPlotsTests(unittest.TestCase):
 
                     # plot ground truth
                     if plot == "positions":
-                        gt = plot_data_subset(
+
+                        gt = go.Figure()
+                        if addobstacles:
+
+                            # plot obstacles in background
+                            if self.obstacles is not None:
+                                for (o, on) in self.obstacles:
+                                    gt.add_trace(
+                                        plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
+
+                        gt_ = plot_data_subset(
                             df,
                             xvar='x_in',
                             yvar='y_in',
@@ -1300,8 +1419,13 @@ class ThesisPlotsTests(unittest.TestCase):
                             limy=limy,
                             constraints=query,
                             save=None,
-                            show=False
+                            show=False,
+                            color='rgb(0,104,180)'
                         )
+                        if addobstacles:
+                            gt.layout = gt_.layout
+                            gt.add_traces(gt_.data)
+
                         fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
                         # data generation
@@ -1317,8 +1441,17 @@ class ThesisPlotsTests(unittest.TestCase):
                             columns=['x', 'y', 'z', 'lbl']
                         )
 
+                        hm = go.Figure()
+                        if addobstacles:
+
+                            # plot obstacles in background
+                            if self.obstacles is not None:
+                                for (o, on) in self.obstacles:
+                                    hm.add_trace(
+                                        plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
+
                         # plot JPT Heatmap
-                        hm = plot_heatmap(
+                        hm_ = plot_heatmap(
                             xvar='x',
                             yvar='y',
                             data=data,
@@ -1326,33 +1459,55 @@ class ThesisPlotsTests(unittest.TestCase):
                             limx=limx,
                             limy=limy,
                             show=False,
-                            save=os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.svg"),
+                            save=None,
                             showbuttons=False
                         )
-                        fig_to_file(hm, os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"), ftypes=['.svg', '.html'])
-                    else:
-                        gt = plot_data_subset(
-                            df,
-                            xvar=plot,
-                            yvar=None,
-                            constraints=query,
-                            save=None,
-                            show=False,
-                            plot_type="histogram",
-                            normalize=True,
-                            color='rgb(0,104,180)'
-                        )
-                        fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
+                        if addobstacles:
+                            hm.layout = hm_.layout
+                            hm.add_traces(hm_.data)
 
-                        # plot distribution of variable
-                        print('PLOTTING DIST', plot)
-                        if plot in post:
-                            dist = post[plot].plot(
-                                view=False,
-                                title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                color='rgb(134,129,177)'
-                            )
-                            fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
+                        fig_to_file(hm, os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"), ftypes=['.svg', '.html'])
+
+                        # plot JPT surface
+                        sf = plot_heatmap(
+                            xvar='x',
+                            yvar='y',
+                            data=data,
+                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
+                            limx=limx,
+                            limy=limy,
+                            show=False,
+                            save=None,
+                            showbuttons=False,
+                            fun="surface"
+                        )
+
+                        fig_to_file(sf, os.path.join(plotdir, f"{prefix}-{plot}-dist-3d.html"), ftypes=['.svg', '.html'])
+                    else:
+                        pass
+                        # gt = plot_data_subset(
+                        #     df,
+                        #     xvar=plot,
+                        #     yvar=None,
+                        #     constraints=query,
+                        #     save=None,
+                        #     show=False,
+                        #     plot_type="histogram",
+                        #     normalize=True,
+                        #     color='rgb(0,104,180)'
+                        # )
+                        # fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
+                        #
+                        # # plot distribution of variable
+                        # print('PLOTTING DIST', plot)
+                        # if plot in post:
+                        #     dist = post[plot].plot(
+                        #         view=False,
+                        #         title=False,  # f'Dist: {plot}<br>Query: {querystring}',
+                        #         color='rgb(0,104,180)',
+                        #         alphabet=True,
+                        #     )
+                        #     fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
                             
 
     def test_reproduce_data_pr2_multinomial_plots(self) -> None:
@@ -1370,17 +1525,18 @@ class ThesisPlotsTests(unittest.TestCase):
         # the postype determines a category, tp
         queries_ = {
             "failure": [  # failed actions
-                ({'success': False}, ['type', "positions", "failure"]),
-                ({'type': "Grasping", "success": False}, ["positions", "failure"]),
-                ({'type': "Placing", "success": False}, ["positions", "failure"]),
+                ({'success': False}, ['type', "failure", "positions"]),
+                ({'type': "Grasping", "success": False}, ["failure", "positions"]),
+                ({'type': "Placing", "success": False}, ["failure", "positions"]),
             ],
             "success": [
-                ({"success": True, 'type': "Grasping"}, ["positions", "bodyPartsUsed", "type"]),
-                ({"success": True, 'type': "Placing"}, ["positions", "bodyPartsUsed", "type"]),
+                ({"success": True,}, ['type', "failure", "positions"]),
+                ({"success": True, 'type': "Grasping"}, ["bodyPartsUsed", "type", "positions"]),
+                ({"success": True, 'type': "Placing"}, ["bodyPartsUsed", "type", "positions"]),
                 ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
             ],
             "apriori": [
-                ({}, ['type', "positions", "arm", "bodyPartsUsed", "success", "object_acted_on", "failure"]),
+                ({}, ['type', "arm", "bodyPartsUsed", "success", "object_acted_on", "failure", "positions"]),
             ],
         }
 
@@ -1443,7 +1599,8 @@ class ThesisPlotsTests(unittest.TestCase):
                             yvar='t_y',
                             constraints=query,
                             save=None,
-                            show=True
+                            show=True,
+                            color='rgb(0,104,180)'
                         )
                         fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
@@ -1493,8 +1650,9 @@ class ThesisPlotsTests(unittest.TestCase):
                         if plot in post:
                             dist = post[plot].plot(
                                 view=False,
-                                title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                color='rgb(134,129,177)'
+                                title=False,
+                                color='rgb(0,104,180)',
+                                alphabet=True
                             )
                             fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
 
