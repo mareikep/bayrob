@@ -1,6 +1,5 @@
 import datetime
 import os
-from itertools import product
 
 import dnutils
 import numpy as np
@@ -15,7 +14,6 @@ from calo.utils.constants import FILESTRFMT, calologger
 from calo.utils.dynamic_array import DynamicArray
 from calo.utils.plotlib import defaultconfig, plotly_sq
 from calo.utils.utils import recent_example
-from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
@@ -39,10 +37,20 @@ def generate_data(fp, args):
         world=w
     )
 
-    idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
+    walking_areas = [
+        ((5, 50, 50, 80), "wa1"),
+        ((50, 30, 80, 80), "wa2"),
+        ((45, 0, 100, 50), "wa3")
+    ]
 
-    dm_ = DynamicArray(shape=(int(((xu-xl)*(yu-yl))*lrturns), 7), dtype=np.float32)
-    for i, (x, y) in enumerate(np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2))):
+    # draw samples uniformly from the three walking areas instead of the entire kitchen
+    samplepositions = np.concatenate([np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2)) for (xl, yl, xu, yu), n in walking_areas])
+
+    idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
+    # dm_ = DynamicArray(shape=(int(((xu-xl)*(yu-yl))*lrturns), 7), dtype=np.float32)
+    dm_ = DynamicArray(shape=(len(samplepositions), 7), dtype=np.float32)
+    # for i, (x, y) in enumerate(np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2))):
+    for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
         if w.collides((x, y)): continue
 
@@ -199,6 +207,7 @@ def init(fp, args):
         for o, n in obstacles:
             w.obstacle(*o, name=n)
 
+
 def learn_jpt(
         fp,
         args
@@ -246,4 +255,3 @@ def main():
 
     if args.data:
         plot_data(fp, args)
-
