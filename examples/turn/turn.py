@@ -20,7 +20,7 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 def generate_data(fp, args):
 
-    lrturns = args.lrturns if 'lrturns' in args else 360
+    lrturns = args.lrturns if 'lrturns' in args else 100
     range_t = args.range_t if 'range_t' in args else 45
 
     logger.debug(f'Generating {lrturns * 2 * range_t} direction data points...')
@@ -30,14 +30,16 @@ def generate_data(fp, args):
         world=w
     )
 
+    idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
+
     # set initial position and facing direction
     a.pos = (0, 0)
-    a.dir = (1, 0)
-    initdir = a.dir
+    initdir = idirs[np.random.randint(len(idirs))]
+    a.dir = initdir
 
     dt_ = DynamicArray(shape=(lrturns * 2 * range_t, 5), dtype=np.float32)
 
-    for degi in np.random.uniform(low=-180, high=180, size=lrturns):
+    for degi in range(361):  # np.random.uniform(low=0, high=360, size=lrturns):
 
         # turn to new starting direction
         Move.turndeg(a, degi)
