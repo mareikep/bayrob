@@ -681,17 +681,31 @@ def plot_tree_dist(
     y = np.linspace(limy[0], limy[1], 50)
 
     X, Y = np.meshgrid(x, y)
-    Z = []
-    for y_ in y:
-        z_ = []
-        for x_ in x:
-            d = {qvarx: x_, qvary: y_}
-            if qvars is not None:
-                d.update(qvars)
-            z_.append(tree.pdf(tree.bind(d)))
-        Z.append(z_)
+    Z = np.array(
+        [
+            tree.pdf(
+                tree.bind(
+                    {
+                        qvarx: x,
+                        qvary: y
+                    }
+                )
+            ) for x, y, in zip(X.ravel(), Y.ravel())
+        ]
+    ).reshape(X.shape)
 
-    Z = np.array(Z)
+    # X, Y = np.meshgrid(x, y)
+    # Z = []
+    # for y_ in y:
+    #     z_ = []
+    #     for x_ in x:
+    #         d = {qvarx: x_, qvary: y_}
+    #         if qvars is not None:
+    #             d.update(qvars)
+    #         z_.append(tree.pdf(tree.bind(d)))
+    #     Z.append(z_)
+
+    # Z = np.array(Z)
 
     lbl = np.full(Z.shape, f'Some random label')
 
@@ -1122,8 +1136,8 @@ def plot_data_subset(
         base = {k: 0 for k, _ in df[xvar].value_counts().to_dict().items()}
         counts = df_[xvar].value_counts(normalize=True).to_dict()
         res = {**base, **counts}
-        x = list(res.keys())
-        y = list(res.values())
+        x = sorted(list(res.keys()))
+        y = [res[k] for k in x]
         fig_s.add_trace(
             go.Bar(
                 x=x,
