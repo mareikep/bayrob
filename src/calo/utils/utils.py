@@ -521,20 +521,31 @@ def recent_example(
     fi_ = [fn_ for _, fn_ in sorted([(fd, fn) for fn, fd in files], key=lambda x: x[0], reverse=True)]
     return os.path.join(os.path.abspath(p), fi_[pos])
     # return os.path.join(os.path.abspath(p), min([(fd, fn) for fn, fd in files], key=lambda x: x[0])[1])
+#
+#
+# def fmt(val, prec=2):
+#     # helper function to format a value for __str__ and __repr__ functions of Node, State, Goal classes
+#     if isinstance(val, (Numeric, Integer, Bool, Multinomial)):
+#         return fmt(val.mpe()[0], prec=prec)
+#     elif isinstance(val, float):
+#         return f"{val:.{prec}f}"
+#     elif isinstance(val, ContinuousSet):
+#         return val.pfmt(f'%.{prec}f')
+#     else:
+#         # cases val is str or int
+#         return str(val)
 
-
-def fmt(val, prec=2):
+def fmt(val, prec=2, positive=False):
     # helper function to format a value for __str__ and __repr__ functions of Node, State, Goal classes
     if isinstance(val, (Numeric, Integer, Bool, Multinomial)):
         return fmt(val.mpe()[0], prec=prec)
     elif isinstance(val, float):
-        return f"{val:.{prec}f}"
+        return f"{val:{'+' if positive else ''}.{prec}f}"
     elif isinstance(val, ContinuousSet):
-        return val.pfmt(f'%.{prec}f')
+        return val.pfmt(f'%{"+" if positive else ""}.{prec}f')
     else:
         # cases val is str or int
         return str(val)
-
 
 def dhms(td):
     return td.days, td.seconds // 3600, (td.seconds // 60) % 60, td.seconds % 60

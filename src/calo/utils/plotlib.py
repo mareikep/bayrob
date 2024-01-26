@@ -69,7 +69,7 @@ def fig_to_file(fig, fname, ftypes=None) -> None:
     for ft in ftypes:
         if ft == '.html':
             logger.debug(f"Saving plot html and json file: {fpath.with_suffix(ft)}...")
-            fig.write_json(fpath.with_suffix(ft))
+            fig.write_json(fpath.with_suffix(".json"))
             fig.write_html(
                 fpath.with_suffix(ft),
                 config=defaultconfig(fname),
@@ -675,6 +675,8 @@ def plot_tree_dist(
     :param show: Whether the plot is shown
     :return: None
     """
+    if qvars is None:
+        qvars = {}
 
     # generate datapoints
     x = np.linspace(limx[0], limx[1], 50)
@@ -687,25 +689,13 @@ def plot_tree_dist(
                 tree.bind(
                     {
                         qvarx: x,
-                        qvary: y
+                        qvary: y,
+                        **qvars
                     }
                 )
             ) for x, y, in zip(X.ravel(), Y.ravel())
         ]
     ).reshape(X.shape)
-
-    # X, Y = np.meshgrid(x, y)
-    # Z = []
-    # for y_ in y:
-    #     z_ = []
-    #     for x_ in x:
-    #         d = {qvarx: x_, qvary: y_}
-    #         if qvars is not None:
-    #             d.update(qvars)
-    #         z_.append(tree.pdf(tree.bind(d)))
-    #     Z.append(z_)
-
-    # Z = np.array(Z)
 
     lbl = np.full(Z.shape, f'Some random label')
 
@@ -713,11 +703,11 @@ def plot_tree_dist(
     if conf is not None:
         Z[Z < conf] = 0.
 
-    data = pd.DataFrame(data=[[x, y, Z, lbl]], columns=['x', 'y', 'z', 'lbl'])
+    data = pd.DataFrame(data=[[x, y, Z, lbl]], columns=[qvarx, qvary, 'z', 'lbl'])
 
     return plot_heatmap(
-        'x',
-        'y',
+        qvarx,
+        qvary,
         data,
         title=title,
         limx=limx,
@@ -726,6 +716,7 @@ def plot_tree_dist(
         save=save,
         show=show
     )
+
 
 def pathdata(
         xvar,

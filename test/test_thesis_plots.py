@@ -17,7 +17,7 @@ from calo.core.astar_jpt import State
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
     plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq
-from calo.utils.utils import recent_example
+from calo.utils.utils import recent_example, fmt
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
 
@@ -910,75 +910,27 @@ class ThesisPlotsTests(unittest.TestCase):
         df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
 
         # set settings
-        limx = (-1.5, 1.5)
-        limy = (-1.5, 1.5)
+        limx = (-2, 2)
+        limy = (-2, 2)
 
-        # plot init distributions
-        initdist = plot_tree_dist(
-            tree=j,
-            qvarx=j.varnames['x_in'],
-            qvary=j.varnames['y_in'],
-            limx=(0, 100),
-            limy=(0, 100),
-            save=None,
-            show=False
-        )
-        fig_to_file(initdist, os.path.join(locs.logs, f"test_reproduce_data_move-init_in-dist.html"), ftypes=['.svg', '.html'])
-        gt = plot_data_subset(
-            df,
-            xvar='x_in',
-            yvar='y_in',
-            constraints={},
-            limx=(0, 100),
-            limy=(0, 100),
-            save=None,
-            show=False,
-            color='rgb(0,104,180)'
-        )
-        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_move-init_in-gt.html"), ftypes=['.svg', '.html'])
+        xl, yl, xu, yu = (0, 0, 100, 100)
+        # xl, yl, xu, yu = (0, 0, 30, 30)
 
-        initdisto = plot_tree_dist(
-            tree=j,
-            qvarx=j.varnames['x_out'],
-            qvary=j.varnames['y_out'],
-            limx=limx,
-            limy=limy,
-            save=None,
-            show=False
-        )
-        fig_to_file(initdisto, os.path.join(locs.logs, f"test_reproduce_data_move-init_out-dist.html"), ftypes=['.svg', '.html'])
-        gt = plot_data_subset(
-            df,
-            xvar='x_out',
-            yvar='y_out',
-            constraints={},
-            limx=limx,
-            limy=limy,
-            save=None,
-            show=False,
-            color='rgb(0,104,180)'
-        )
-        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_move-init_out-gt.html"), ftypes=['.svg', '.html'])
-
-        # coords = (0, 0, 100, 100)
-        xl, yl, xu, yu = (0, 0, 30, 30)
-
-        # oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
-        oxl, oyl, oxu, oyu = (5, 5, 20, 10)
+        oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
+        # oxl, oyl, oxu, oyu = (5, 5, 20, 10)
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
             # "free-pos": [  # random position in obstacle-free area
-            #     (20, 20, -.7, -.7),  # 20, 70 pos (orig)
-            #     (20, 20, .7, -.7),
-            #     (20, 20, .7, .7),
-            #     (20, 20, -.7, .7),
-            #     (20, 20, -1, 0),
-            #     (20, 20, 1, 0),
-            #     (20, 20, 0, 1),
-            #     (20, 20, 0, -1),
-            #     (20, 10, None, None),  # 50, 50 pos (orig)
-            #     (None, None, None, None),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), -.7, -.7),  # 20, 70 pos (orig)
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), .7, -.7),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), .7, .7),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), -.7, .7),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), -1, 0),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), 1, 0),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), 0, 1),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), 0, -1),
+            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), None, None),  # 50, 50 pos (orig)
             # ],
             # "no-pos": [  # all directions without given pos
             #     (None, None, 0, -1),
@@ -994,38 +946,46 @@ class ThesisPlotsTests(unittest.TestCase):
             #     (None, None, None, -1),
             #     (None, None, None, 1),
             # ],
-            # "grid-corners": [  # all corners of gridworld
-            #     (xl, yl, None, None),  # lower left
-            #     (xl, yu, None, None),  # upper left
-            #     (xu, yl, None, None),  # lower right
-            #     (xu, yu, None, None)  # upper right
-            # ],
-            # "grid-edges": [  # all edges of gridworld (center)
-            #     (xl, None, -1, 0),  # left edge
-            #     (xl, None, 1, 0),  # left edge
-            #     (xl, None, None, None),  # left edge
-            #     (xu, None, None, None),  # right edge
-            #     (None, yl, None, None),  # lower edge
-            #     (None, yu, None, None)  # upper edge
-            # ],
-            # "obstacle-corners": [  # all corners of one obstacle
-            #     (oxl, oxl, None, None),  # lower left
-            #     (oxl, oyu, None, None),  # upper left
-            #     (oxu, oyl, None, None),  # lower right
-            #     (oxu, oyu, None, None)  # upper right
-            # ],
-            # "obstacle-edges": [  # all edges of one obstacle
-            #     (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
-            #     (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
-            #     (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
-            #     (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
-            # ],
+            "grid-corners": [  # all corners of gridworld
+                (ContinuousSet(xl - 1, xl + 1), ContinuousSet(yl - 1, yl + 1), None, None),  # lower left
+                (ContinuousSet(xl - 1, xl + 1), ContinuousSet(yu - 1, yu + 1), None, None),  # upper left
+                (ContinuousSet(xu - 1, xu + 1), ContinuousSet(yl - 1, yl + 1), None, None),  # lower right
+                (ContinuousSet(xu - 1, xu + 1), ContinuousSet(yu - 1, yu + 1), None, None)  # upper right
+            ],
+            "grid-edges": [  # all edges of gridworld (center)
+                (xl, None, -1, 0),  # left edge
+                (xl, None, 1, 0),  # left edge
+                (xl, None, None, None),  # left edge
+                (xu, None, None, None),  # right edge
+                (None, yl, None, None),  # lower edge
+                (None, yu, None, None)  # upper edge
+            ],
+            "obstacle-corners": [  # all corners of one obstacle
+                (oxl, oxl, None, None),  # lower left
+                (oxl, oyu, None, None),  # upper left
+                (oxu, oyl, None, None),  # lower right
+                (oxu, oyu, None, None)  # upper right
+            ],
+            "obstacle-edges": [  # all edges of one obstacle
+                (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
+                (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
+                (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
+                (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
+            ],
+            "apriori": [
+                (None, None, None, None),
+            ],
+            "in": [
+                (None, None, None, None),
+            ]
         }
 
         for postype, pos in positions.items():
             print("POSTYPE:", postype)
 
-            plotdir = os.path.join(locs.logs, f"test_reproduce_data_move-{postype}")
+            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_move-{postype}")
+            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
+                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
@@ -1033,7 +993,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 # leave untouched
                 tolerance = .3
-                tolerance_ = 1.5
+                tolerance_ = .5
 
                 pdfvars = {}
 
@@ -1052,6 +1012,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 # pdfvars = {}
                 # pdfvars['x_in'] = ContinuousSet(99.9, 100)
                 # pdfvars['y_in'] = ContinuousSet(0, 100)
+                print(f"Query: {pdfvars}")
 
                 # generate tree conditioned on given position and/or direction
                 cond = j.conditional_jpt(
@@ -1077,8 +1038,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         cond.pdf(
                             cond.bind(
                                 {
-                                    'x_out': x,
-                                    'y_out': y
+                                    f'x_{"in" if postype == "in" else "out"}': x,
+                                    f'y_{"in" if postype == "in" else "out"}': y
                                 }
                             )
                         ) for x, y, in zip(X.ravel(), Y.ravel())
@@ -1091,13 +1052,13 @@ class ThesisPlotsTests(unittest.TestCase):
                     columns=['x', 'y', 'z', 'lbl']
                 )
 
-                prefix = f'POS({x_:{"+.1f" if x_ is not None else ""}},{y_:{"+.1f" if y_ is not None else ""}})_DIR({xd:{"+.1f" if xd is not None else ""}},{yd:{"+.1f" if yd is not None else ""}})'
+                prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})'
 
                 # plot ground truth
                 gt = plot_data_subset(
                     df,
-                    xvar='x_out',
-                    yvar='y_out',
+                    xvar=f'x_{"in" if postype == "in" else "out"}',
+                    yvar=f'y_{"in" if postype == "in" else "out"}',
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
@@ -1105,7 +1066,10 @@ class ThesisPlotsTests(unittest.TestCase):
                     show=False,
                     color='rgb(0,104,180)'
                 )
-                fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'])
+                if gt is not None:
+                    fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'] if postype not in ['in', 'apriori'] else None)
+                else:
+                    print("SKIPPING", os.path.join(plotdir, f"{prefix}-gt.html"), "as figure is None")
 
                 # plot JPT 3D-Surface
                 dist = plot_heatmap(
@@ -1119,7 +1083,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     save=None,
                     fun="heatmap"
                 )
-                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])
+                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'] if postype not in ['in', 'apriori'] else None)
 
     def test_reproduce_data_turn(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1182,37 +1146,45 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values (xdir_in, ydir_in, angle)
         dirs = {
-            # "no-dir": [
-            #     (None, None, None),
-            #     (0, None, None),
-            #     (None, 0, None)
-            # ],
-            # "dir": [  # all directions
-            #     (-1, None, None),
-            #     (-1, 0, None),
-            #     (1, None, None),
-            #     (1, 0, None),
-            #     (-.5, None, None),
-            #     (-.5, .5, None),
-            #     (-.5, -.5, None),
-            #     (.5, None, None),
-            #     (.5, .5, None),
-            #     (.5, -.5, None),
-            #     (0, 1, None),
-            #     (0, -1, None),
-            #     (None, 1, None),
-            #     (None, .5, None),
-            #     (None, -1, None),
-            #     (None, -.5, None),
-            # ],
-            # "angle": [
-            #     (-1, None, None),
-            # ]
+            "no-dir": [
+                (0, None, None),
+                (None, 0, None)
+            ],
+            "dir": [  # all directions
+                (-1, None, None),
+                (-1, 0, None),
+                (1, None, None),
+                (1, 0, None),
+                (-.5, None, None),
+                (-.5, .5, None),
+                (-.5, -.5, None),
+                (.5, None, None),
+                (.5, .5, None),
+                (.5, -.5, None),
+                (0, 1, None),
+                (0, -1, None),
+                (None, 1, None),
+                (None, .5, None),
+                (None, -1, None),
+                (None, -.5, None),
+            ],
+            "angle": [
+                (None, None, 45),
+                (1, 0, 45),
+            ],
+            "apriori": [
+                (None, None, None),
+            ],
+            "in": [
+                (None, None, None),
+            ],
         }
 
         for dirtype, d in dirs.items():
 
-            plotdir = os.path.join(locs.logs, f"test_reproduce_data_turn-{dirtype}")
+            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_turn-{dirtype}")
+            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
+                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
@@ -1225,13 +1197,13 @@ class ThesisPlotsTests(unittest.TestCase):
                 pdfvars = {}
 
                 if xd is not None:
-                    pdfvars['xdir_in'] = ContinuousSet(xd - tolerance, xd + tolerance)
+                    pdfvars['xdir_in'] = xd if isinstance(xd, ContinuousSet) else ContinuousSet(xd - tolerance, xd + tolerance)
 
                 if yd is not None:
-                    pdfvars['ydir_in'] = ContinuousSet(yd - tolerance, yd + tolerance)
+                    pdfvars['ydir_in'] = yd if isinstance(yd, ContinuousSet) else ContinuousSet(yd - tolerance, yd + tolerance)
 
                 if angle is not None:
-                    pdfvars['angle'] = ContinuousSet(angle - tolerance_, angle + tolerance_)
+                    pdfvars['angle'] = angle if isinstance(angle, ContinuousSet) else ContinuousSet(angle - tolerance_, angle + tolerance_)
 
                 print("PDFVARS:", pdfvars)
 
@@ -1254,8 +1226,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         cond.pdf(
                             cond.bind(
                                 {
-                                    'xdir_out': x,
-                                    'ydir_out': y
+                                    f'xdir_{"in" if dirtype == "in" else "out"}': x,
+                                    f'ydir_{"in" if dirtype == "in" else "out"}': y
                                 }
                             )
                         ) for x, y, in zip(X.ravel(), Y.ravel())
@@ -1268,13 +1240,13 @@ class ThesisPlotsTests(unittest.TestCase):
                     columns=['x', 'y', 'z', 'lbl']
                 )
 
-                prefix = f'DIR({xd:{"+.1f" if xd is not None else ""}},{yd:{"+.1f" if yd is not None else ""}})_{angle:{"+.1f" if angle is not None else ""}}°'
+                prefix = f'DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})_{fmt(angle, prec=1, positive=True)}°'
 
                 # plot ground truth
                 gt = plot_data_subset(
                     df,
-                    xvar='xdir_out',
-                    yvar='ydir_out',
+                    xvar=f'xdir_{"in" if dirtype == "in" else "out"}',
+                    yvar=f'ydir_{"in" if dirtype == "in" else "out"}',
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
@@ -1298,7 +1270,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 )
                 fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])
 
-    def test_reproduce_data_perception_multinomial_plots(self) -> None:
+    def test_reproduce_data_perception(self) -> None:
         # MULTIPLE sets of constraints:
         # for any constrained PERCEPTION variables, plot all remaining dists
 
@@ -1351,7 +1323,10 @@ class ThesisPlotsTests(unittest.TestCase):
         for postype, queries in queries.items():
             print("POSTYPE:", postype)
 
-            plotdir = os.path.join(locs.logs, f"test_reproduce_data_perception_multinomial_plots-{postype}")
+            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_perception-{postype}")
+            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
+                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
+
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
@@ -1510,7 +1485,7 @@ class ThesisPlotsTests(unittest.TestCase):
                         #     fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
                             
 
-    def test_reproduce_data_pr2_multinomial_plots(self) -> None:
+    def test_reproduce_data_pr2(self) -> None:
         # MULTIPLE sets of constraints:
         # for any constrained PR2 variables, plot all remaining dists
         import plotly.express as px
@@ -1543,7 +1518,9 @@ class ThesisPlotsTests(unittest.TestCase):
         for postype, queries in queries_.items():
             print("POSTYPE:", postype)
 
-            plotdir = os.path.join(locs.logs, f"test_reproduce_data_pr2_multinomial_plots-{postype}")
+            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_pr2-{postype}")
+            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
+                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 

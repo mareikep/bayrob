@@ -37,19 +37,20 @@ def generate_data(fp, args):
         world=w
     )
 
-    walking_areas = [
-        ((5, 50, 50, 80), "wa1"),
-        ((50, 30, 80, 80), "wa2"),
-        ((45, 0, 100, 50), "wa3")
-    ]
+    # # draw samples uniformly from the three walking areas instead of the entire kitchen
+    # walking_areas = [
+    #     ((5, 50, 50, 80), "wa1"),
+    #     ((50, 30, 80, 80), "wa2"),
+    #     ((45, 0, 100, 50), "wa3")
+    # ]
+    #
+    # samplepositions = np.concatenate([np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2)) for (xl, yl, xu, yu), n in walking_areas])
 
-    # draw samples uniformly from the three walking areas instead of the entire kitchen
-    samplepositions = np.concatenate([np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2)) for (xl, yl, xu, yu), n in walking_areas])
+    # OR draw samples from entire kitchen area
+    samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2))
 
     idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
-    # dm_ = DynamicArray(shape=(int(((xu-xl)*(yu-yl))*lrturns), 7), dtype=np.float32)
     dm_ = DynamicArray(shape=(len(samplepositions), 7), dtype=np.float32)
-    # for i, (x, y) in enumerate(np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2))):
     for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
         if w.collides((x, y)): continue
@@ -67,7 +68,7 @@ def generate_data(fp, args):
         # after each turn, make one step forward, save datapoint
         # and step back to initpos (i.e. the sampled pos around x/y)
         # and turn back to initdir
-        for degi in np.random.uniform(low=-90, high=90, size=lrturns):
+        for degi in np.random.uniform(low=-90, high=91, size=lrturns):
 
             # turn to new starting direction
             move.turndeg(a, degi)
@@ -101,7 +102,7 @@ def generate_data(fp, args):
     })
 
     # remove collision data points
-    data_moveforward = data_moveforward[(data_moveforward['x_out'] != 0) | (data_moveforward['y_out'] != 0)]
+    # data_moveforward = data_moveforward[(data_moveforward['x_out'] != 0) | (data_moveforward['y_out'] != 0)]
 
     logger.debug(f"...done! Saving {data_moveforward.shape[0]} data points to {os.path.join(fp, 'data', f'000-{args.example}.parquet')}...")
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'), index=False)
