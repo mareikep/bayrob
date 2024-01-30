@@ -88,9 +88,11 @@ def learn_jpt(
     jpt_.learn(df, close_convex_gaps=False)
 
     if "prune" in args:
+        logger.debug(f"Pruning tree with similarity_threshold = {args.prune}...")
         jpt_ = jpt_.prune(similarity_threshold=args.prune)  # .77
 
     if "postprocess" in args:
+        logger.debug(f"Post-processing leaves...")
         jpt_.postprocess_leaves()
 
     logger.debug(f'...done! saving to file {os.path.join(fp, f"000-{name}.tree")}')
@@ -147,8 +149,6 @@ def main(DT, args):
         from perception import perception as mod
     elif args.example == 'pr2':
         from pr2 import pr2 as mod
-    elif args.example == 'pr2_exp':
-        from pr2_exp import pr2_ as mod
     else:
         from perception import perception as mod
         args.example = 'perception'
