@@ -9,6 +9,9 @@ from typing import List, Union, Tuple, Dict
 from pathlib import Path
 
 import dnutils
+from _plotly_utils.colors import sample_colorscale
+import plotly.express as px
+
 import jpt
 import numpy as np
 import pandas as pd
@@ -18,6 +21,7 @@ from calo.utils.constants import xlsHEADER, xlsNUM, xlsDATE
 from jpt.base.intervals import ContinuousSet
 
 from jpt.distributions import Multinomial, Numeric, Integer, Bool
+from jpt.plotting.helpers import color_to_rgb
 from jpt.variables import VariableMap
 from matplotlib import pyplot as plt
 
@@ -575,6 +579,21 @@ def euler_from_quaternion(x, y, z, w, degree=True):
         return roll_x*180/math.pi, pitch_y*180/math.pi, yaw_z*180/math.pi  # in degrees
     else:
         return roll_x, pitch_y, yaw_z  # in radians
+
+
+def discr_colors(
+    size: int
+):
+    # sample colors from continuous color palette to get discrete color sequence
+    colors_discr=sample_colorscale(
+        px.colors.sequential.dense,
+        max(2, size + 2),
+        low=.2,  # the first few values are very light and not easy to see on a plot, so we start higher up
+        high=1.,
+        colortype="rgb"
+    )
+
+    return colors_discr[:min(size + 1, len(colors_discr))]
 
 
 if __name__ == '__main__':
