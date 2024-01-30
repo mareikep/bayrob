@@ -244,17 +244,25 @@ class SubAStar(AStar):
         # the goal specification
         if not set(self.goal.keys()).issubset(set(node.state.keys())): return False
 
+        # case node state is Goal -> other is not a proper state but goal specification,
+        # therefore it cannot not pose an action sequence to reach goal, may be subject
+        # to change if Goal objects contain actual distributions instead of (Continuous)sets
+        if isinstance(node.state, Goal): return False
+
         for var in self.goal:
             if isinstance(node.state[var], Distribution):
                 # case node state is intermediate state -> values are distributions
-                # if isinstance(self.goal[var], ContinuousSet):
                 intersection = node.state[var].mpe()[0].intersection(self.goal[var])
                 if self.jaccard_similarity(intersection, node.state[var].mpe()[0]) < .7:
                     return False
-            else:
-                # case node state is Goal -> values are (continuous) sets
-                if self.jaccard_similarity(node.state[var], self.goal[var]) < .7:
-                    return False
+                # alternative: probability of desired value range specified in goal of the
+                # state's distribution
+                # if node.state[var].p(self.goal[var]) < .7:
+                #     return False
+            # else:
+                # if self.jaccard_similarity(node.state[var], self.goal[var]) < .7:
+                #     return False
+
 
         return True
 
