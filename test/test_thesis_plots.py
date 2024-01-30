@@ -7,6 +7,7 @@ import unittest
 from functools import reduce
 from pathlib import Path
 
+import dnutils
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -16,7 +17,8 @@ from pandas import DataFrame
 from calo.core.astar_jpt import State
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq
+    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq, \
+    plot_tree_leaves
 from calo.utils.utils import recent_example, fmt
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
@@ -24,6 +26,9 @@ from jpt.base.intervals import ContinuousSet, RealSet
 from jpt.base.functions import PiecewiseFunction
 from jpt.distributions import Gaussian, Numeric
 from jpt.distributions.quantile.quantiles import QuantileDistribution
+
+
+logger = dnutils.getlogger("thesis_tests", level=dnutils.DEBUG)
 
 
 def generate_gaussian_samples(gaussians, n):
@@ -46,6 +51,7 @@ class ThesisPlotsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
        cls.recent_move = recent_example(os.path.join(locs.examples, 'move'))
+       cls.recent_movemini = recent_example(os.path.join(locs.examples, 'move_exp'))
        cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
        cls.recent_perception = recent_example(os.path.join(locs.examples, 'perception'))
        cls.recent_pr2 = recent_example(os.path.join(locs.examples, 'pr2'))
@@ -904,47 +910,32 @@ class ThesisPlotsTests(unittest.TestCase):
     def test_reproduce_data_move(self) -> None:
         # MULTIPLE sets of constraints:
         # for constrained MOVE FEATURE variables, plot heatmap, 3D and ground data of position (OUT) distribution
-
-        # load data and JPT that has been learnt from this data
-        j = self.models['000-move.tree']
-        df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
-
-        # set settings
-        limx = (-2, 2)
-        limy = (-2, 2)
-
-        xl, yl, xu, yu = (0, 0, 100, 100)
-        # xl, yl, xu, yu = (0, 0, 30, 30)
-
-        oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
-        # oxl, oyl, oxu, oyu = (5, 5, 20, 10)
+        mini = True
+        addobstacles = True
+        
+        if mini:
+            # load data and JPT that has been learnt from this data
+            j = JPT.load(os.path.join(self.recent_movemini, '000-move_exp.tree'))
+            df = pd.read_parquet(os.path.join(self.recent_movemini, 'data', f'000-move_exp.parquet'))
+            modelpath = self.recent_movemini
+            xl, yl, xu, yu = (0, 0, 30, 30)
+            oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
+            freepos = 20
+        else:
+            j = self.models['000-move.tree']
+            df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
+            modelpath = self.recent_move
+            xl, yl, xu, yu = (0, 0, 100, 100)
+            oxl, oyl, oxu, oyu = (5, 5, 20, 10)
+            freepos = 60
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            # "free-pos": [  # random position in obstacle-free area
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), -.7, -.7),  # 20, 70 pos (orig)
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), .7, -.7),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), .7, .7),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), -.7, .7),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), -1, 0),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), 1, 0),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), 0, 1),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), 0, -1),
-            #     (ContinuousSet(60 - 2, 60 + 2), ContinuousSet(60 - 2, 60 + 2), None, None),  # 50, 50 pos (orig)
+            # "apriori": [
+            #     (None, None, None, None),
             # ],
-            # "no-pos": [  # all directions without given pos
-            #     (None, None, 0, -1),
-            #     (None, None, 0, 1),
-            #     (None, None, 1, 0),
-            #     (None, None, -1, 0),
-            #     (None, None, .5, -.5),
-            #     (None, None, .5, .5),
-            #     (None, None, -.5, -.5),
-            #     (None, None, -.5, .5),
-            #     (None, None, -1, None),
-            #     (None, None, 1, None),
-            #     (None, None, None, -1),
-            #     (None, None, None, 1),
+            # "in": [
+            #     (None, None, None, None),
             # ],
             "grid-corners": [  # all corners of gridworld
                 (ContinuousSet(xl - 1, xl + 1), ContinuousSet(yl - 1, yl + 1), None, None),  # lower left
@@ -960,34 +951,57 @@ class ThesisPlotsTests(unittest.TestCase):
                 (None, yl, None, None),  # lower edge
                 (None, yu, None, None)  # upper edge
             ],
-            "obstacle-corners": [  # all corners of one obstacle
-                (oxl, oxl, None, None),  # lower left
-                (oxl, oyu, None, None),  # upper left
-                (oxu, oyl, None, None),  # lower right
-                (oxu, oyu, None, None)  # upper right
+            # "obstacle-corners": [  # all corners of one obstacle
+            #     (oxl, oxl, None, None),  # lower left
+            #     (oxl, oyu, None, None),  # upper left
+            #     (oxu, oyl, None, None),  # lower right
+            #     (oxu, oyu, None, None)  # upper right
+            # ],
+            # "obstacle-edges": [  # all edges of one obstacle
+            #     (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
+            #     (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
+            #     (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
+            #     (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
+            # ],
+            "free-pos": [  # random position in obstacle-free area
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), -.7, -.7),  # 20, 70 pos (orig)
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), .7, -.7),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), .7, .7),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), -.7, .7),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), -1, 0),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), 1, 0),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), 0, 1),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), 0, -1),
+                (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), None, None),  # 50, 50 pos (orig)
             ],
-            "obstacle-edges": [  # all edges of one obstacle
-                (oxl, ContinuousSet(oyl, oyu), None, None),  # left edge
-                (oxu, ContinuousSet(oyl, oyu), None, None),  # right edge
-                (ContinuousSet(oxl, oxu), oyl, None, None),  # lower edge
-                (ContinuousSet(oxl, oxu), oyu, None, None)  # upper edge
-            ],
-            "apriori": [
-                (None, None, None, None),
-            ],
-            "in": [
-                (None, None, None, None),
+            "no-pos": [  # all directions without given pos
+                (None, None, 0, -1),
+                (None, None, 0, 1),
+                (None, None, 1, 0),
+                (None, None, -1, 0),
+                (None, None, .5, -.5),
+                (None, None, .5, .5),
+                (None, None, -.5, -.5),
+                (None, None, -.5, .5),
+                (None, None, -1, None),
+                (None, None, 1, None),
+                (None, None, None, -1),
+                (None, None, None, 1),
             ]
         }
 
         for postype, pos in positions.items():
-            print("POSTYPE:", postype)
+            logger.warning(f"POSTYPE: {postype}")
 
-            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_move-{postype}")
-            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
-                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
+            plotdir = os.path.join(locs.logs, f"Move-{Path(modelpath).stem}", f"test_reproduce_data_move-{postype}")
+            if not os.path.exists(os.path.join(locs.logs, f"Move-{Path(modelpath).stem}")):
+                os.mkdir(os.path.join(locs.logs, f"Move-{Path(modelpath).stem}"))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
+
+            # set settings
+            limx = (0, 100) if postype == "in" else (-2, 2)
+            limy = (0, 100) if postype == "in" else (-2, 2)
 
             for i, (x_, y_, xd, yd) in enumerate(pos):
 
@@ -1012,7 +1026,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 # pdfvars = {}
                 # pdfvars['x_in'] = ContinuousSet(99.9, 100)
                 # pdfvars['y_in'] = ContinuousSet(0, 100)
-                print(f"Query: {pdfvars}")
+                # pdfvars['collided'] = True
+                logger.info(f"Query: {pdfvars}")
+                prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})'
 
                 # generate tree conditioned on given position and/or direction
                 cond = j.conditional_jpt(
@@ -1024,11 +1040,22 @@ class ThesisPlotsTests(unittest.TestCase):
                 )
 
                 if cond is None:
-                    print(f"COND IS NONE, skipping {pdfvars}")
+                    logger.warning(f"COND IS NONE, skipping {pdfvars}")
                     continue
-                print(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
+                logger.info(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
 
-                # data generation
+                # plot rectangles representing each leaf participating in this query
+                plot_tree_leaves(
+                    cond,
+                    cond.varnames['x_in'],
+                    cond.varnames['y_in'],
+                    title=prefix,
+                    limx=(0, 100),
+                    limy=(0, 100),
+                    show=True
+                )
+
+                # data generation for distribution plot
                 x = np.linspace(*limx, 100)
                 y = np.linspace(*limy, 100)
 
@@ -1052,10 +1079,17 @@ class ThesisPlotsTests(unittest.TestCase):
                     columns=['x', 'y', 'z', 'lbl']
                 )
 
-                prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})'
-
                 # plot ground truth
-                gt = plot_data_subset(
+                gt = go.Figure()
+                if addobstacles:
+
+                    # plot obstacles in background
+                    if self.obstacles is not None and postype == 'in':
+                        for (o, on) in self.obstacles:
+                            gt.add_trace(
+                                plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
+
+                gt_ = plot_data_subset(
                     df,
                     xvar=f'x_{"in" if postype == "in" else "out"}',
                     yvar=f'y_{"in" if postype == "in" else "out"}',
@@ -1066,13 +1100,24 @@ class ThesisPlotsTests(unittest.TestCase):
                     show=False,
                     color='rgb(0,104,180)'
                 )
-                if gt is not None:
-                    fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'] if postype not in ['in', 'apriori'] else None)
-                else:
-                    print("SKIPPING", os.path.join(plotdir, f"{prefix}-gt.html"), "as figure is None")
+                if gt_ is not None:
+                    gt.layout = gt_.layout
+                    gt.add_traces(gt_.data)
 
-                # plot JPT 3D-Surface
-                dist = plot_heatmap(
+                    fig_to_file(gt, os.path.join(plotdir, f"{prefix}-gt.html"), ftypes=['.svg', '.html'])# if postype not in ['in', 'apriori'] else None)
+                else:
+                    logger.warning("SKIPPING", os.path.join(plotdir, f"{prefix}-gt.html"), "as figure is None")
+
+                dist = go.Figure()
+                if addobstacles:
+
+                    # plot obstacles in background
+                    if self.obstacles is not None and postype == 'in':
+                        for (o, on) in self.obstacles:
+                            dist.add_trace(plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
+
+                # plot heatmap
+                dist_ = plot_heatmap(
                     xvar='x',
                     yvar='y',
                     data=data,
@@ -1083,7 +1128,12 @@ class ThesisPlotsTests(unittest.TestCase):
                     save=None,
                     fun="heatmap"
                 )
-                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'] if postype not in ['in', 'apriori'] else None)
+
+                if dist_ is not None:
+                    dist.layout = dist_.layout
+                    dist.add_traces(dist_.data)
+
+                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])# if postype not in ['in', 'apriori'] else None)
 
     def test_reproduce_data_turn(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1182,9 +1232,9 @@ class ThesisPlotsTests(unittest.TestCase):
 
         for dirtype, d in dirs.items():
 
-            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_turn-{dirtype}")
-            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
-                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
+            plotdir = os.path.join(locs.logs, f"Turn-{Path(self.recent_turn).stem}", f"test_reproduce_data_turn-{dirtype}")
+            if not os.path.exists(os.path.join(locs.logs, f"Turn-{Path(self.recent_turn).stem}")):
+                os.mkdir(os.path.join(locs.logs, f"Turn-{Path(self.recent_turn).stem}"))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
@@ -1323,9 +1373,9 @@ class ThesisPlotsTests(unittest.TestCase):
         for postype, queries in queries.items():
             print("POSTYPE:", postype)
 
-            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_perception-{postype}")
-            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
-                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
+            plotdir = os.path.join(locs.logs, f"Perception-{Path(self.recent_perception).stem}", f"test_reproduce_data_perception-{postype}")
+            if not os.path.exists(os.path.join(locs.logs, f"Perception-{Path(self.recent_perception).stem}")):
+                os.mkdir(os.path.join(locs.logs, f"Perception-{Path(self.recent_perception).stem}"))
 
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
@@ -1399,7 +1449,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         )
                         if addobstacles:
                             gt.layout = gt_.layout
-                            gt.add_traces(gt_.data)
+
+                        gt.add_traces(gt_.data)
 
                         fig_to_file(gt, os.path.join(plotdir, f"{prefix}-{plot}-gt.html"), ftypes=['.svg', '.html'])
 
@@ -1439,7 +1490,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         )
                         if addobstacles:
                             hm.layout = hm_.layout
-                            hm.add_traces(hm_.data)
+
+                        hm.add_traces(hm_.data)
 
                         fig_to_file(hm, os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"), ftypes=['.svg', '.html'])
 
@@ -1518,9 +1570,9 @@ class ThesisPlotsTests(unittest.TestCase):
         for postype, queries in queries_.items():
             print("POSTYPE:", postype)
 
-            plotdir = os.path.join(locs.logs, Path(self.recent_move).stem, f"test_reproduce_data_pr2-{postype}")
-            if not os.path.exists(os.path.join(locs.logs, Path(self.recent_move).stem)):
-                os.mkdir(os.path.join(locs.logs, Path(self.recent_move).stem))
+            plotdir = os.path.join(locs.logs, f"PR2-{Path(self.recent_pr2).stem}", f"test_reproduce_data_pr2-{postype}")
+            if not os.path.exists(os.path.join(locs.logs, f"PR2-{Path(self.recent_pr2).stem}")):
+                os.mkdir(os.path.join(locs.logs, f"PR2-{Path(self.recent_pr2).stem}"))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
 
@@ -1632,6 +1684,10 @@ class ThesisPlotsTests(unittest.TestCase):
                                 alphabet=True
                             )
                             fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
+
+    def test_jpt_leaves_plot(self):
+        j = self.models['000-move.tree']
+        plot_tree_leaves(j, j.varnames['x_in'], j.varnames['y_in'], limx=(0, 100), limy=(0, 100), show=True)
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, 0, -1]
