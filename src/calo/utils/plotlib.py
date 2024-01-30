@@ -15,7 +15,7 @@ from pandas import DataFrame
 from plotly.graph_objs import Figure
 
 from calo.utils.constants import calologger
-from calo.utils.utils import unit
+from calo.utils.utils import unit, discr_colors
 from jpt import JPT
 from jpt.distributions import Gaussian
 from jpt.plotting.helpers import color_to_rgb
@@ -23,11 +23,11 @@ from jpt.plotting.helpers import color_to_rgb
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
-def defaultconfig(fname=None):
+def defaultconfig(fname=None, format='svg'):
     return dict(
         displaylogo=False,
         toImageButtonOptions=dict(
-            format='svg',  # one of png, svg, jpeg, webp
+            format=format,  # one of png, svg, jpeg, webp
             filename=Path(fname).stem if fname is not None else 'calo_plot',
             scale=1  # Multiply title/legend/axis/canvas sizes by this factor
         ),
@@ -919,7 +919,7 @@ def plot_scatter_quiver(
     colors_discr_a = [color_to_rgb(c, 1)[1] for c in colors_discr]
 
     # scatter positions
-    fig_s = go.Scatter(
+    fig_s = (go.Scattergl if data.shape[0] > 10.000 else go.Scatter)(
         x=data[xvar],
         y=data[yvar],
         marker=dict(
@@ -1091,12 +1091,10 @@ def plot_data_subset(
         logger.warning('EMPTY DATAFRAME!')
         return
 
-    print(df_.shape[0])
-
     fig_s = go.Figure()
     if plot_type == "scatter":
         fig_s.add_trace(
-            go.Scatter(
+            (go.Scattergl if df_.shape[0] > 10.000 else go.Scatter)(
                 x=df_[xvar],
                 y=df_[yvar],
                 marker=dict(
@@ -1156,11 +1154,11 @@ def plot_data_subset(
         ) if normalize else {}
     )
 
-    if show:
-        fig_s.show(config=defaultconfig(save))
-
     if save:
         fig_to_file(fig_s, save)
+
+    if show:
+        fig_s.show(config=defaultconfig(save))
 
     return fig_s
 
@@ -1247,6 +1245,67 @@ def plot_multiple_dists(
         fig_to_file(mainfig, save)
 
 
+def plot_tree_leaves(
+        jpt: JPT,
+        varx: Any,  # in fact Variable but importing Variable might cause ring import
+        vary: Any,
+        limx: Tuple,
+        limy: Tuple,
+        title: str = None,
+        save: str = None,
+        color: str = None,
+        show: bool = False
+) -> Figure:
+
+    mainfig = go.Figure()
+
+    for leaf, c in zip(jpt.leaves.values(), discr_colors(len(jpt.leaves))):
+        xlower = varx.domain.labels[leaf.path[varx].lower if varx in leaf.path else -np.inf]
+        xupper = varx.domain.labels[leaf.path[varx].upper if varx in leaf.path else np.inf]
+        ylower = vary.domain.labels[leaf.path[vary].lower if vary in leaf.path else -np.inf]
+        yupper = vary.domain.labels[leaf.path[vary].upper if vary in leaf.path else np.inf]
+
+        if xlower == np.NINF:
+            xlower = limx[0]
+        if xupper == np.PINF:
+            xupper = limx[1]
+        if ylower == np.NINF:
+            ylower = limy[0]
+        if yupper == np.PINF:
+            yupper = limy[1]
+
+        mainfig.add_trace(
+            plotly_sq(
+                (xlower, ylower, xupper, yupper),
+                lbl=f'Leaf #{leaf.idx}',
+                color=color if color is not None else c,
+                legend=False
+            )
+        )
+
+    mainfig.update_layout(
+        title=title,
+        width=1000,
+        height=1000,
+        xaxis=dict(
+            range=limx
+        ),
+        yaxis=dict(
+            range=limy
+        )
+    )
+
+    if show:
+        mainfig.show(
+            config=defaultconfig(save)
+        )
+
+    if save:
+        fig_to_file(mainfig, save)
+
+    return mainfig
+
+
 if __name__ == "__main__":
     robot_positions = {
         "kitchen_unit": [
@@ -1275,7 +1334,7 @@ if __name__ == "__main__":
     fig = go.Figure()
     for i, (c, df) in enumerate(dfs):
         fig.add_trace(
-            go.Scatter(
+            (go.Scattergl if df.shape[0] > 10.000 else go.Scatter)(
                 x=df['x'],
                 y=df['y'],
                 marker=dict(
