@@ -60,7 +60,7 @@ class Grid(World):
             self,
             pos: Tuple[float, float]
     ) -> bool:
-        return any([o[0] < pos[0] < o[2] and o[1] < pos[1] < o[3] for o in self._obstacles])
+        return any([o[0] <= pos[0] <= o[2] and o[1] <= pos[1] <= o[3] for o in self._obstacles])
 
     def collides_wall(
             self,
