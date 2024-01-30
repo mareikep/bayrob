@@ -22,6 +22,7 @@ def generate_data(fp, args):
     lrturns = args.lrturns if 'lrturns' in args else 200
     areas = args.walkingareas if "areas" in args else False
     dropcollisions = args.dropcollisions if "dropcollisions" in args else False
+    keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else True
     logger.error(f'LRTURN: {lrturns}')
 
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
@@ -54,7 +55,17 @@ def generate_data(fp, args):
     dm_ = DynamicArray(shape=(len(samplepositions), 7), dtype=np.float32)
     for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
-        # if w.collides((x, y)): continue
+        if w.collides((x, y)):
+            if keepinsidecollisions:
+                dm_.append(np.array(
+                    [[
+                        *(x, y),
+                        *a.dir,
+                        *(0, 0),  # do not move
+                        True
+                    ]])
+                )
+            continue
 
         if i % 100 == 0:
             logger.debug(f"generated {len(dm_)} datapoints for {i} positions so far")
@@ -74,26 +85,16 @@ def generate_data(fp, args):
             # turn to new starting direction
             move.turndeg(a, degi)
 
-            if w.collides((x, y)):
-                dm_.append(np.array(
-                    [[
-                        *initpos,
-                        *a.dir,
-                        *(0, 0),  # do not move
-                        True
-                    ]])
-                )
-            else:
-                # move forward and save new position/direction
-                move.moveforward(a, 1)
-                dm_.append(np.array(
-                    [[
-                        *initpos,
-                        *a.dir,
-                        *np.array(a.pos) - np.array(initpos),  # deltas!
-                        a.collided
-                    ]])
-                )
+            # move forward and save new position/direction
+            move.moveforward(a, 1)
+            dm_.append(np.array(
+                [[
+                    *initpos,
+                    *a.dir,
+                    *np.array(a.pos) - np.array(initpos),  # deltas!
+                    a.collided
+                ]])
+            )
 
             # step back/reset position and direction
             a.dir = initdir
@@ -173,8 +174,8 @@ def plot_world(fp, args) -> go.Figure:
 
 # init agent and world
 w = Grid(
-    x=[0, 100],  # [0, 30],
-    y=[0, 100]  # [0, 30]
+    x=[0, 30],
+    y=[0, 30]
 )
 
 move = Move(
@@ -188,13 +189,7 @@ def init(fp, args):
 
     if args.obstacles:
         obstacles = [
-            # ((5, 5, 20, 10), "kitchen_island"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
+            ((5, 5, 20, 10), "kitchen_island")
         ]
 
         for o, n in obstacles:
