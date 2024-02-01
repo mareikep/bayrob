@@ -20,10 +20,14 @@ class Agent:
 class Grid(World):
     def __init__(
             self,
-            x=[-100, 100],
-            y=[-100, 100]
+            x=None,
+            y=None
     ) -> None:
         super().__init__()
+        if y is None:
+            y = [0, 100]
+        if x is None:
+            x = [0, 100]
         self.coords = [x[0], y[0], x[1], y[1]]
         self._obstacles = []
         self._obstaclenames = []

@@ -47,6 +47,10 @@ def generate_data(fp, args):
         # add angle columns (degrees) calculated from quaternion
         df = pd.concat([df, pd.DataFrame.from_records(df.apply(angle, axis=1))], axis=1)
 
+        # strip strings from bodypartsused column
+        df_obj = df.select_dtypes('object')
+        df[df_obj.columns] = df_obj.apply(lambda x: x.str.strip())
+
         # drop columns that are not necessary anymore (quaternion)
         df = df.drop(columns=['q_x', 'q_y', 'q_z', 'q_w'])
 

@@ -13,13 +13,14 @@ from calo.utils.constants import FILESTRFMT, calologger
 from calo.utils.dynamic_array import DynamicArray
 from calo.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, fig_to_file
 from calo.utils.utils import recent_example
+from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 
 def generate_data(fp, args):
 
-    lrturns = args.lrturns if 'lrturns' in args else 200
+    lrturns = args.lrturns if 'lrturns' in args else 360
     areas = args.walkingareas if "areas" in args else False
     dropcollisions = args.dropcollisions if "dropcollisions" in args else False
     keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else True
@@ -48,26 +49,16 @@ def generate_data(fp, args):
     else:
         # OR draw samples from entire kitchen area
         logger.debug(f'Drawing samples from entire kitchen')
-        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2))
+        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=(int((xu-xl)*(yu-yl)*1.5), 2))
 
     logger.debug(f'Generating up to {len(samplepositions)*lrturns} move data points...')
     idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
     dm_ = DynamicArray(shape=(len(samplepositions), 7), dtype=np.float32)
     for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
-        if w.collides((x, y)):
-            if keepinsidecollisions:
-                dm_.append(np.array(
-                    [[
-                        *(x, y),
-                        *a.dir,
-                        *(0, 0),  # do not move
-                        True
-                    ]])
-                )
-            continue
+        if w.collides((x, y)) and not keepinsidecollisions: continue
 
-        if i % 100 == 0:
+        if i % xu == 0:
             logger.debug(f"generated {len(dm_)} datapoints for {i} positions so far")
 
         # initially, agent always faces left, right, up or down
@@ -80,7 +71,10 @@ def generate_data(fp, args):
         # after each turn, make one step forward, save datapoint
         # and step back to initpos (i.e. the sampled pos around x/y)
         # and turn back to initdir
-        for degi in np.random.uniform(low=-90, high=91, size=lrturns):
+        for degi in np.random.uniform(low=0, high=360, size=lrturns):
+
+            ipos = Gaussian(initpos, [[.005, 0], [0, .005]]).sample(1)  # initpos
+            a.pos = ipos
 
             # turn to new starting direction
             move.turndeg(a, degi)
@@ -89,16 +83,15 @@ def generate_data(fp, args):
             move.moveforward(a, 1)
             dm_.append(np.array(
                 [[
-                    *initpos,
+                    *ipos,
                     *a.dir,
-                    *np.array(a.pos) - np.array(initpos),  # deltas!
+                    *np.array(a.pos) - np.array(ipos),  # deltas!
                     a.collided
                 ]])
             )
 
             # step back/reset position and direction
             a.dir = initdir
-            a.pos = initpos
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
@@ -174,8 +167,8 @@ def plot_world(fp, args) -> go.Figure:
 
 # init agent and world
 w = Grid(
-    x=[0, 30],
-    y=[0, 30]
+    x=[0, 10],
+    y=[0, 10]
 )
 
 move = Move(
@@ -189,7 +182,7 @@ def init(fp, args):
 
     if args.obstacles:
         obstacles = [
-            ((5, 5, 20, 10), "kitchen_island")
+            ((5, 5, 7, 7), "kitchen_island")
         ]
 
         for o, n in obstacles:

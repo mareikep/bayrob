@@ -919,7 +919,7 @@ def plot_scatter_quiver(
     colors_discr_a = [color_to_rgb(c, 1)[1] for c in colors_discr]
 
     # scatter positions
-    fig_s = (go.Scattergl if data.shape[0] > 10.000 else go.Scatter)(
+    fig_s = (go.Scattergl if data.shape[0] > 10000 else go.Scatter)(
         x=data[xvar],
         y=data[yvar],
         marker=dict(
@@ -1094,7 +1094,7 @@ def plot_data_subset(
     fig_s = go.Figure()
     if plot_type == "scatter":
         fig_s.add_trace(
-            (go.Scattergl if df_.shape[0] > 10.000 else go.Scatter)(
+            (go.Scattergl if df_.shape[0] > 10000 else go.Scatter)(
                 x=df_[xvar],
                 y=df_[yvar],
                 marker=dict(
@@ -1251,7 +1251,6 @@ def plot_tree_leaves(
         vary: Any,
         limx: Tuple,
         limy: Tuple,
-        title: str = None,
         save: str = None,
         color: str = None,
         show: bool = False
@@ -1284,7 +1283,6 @@ def plot_tree_leaves(
         )
 
     mainfig.update_layout(
-        title=title,
         width=1000,
         height=1000,
         xaxis=dict(
@@ -1334,7 +1332,7 @@ if __name__ == "__main__":
     fig = go.Figure()
     for i, (c, df) in enumerate(dfs):
         fig.add_trace(
-            (go.Scattergl if df.shape[0] > 10.000 else go.Scatter)(
+            (go.Scattergl if df.shape[0] > 10000 else go.Scatter)(
                 x=df['x'],
                 y=df['y'],
                 marker=dict(

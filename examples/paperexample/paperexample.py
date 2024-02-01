@@ -51,7 +51,7 @@ def learn(d, dt, fname, tgts):
     jpt = JPT(
         variables=vars,
         targets=[v for v in vars if v.name in tgts],
-        min_samples_leaf=1
+        min_samples_leaf=.1
     )
 
     jpt.learn(d)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     logger.debug(f'running paperexample in {DT}')
 
     df_d = updatedata("deeprolling.csv", DT)
-    learn(df_d, DT, "deeprolling", tgts=["density [kgm^-3]", "deformation []", "dislocationdensity [cm^-2]"])
+    learn(df_d, DT, "deeprolling", tgts=[])#["density [kg·m−3]", "deformation []", "dislocationdensity [µm]"])
     df_h = updatedata("heating.csv", DT)
     learn(df_h, DT, "heating", tgts=["deformation_out", "hardness", "dislocationdensity"])
     df_m = updatedata("mechanical.csv", DT)

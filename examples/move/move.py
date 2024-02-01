@@ -1,4 +1,4 @@
-import datetime
+    import datetime
 import os
 
 import dnutils
@@ -173,8 +173,8 @@ def plot_world(fp, args) -> go.Figure:
 
 # init agent and world
 w = Grid(
-    x=[0, 100],  # [0, 30],
-    y=[0, 100]  # [0, 30]
+    x=[0, 100],
+    y=[0, 100]
 )
 
 move = Move(
@@ -185,6 +185,9 @@ move = Move(
 
 def init(fp, args):
     logger.debug('Initializing obstacles...')
+
+    if 'mini' in args and args.mini:
+        w.coords = [0, 0, 30, 30]
 
     if args.obstacles:
         obstacles = [
