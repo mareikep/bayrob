@@ -115,6 +115,21 @@ def generate_data(fp, args):
     return data_moveforward
 
 
+def prune_or_split(
+        jpt,
+        data,
+        indices,
+        start,
+        end,
+        parent,
+        child_idx,
+        depth
+) -> bool:
+    # Return TRUE if current dataset should be leaf node
+    return len(data[indices[start:end]][:, 6]) == 2
+    # return depth > 4
+
+
 def plot_data(fp, args) -> go.Figure:
     logger.debug('plotting data...')
 

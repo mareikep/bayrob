@@ -85,7 +85,11 @@ def learn_jpt(
         max_depth=args.max_depth if "max_depth" in args else None
     )
 
-    jpt_.learn(df, close_convex_gaps=False)
+    jpt_.learn(
+        df,
+        close_convex_gaps=False,
+        prune_or_split=args.prune_or_split_callable
+    )
 
     if "prune" in args:
         logger.debug(f"Pruning tree with similarity_threshold = {args.prune}...")
@@ -159,6 +163,8 @@ def main(DT, args):
         mod.generate_data(fp, args)
 
     if args.learn:
+        args.prune_or_split_callable = mod.prune_or_split if args.prune_or_split else None
+        logger.info(f'Set prune or split callable: {args.prune_or_split_callable}')
         if args.modulelearn:
             mod.learn_jpt(fp, args)
         else:
@@ -180,16 +186,17 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='CALOWeb.')
     parser.add_argument("-v", "--verbose", dest="verbose", default='debug', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
-    parser.add_argument('-r', '--recent', action='store_true', help='use most recent folder greated', required=False)
-    parser.add_argument('-l', '--learn', action='store_true', help='learn model', required=False)
+    parser.add_argument('--recent', action='store_true', help='use most recent folder greated', required=False)
+    parser.add_argument('--learn', action='store_true', help='learn model', required=False)
     parser.add_argument('--modulelearn', action='store_true', help='use default learning function. otherwise use learning function of module', required=False)
-    parser.add_argument('-p', '--plot', action='store_true', help='plot model', required=False)
-    parser.add_argument('-s', '--showplots', action='store_true', help='show plots', required=False)
-    parser.add_argument('-d', '--data', action='store_true', help='trigger generating data/world plots', required=False)
+    parser.add_argument('--plot', action='store_true', help='plot model', required=False)
+    parser.add_argument('--showplots', action='store_true', help='show plots', required=False)
+    parser.add_argument('--data', action='store_true', help='trigger generating data/world plots', required=False)
+    parser.add_argument('--prune_or_split', action='store_true', help='pass prune or split callable to model learning function', required=False)
     parser.add_argument('-a', '--args', action='append', nargs=2, metavar=('arg', 'value'), help='other, example-specific argument of type (arg, value)')
     parser.add_argument('-e', '--example', type=str, default='perception', help='name of the data set', required=False)
-    parser.add_argument('-m', '--min-samples-leaf', type=float, default=1, help='min_samples_leaf parameter', required=False)
-    parser.add_argument('-i', '--min-impurity_improvement', type=float, default=None, help='impurity_improvement parameter', required=False)
+    parser.add_argument('--min-samples-leaf', type=float, default=1, help='min_samples_leaf parameter', required=False)
+    parser.add_argument('--min-impurity_improvement', type=float, default=None, help='impurity_improvement parameter', required=False)
     parser.add_argument('-o', '--obstacles', action='store_true', help='obstacles', required=False)
     args = parser.parse_args()
 
