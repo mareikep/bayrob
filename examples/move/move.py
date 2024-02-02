@@ -1,4 +1,5 @@
-    import datetime
+from jpt.distributions import Gaussian
+import datetime
 import os
 
 import dnutils
@@ -19,16 +20,15 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 def generate_data(fp, args):
 
-    lrturns = args.lrturns if 'lrturns' in args else 200
+    lrturns = args.lrturns if 'lrturns' in args else 360
     areas = args.walkingareas if "areas" in args else False
     dropcollisions = args.dropcollisions if "dropcollisions" in args else False
+    keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else True
     logger.error(f'LRTURN: {lrturns}')
 
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
     xl, yl, xu, yu = w.coords
-    xu = xu
-    yu = yu
 
     # init agent at left lower corner facing right
     a = GridAgent(
@@ -47,14 +47,14 @@ def generate_data(fp, args):
     else:
         # OR draw samples from entire kitchen area
         logger.debug(f'Drawing samples from entire kitchen')
-        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2))
+        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=(int((xu-xl)*(yu-yl)*1.5), 2))
 
     logger.debug(f'Generating up to {len(samplepositions)*lrturns} move data points...')
     idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
     dm_ = DynamicArray(shape=(len(samplepositions), 7), dtype=np.float32)
     for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
-        # if w.collides((x, y)): continue
+        if w.collides((x, y)) and not keepinsidecollisions: continue
 
         if i % 100 == 0:
             logger.debug(f"generated {len(dm_)} datapoints for {i} positions so far")
@@ -69,35 +69,27 @@ def generate_data(fp, args):
         # after each turn, make one step forward, save datapoint
         # and step back to initpos (i.e. the sampled pos around x/y)
         # and turn back to initdir
-        for degi in np.random.uniform(low=-90, high=91, size=lrturns):
+        for degi in np.random.uniform(low=0, high=360, size=lrturns):
+
+            ipos = Gaussian(initpos, [[.005, 0], [0, .005]]).sample(1)  # initpos
+            a.pos = ipos
 
             # turn to new starting direction
             move.turndeg(a, degi)
 
-            if w.collides((x, y)):
-                dm_.append(np.array(
-                    [[
-                        *initpos,
-                        *a.dir,
-                        *(0, 0),  # do not move
-                        True
-                    ]])
-                )
-            else:
-                # move forward and save new position/direction
-                move.moveforward(a, 1)
-                dm_.append(np.array(
-                    [[
-                        *initpos,
-                        *a.dir,
-                        *np.array(a.pos) - np.array(initpos),  # deltas!
-                        a.collided
-                    ]])
-                )
+            # move forward and save new position/direction
+            move.moveforward(a, 1)
+            dm_.append(np.array(
+                [[
+                    *ipos,
+                    *a.dir,
+                    *np.array(a.pos) - np.array(ipos),  # deltas!
+                    a.collided
+                ]])
+            )
 
             # step back/reset position and direction
             a.dir = initdir
-            a.pos = initpos
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
@@ -127,14 +119,14 @@ def plot_data(fp, args) -> go.Figure:
     logger.debug('plotting data...')
 
     df = pd.read_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'))
-
+    xl, yl, xu, yu = w.coords
     fig_d = plot_data_subset(
         df,
         xvar="x_in",
         yvar="y_in",
         constraints={},
-        limx=(0, 100),
-        limy=(0, 100),
+        limx=(xl, xu),
+        limy=(yl, yu),
         save=None,
         show=False,
         color='rgb(0,104,180)'

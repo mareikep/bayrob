@@ -1039,18 +1039,26 @@ class ThesisPlotsTests(unittest.TestCase):
                 prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})[{fmt(more)}]'
 
                 # generate tree conditioned on given position and/or direction
-                cond = j.conditional_jpt(
-                    evidence=j.bind(
-                        {k: v for k, v in pdfvars.items() if k in j.varnames},
+                # cond = j.conditional_jpt(
+                #     evidence=j.bind(
+                #         {k: v for k, v in pdfvars.items() if k in j.varnames},
+                #         allow_singular_values=False
+                #     ),
+                #     fail_on_unsatisfiability=False
+                # )
+
+                post = j.posterior(
+                    variables=[v for v in j.variables if v.name not in pdfvars],
+                    evidence=j.bind({k: v for k, v in pdfvars.items() if k in j.varnames},
                         allow_singular_values=False
                     ),
                     fail_on_unsatisfiability=False
                 )
 
-                if cond is None:
-                    logger.warning(f"COND IS NONE, skipping {pdfvars}")
-                    continue
-                logger.info(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
+                # if cond is None:
+                #     logger.warning(f"COND IS NONE, skipping {pdfvars}")
+                #     continue
+                # logger.info(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
 
                 # plot rectangles representing each leaf participating in this query
                 # plot_tree_leaves(
@@ -1064,13 +1072,14 @@ class ThesisPlotsTests(unittest.TestCase):
                 # )
 
                 # data generation for distribution plot
-                x = np.linspace(*limx, 150)
-                y = np.linspace(*limy, 150)
+                x = np.linspace(*limx, int((xu-xl)*1.5))
+                y = np.linspace(*limy, int((yu-yl)*1.5))
 
                 X, Y = np.meshgrid(x, y)
                 from datetime import datetime
                 logger.warning(f'Starting to generate data for distribution plot {str(datetime.now())}')
-                Z = np.array([cond.pdf(cond.bind({f'x_{"in" if postype == "in" else "out"}': x,f'y_{"in" if postype == "in" else "out"}': y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                # Z = np.array([cond.pdf(cond.bind({f'x_{"in" if postype == "in" else "out"}': x,f'y_{"in" if postype == "in" else "out"}': y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                Z = np.array([post[f'x_{"in" if postype == "in" else "out"}'].pdf(x) * post[f'y_{"in" if postype == "in" else "out"}'].pdf(y) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
                 logger.warning(f'done generating data for distribution plot {str(datetime.now())}')
 
                 lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))

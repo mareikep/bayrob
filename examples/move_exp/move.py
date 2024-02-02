@@ -29,8 +29,6 @@ def generate_data(fp, args):
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
     xl, yl, xu, yu = w.coords
-    xu = xu
-    yu = yu
 
     # init agent at left lower corner facing right
     a = GridAgent(
@@ -121,14 +119,14 @@ def plot_data(fp, args) -> go.Figure:
     logger.debug('plotting data...')
 
     df = pd.read_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'))
-
+    xl, yl, xu, yu = w.coords
     fig_d = plot_data_subset(
         df,
         xvar="x_in",
         yvar="y_in",
         constraints={},
-        limx=(0, 100),
-        limy=(0, 100),
+        limx=(xl, xu),
+        limy=(yl, yu),
         save=None,
         show=False,
         color='rgb(0,104,180)'
