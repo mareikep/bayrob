@@ -6,7 +6,9 @@ import sys
 import argparse
 
 import dnutils
+import numpy as np
 import pandas as pd
+from dnutils import ifnone
 
 from calo.logs.logs import init_loggers
 from calo.utils import locs
@@ -14,6 +16,10 @@ from calo.utils.constants import calologger, FILESTRFMT
 from calo.utils.utils import recent_example
 from jpt import JPT, infer_from_dataframe
 from jpt.base.intervals import ContinuousSet
+
+from jpt.distributions import Distribution, Numeric
+from jpt.trees import DecisionNode
+from jpt.variables import VariableMap
 
 try:
     import perception
@@ -85,10 +91,61 @@ def learn_jpt(
         max_depth=args.max_depth if "max_depth" in args else None
     )
 
+    distributions = {}
+
+    def do_prune(
+            jpt: JPT,
+            data: np.ndarray,
+            indices: np.ndarray,
+            start: int,
+            end: int,
+            parent: DecisionNode,
+            child_idx: int,
+            depth: int
+    ):
+        node_idx = len(jpt.allnodes)
+
+        distributions[node_idx] = VariableMap(variables=jpt.targets)
+
+        for i, v in enumerate(jpt.targets):
+            dist = v.distribution()._fit(
+                data=data,
+                rows=indices[start:end],
+                col=i + ifnone(tgtidx, 0)
+            )
+            distributions[node_idx][v] = dist
+
+        if parent is None:
+            return False
+
+        similarities = VariableMap(variables=jpt.targets)
+        for v in jpt.targets:
+            child_dist: Distribution = distributions[node_idx][v]
+            parent_dist: Distribution = distributions[parent.idx][v]
+
+            if isinstance(child_dist, Numeric):
+                parent_dist = parent_dist.crop(child_dist.pdf.domain())
+            else:
+                parent_dist = parent_dist.crop({
+                    v for v in parent_dist.labels.values() if child_dist.p(v)
+                })
+
+            similarities[v] = v.domain.jaccard_similarity(child_dist, parent_dist)
+
+        total_similarity = 1 * (1 - (end - start) / data.shape[0]) + (end - start) / data.shape[0] * np.min(
+            list(similarities.values()))
+        print(node_idx, end - start, 'samples', similarities, total_similarity)
+
+        if total_similarity > .99:
+            return True
+        else:
+            return False
+
     jpt_.learn(
         df,
         close_convex_gaps=False,
-        prune_or_split=args.prune_or_split_callable
+        prune_or_split=do_prune,
+        verbose=True
     )
 
     if "prune" in args:

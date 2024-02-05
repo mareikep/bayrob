@@ -5,6 +5,7 @@ import dnutils
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from tqdm import tqdm
 
 from calo.models.action import Move
 from calo.models.world import GridAgent, Grid
@@ -21,10 +22,10 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 def generate_data(fp, args):
 
     lrturns = args.lrturns if 'lrturns' in args else 360
+    numpositions = args.numpositions if 'numpositions' in args else None
     areas = args.walkingareas if "areas" in args else False
     dropcollisions = args.dropcollisions if "dropcollisions" in args else False
     keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else True
-    logger.error(f'LRTURN: {lrturns}')
 
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
@@ -43,21 +44,20 @@ def generate_data(fp, args):
             ((50, 30, 80, 80), "wa2"),
             ((45, 0, 100, 50), "wa3")
         ]
-        samplepositions = np.concatenate([np.random.uniform(low=[xl, yl], high=[xu, yu], size=((xu-xl)*(yu-yl), 2)) for (xl, yl, xu, yu), n in walking_areas])
+        samplepositions = np.concatenate([np.random.uniform(low=[xl, yl], high=[xu, yu], size=(numpositions if numpositions is not None else int((xu-xl)*(yu-yl)*1.5), 2)) for (xl, yl, xu, yu), n in walking_areas])
     else:
         # OR draw samples from entire kitchen area
         logger.debug(f'Drawing samples from entire kitchen')
-        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=(int((xu-xl)*(yu-yl)*1.5), 2))
+        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=(numpositions if numpositions is not None else int((xu-xl)*(yu-yl)*1.5), 2))
 
-    logger.debug(f'Generating up to {len(samplepositions)*lrturns} move data points...')
+    logger.debug(f'Generating up to {len(samplepositions)*lrturns} move data points representing {len(samplepositions)} positions with {lrturns} turns each...')
+    progbar = tqdm(total=len(samplepositions)*lrturns, desc='Generating data points', colour="green")
+
     idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
-    dm_ = DynamicArray(shape=(len(samplepositions), 7), dtype=np.float32)
+    dm_ = DynamicArray(shape=(len(samplepositions) * lrturns, 7), dtype=np.float32)
     for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
         if w.collides((x, y)) and not keepinsidecollisions: continue
-
-        if i % xu == 0:
-            logger.debug(f"generated {len(dm_)} datapoints for {i} positions so far")
 
         # initially, agent always faces left, right, up or down
         initdir = idirs[np.random.randint(len(idirs))]
@@ -71,7 +71,7 @@ def generate_data(fp, args):
         # and turn back to initdir
         for degi in np.random.uniform(low=0, high=360, size=lrturns):
 
-            ipos = Gaussian(initpos, [[.005, 0], [0, .005]]).sample(1)  # initpos
+            ipos = Gaussian(initpos, [[.001, 0], [0, .001]]).sample(1)  # initpos
             a.pos = ipos
 
             # turn to new starting direction
@@ -90,6 +90,9 @@ def generate_data(fp, args):
 
             # step back/reset position and direction
             a.dir = initdir
+            progbar.update(1)
+
+    progbar.close()
 
     data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
@@ -113,21 +116,6 @@ def generate_data(fp, args):
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'), index=False)
 
     return data_moveforward
-
-
-def prune_or_split(
-        jpt,
-        data,
-        indices,
-        start,
-        end,
-        parent,
-        child_idx,
-        depth
-) -> bool:
-    # Return TRUE if current dataset should be leaf node
-    return len(data[indices[start:end]][:, 6]) == 2
-    # return depth > 4
 
 
 def plot_data(fp, args) -> go.Figure:
@@ -180,8 +168,8 @@ def plot_world(fp, args) -> go.Figure:
 
 # init agent and world
 w = Grid(
-    x=[0, 10],
-    y=[0, 10]
+    x=[0, 5],
+    y=[0, 5]
 )
 
 move = Move(
@@ -195,7 +183,7 @@ def init(fp, args):
 
     if args.obstacles:
         obstacles = [
-            ((5, 5, 7, 7), "kitchen_island")
+            ((2, 2, 3, 3), "kitchen_island")
         ]
 
         for o, n in obstacles:
