@@ -18,7 +18,7 @@ from calo.core.astar_jpt import State
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
     plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq, \
-    plot_tree_leaves
+    plot_tree_leaves, plot_typst
 from calo.utils.utils import recent_example, fmt
 from jpt import SymbolicType, NumericVariable, JPT
 from jpt.base.intervals import ContinuousSet, RealSet
@@ -910,7 +910,7 @@ class ThesisPlotsTests(unittest.TestCase):
     def test_reproduce_data_move(self) -> None:
         # MULTIPLE sets of constraints:
         # for constrained MOVE FEATURE variables, plot heatmap, 3D and ground data of position (OUT) distribution
-        mini = True
+        mini = False
         addobstacles = True
         stepsize = 1
         
@@ -924,6 +924,7 @@ class ThesisPlotsTests(unittest.TestCase):
             xl, yl, xu, yu = (0, 0, 10, 10)
             oxl, oyl, oxu, oyu = (5, 5, 7, 7)
             freepos = 8
+            factor = 10
         else:
             j = self.models['000-move.tree']
             df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
@@ -931,34 +932,23 @@ class ThesisPlotsTests(unittest.TestCase):
             xl, yl, xu, yu = (0, 0, 100, 100)
             oxl, oyl, oxu, oyu = self.obstacle_kitchen_island
             freepos = 60
+            factor = 2
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            "grid-corners": [  # all corners of gridworld
-                (ContinuousSet(xl, xl + stepsize), ContinuousSet(yl, yl + stepsize), None, None, {}),  # lower left
-                (ContinuousSet(xl, xl + stepsize), ContinuousSet(yu - stepsize, yu), None, None, {}),  # upper left
-                (ContinuousSet(xu - stepsize, xu), ContinuousSet(yl, yl + stepsize), None, None, {}),  # lower right
-                (ContinuousSet(xu - stepsize, xu), ContinuousSet(yu - stepsize, yu), None, None, {})  # upper right
-            ],
-            "grid-edges": [  # all edges of gridworld (center)
-                (xl, None, -1, 0, {}),  # left edge
-                (xl, None, 1, 0, {}),  # left edge
-                (xl, None, None, None, {}),  # left edge
-                (xu, None, None, None, {}),  # right edge
-                (None, yl, None, None, {}),  # lower edge
-                (None, yu, None, None, {})  # upper edge
-            ],
-            # "apriori": [
-            #     (None, None, None, None, {}),
-            # ],
-            # "in": [
-            #     (None, None, None, None, {"collided": True}),
-            #     (None, None, None, None, {"x_out": 0, "y_out": 0}),
-            #     (None, None, None, None, {}),
+            # "grid-corners": [  # all corners of gridworld
             #     (ContinuousSet(xl, xl + stepsize), ContinuousSet(yl, yl + stepsize), None, None, {}),  # lower left
             #     (ContinuousSet(xl, xl + stepsize), ContinuousSet(yu - stepsize, yu), None, None, {}),  # upper left
             #     (ContinuousSet(xu - stepsize, xu), ContinuousSet(yl, yl + stepsize), None, None, {}),  # lower right
             #     (ContinuousSet(xu - stepsize, xu), ContinuousSet(yu - stepsize, yu), None, None, {})  # upper right
+            # ],
+            # "grid-edges": [  # all edges of gridworld (center)
+            #     (xl, None, -1, 0, {}),  # left edge
+            #     (xl, None, 1, 0, {}),  # left edge
+            #     (xl, None, None, None, {}),  # left edge
+            #     (xu, None, None, None, {}),  # right edge
+            #     (None, yl, None, None, {}),  # lower edge
+            #     (None, yu, None, None, {})  # upper edge
             # ],
             # "obstacle-corners": [  # all corners of one obstacle
             #     (oxl, oxl, None, None, {}),  # lower left
@@ -996,7 +986,18 @@ class ThesisPlotsTests(unittest.TestCase):
             #     (None, None, 1, None, {}),
             #     (None, None, None, -1, {}),
             #     (None, None, None, 1, {}),
-            # ]
+            # ],
+            "apriori": [
+                # (None, None, None, None, {}),
+                (None, None, None, None, {"collided": True}),
+                (None, None, None, None, {"collided": False}),
+            ],
+            "in": [
+                (None, None, None, None, {"collided": True}),
+                (None, None, None, None, {"collided": False}),
+                # (None, None, None, None, {"x_out": 0, "y_out": 0}),
+                # (None, None, None, None, {}),
+            ],
         }
 
         for postype, pos in positions.items():
@@ -1038,27 +1039,27 @@ class ThesisPlotsTests(unittest.TestCase):
                 logger.info(f"Query: {pdfvars}")
                 prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})[{fmt(more)}]'
 
-                # generate tree conditioned on given position and/or direction
-                # cond = j.conditional_jpt(
-                #     evidence=j.bind(
-                #         {k: v for k, v in pdfvars.items() if k in j.varnames},
+                # post = j.posterior(
+                #     variables=[v for v in j.variables if v.name not in pdfvars],
+                #     evidence=j.bind({k: v for k, v in pdfvars.items() if k in j.varnames},
                 #         allow_singular_values=False
                 #     ),
                 #     fail_on_unsatisfiability=False
                 # )
 
-                post = j.posterior(
-                    variables=[v for v in j.variables if v.name not in pdfvars],
-                    evidence=j.bind({k: v for k, v in pdfvars.items() if k in j.varnames},
+                # generate tree conditioned on given position and/or direction
+                cond = j.conditional_jpt(
+                    evidence=j.bind(
+                        {k: v for k, v in pdfvars.items() if k in j.varnames},
                         allow_singular_values=False
                     ),
                     fail_on_unsatisfiability=False
                 )
 
-                # if cond is None:
-                #     logger.warning(f"COND IS NONE, skipping {pdfvars}")
-                #     continue
-                # logger.info(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
+                if cond is None:
+                    logger.warning(f"COND IS NONE, skipping {pdfvars}")
+                    continue
+                logger.info(f"Nodes in original tree: {len(j.allnodes)}; nodes in conditional tree: {len(cond.allnodes)}")
 
                 # plot rectangles representing each leaf participating in this query
                 # plot_tree_leaves(
@@ -1072,14 +1073,14 @@ class ThesisPlotsTests(unittest.TestCase):
                 # )
 
                 # data generation for distribution plot
-                x = np.linspace(*limx, int((xu-xl)*1.5))
-                y = np.linspace(*limy, int((yu-yl)*1.5))
+                x = np.linspace(*limx, max(50, int((limx[1]-limx[0])*factor)))
+                y = np.linspace(*limy, max(50, int((limy[1]-limy[0])*factor)))
 
                 X, Y = np.meshgrid(x, y)
                 from datetime import datetime
                 logger.warning(f'Starting to generate data for distribution plot {str(datetime.now())}')
-                # Z = np.array([cond.pdf(cond.bind({f'x_{"in" if postype == "in" else "out"}': x,f'y_{"in" if postype == "in" else "out"}': y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
-                Z = np.array([post[f'x_{"in" if postype == "in" else "out"}'].pdf(x) * post[f'y_{"in" if postype == "in" else "out"}'].pdf(y) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                Z = np.array([cond.pdf(cond.bind({f'x_{"in" if postype == "in" else "out"}': x,f'y_{"in" if postype == "in" else "out"}': y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                # Z = np.array([post[f'x_{"in" if postype == "in" else "out"}'].pdf(x) * post[f'y_{"in" if postype == "in" else "out"}'].pdf(y) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
                 logger.warning(f'done generating data for distribution plot {str(datetime.now())}')
 
                 lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in pdfvars.items()]))
@@ -1134,6 +1135,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     title=f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
                     limx=limx,
                     limy=limy,
+                    # limz=(0, 1),
                     show=False,
                     save=None,
                     fun="heatmap"
@@ -1157,58 +1159,60 @@ class ThesisPlotsTests(unittest.TestCase):
         limx = (-1.5, 1.5)
         limy = (-1.5, 1.5)
 
-        # plot init distributions
-        initdist = plot_tree_dist(
-            tree=j,
-            qvarx=j.varnames['xdir_in'],
-            qvary=j.varnames['ydir_in'],
-            limx=limx,
-            limy=limy,
-            save=None,
-            show=False
-        )
-        fig_to_file(initdist, os.path.join(locs.logs, f"test_reproduce_data_turn-init_in-dist.html"), ftypes=['.svg', '.html'])
-        gt = plot_data_subset(
-            df,
-            xvar='xdir_in',
-            yvar='ydir_in',
-            constraints={},
-            limx=limx,
-            limy=limy,
-            save=None,
-            show=False,
-            color='rgb(0,104,180)'
-        )
-        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_turn-init_in-gt.html"), ftypes=['.svg', '.html'])
-
-        initdisto = plot_tree_dist(
-            tree=j,
-            qvarx=j.varnames['xdir_out'],
-            qvary=j.varnames['ydir_out'],
-            limx=limx,
-            limy=limy,
-            save=None,
-            show=False
-        )
-        fig_to_file(initdisto, os.path.join(locs.logs, f"test_reproduce_data_turn-init_out-dist.html"), ftypes=['.svg', '.html'])
-        gt = plot_data_subset(
-            df,
-            xvar='xdir_out',
-            yvar='ydir_out',
-            constraints={},
-            limx=limx,
-            limy=limy,
-            save=None,
-            show=False,
-            color='rgb(0,104,180)'
-        )
-        fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_turn-init_out-gt.html"), ftypes=['.svg', '.html'])
+        # # plot init distributions
+        # initdist = plot_tree_dist(
+        #     tree=j,
+        #     qvarx=j.varnames['xdir_in'].name,
+        #     qvary=j.varnames['ydir_in'].name,
+        #     limx=limx,
+        #     limy=limy,
+        #     save=None,
+        #     show=False
+        # )
+        # fig_to_file(initdist, os.path.join(locs.logs, f"test_reproduce_data_turn-init_in-dist.html"), ftypes=['.svg', '.html'])
+        # gt = plot_data_subset(
+        #     df,
+        #     xvar='xdir_in',
+        #     yvar='ydir_in',
+        #     constraints={},
+        #     limx=limx,
+        #     limy=limy,
+        #     save=None,
+        #     show=False,
+        #     color='rgb(0,104,180)'
+        # )
+        # fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_turn-init_in-gt.html"), ftypes=['.svg', '.html'])
+        #
+        # initdisto = plot_tree_dist(
+        #     tree=j,
+        #     qvarx=j.varnames['xdir_out'].name,
+        #     qvary=j.varnames['ydir_out'].name,
+        #     limx=limx,
+        #     limy=limy,
+        #     save=None,
+        #     show=False
+        # )
+        # fig_to_file(initdisto, os.path.join(locs.logs, f"test_reproduce_data_turn-init_out-dist.html"), ftypes=['.svg', '.html'])
+        # gt = plot_data_subset(
+        #     df,
+        #     xvar='xdir_out',
+        #     yvar='ydir_out',
+        #     constraints={},
+        #     limx=limx,
+        #     limy=limy,
+        #     save=None,
+        #     show=False,
+        #     color='rgb(0,104,180)'
+        # )
+        # fig_to_file(gt, os.path.join(locs.logs, f"test_reproduce_data_turn-init_out-gt.html"), ftypes=['.svg', '.html'])
 
         # constraints/query values (xdir_in, ydir_in, angle)
         dirs = {
-            "no-dir": [
-                (0, None, None),
-                (None, 0, None)
+            "apriori": [
+                (None, None, None),
+            ],
+            "in": [
+                (None, None, None),
             ],
             "dir": [  # all directions
                 (-1, None, None),
@@ -1223,21 +1227,17 @@ class ThesisPlotsTests(unittest.TestCase):
                 (.5, -.5, None),
                 (0, 1, None),
                 (0, -1, None),
+                (0, None, None),
+                (None, 0, None),
                 (None, 1, None),
                 (None, .5, None),
                 (None, -1, None),
                 (None, -.5, None),
             ],
-            "angle": [
-                (None, None, 45),
-                (1, 0, 45),
-            ],
-            "apriori": [
-                (None, None, None),
-            ],
-            "in": [
-                (None, None, None),
-            ],
+            # "angle": [
+            #     (None, None, 45),
+            #     (1, 0, 45),
+            # ],
         }
 
         for dirtype, d in dirs.items():
@@ -1247,6 +1247,9 @@ class ThesisPlotsTests(unittest.TestCase):
                 os.mkdir(os.path.join(locs.logs, f"Turn-{Path(self.recent_turn).stem}"))
             if not os.path.exists(plotdir):
                 os.mkdir(plotdir)
+
+            varx = f'xdir_{"in" if dirtype == "in" else "out"}'
+            vary = f'ydir_{"in" if dirtype == "in" else "out"}'
 
             for i, (xd, yd, angle) in enumerate(d):
 
@@ -1277,8 +1280,8 @@ class ThesisPlotsTests(unittest.TestCase):
                 )
 
                 # data generation
-                x = np.linspace(*limx, 50)
-                y = np.linspace(*limy, 50)
+                x = np.linspace(*limx, 200)
+                y = np.linspace(*limy, 200)
 
                 X, Y = np.meshgrid(x, y)
                 Z = np.array(
@@ -1286,8 +1289,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         cond.pdf(
                             cond.bind(
                                 {
-                                    f'xdir_{"in" if dirtype == "in" else "out"}': x,
-                                    f'ydir_{"in" if dirtype == "in" else "out"}': y
+                                    varx: x,
+                                    vary: y
                                 }
                             )
                         ) for x, y, in zip(X.ravel(), Y.ravel())
@@ -1305,8 +1308,8 @@ class ThesisPlotsTests(unittest.TestCase):
                 # plot ground truth
                 gt = plot_data_subset(
                     df,
-                    xvar=f'xdir_{"in" if dirtype == "in" else "out"}',
-                    yvar=f'ydir_{"in" if dirtype == "in" else "out"}',
+                    xvar=varx,
+                    yvar=vary,
                     constraints=pdfvars,
                     limx=limx,
                     limy=limy,
@@ -1540,8 +1543,9 @@ class ThesisPlotsTests(unittest.TestCase):
                             dist = post[plot].plot(
                                 view=False,
                                 title=False,  # f'Dist: {plot}<br>Query: {querystring}',
-                                alphabet = True,
-                                color='rgb(59, 41, 106)'
+                                alphabet=True,
+                                color='rgb(59, 41, 106)',
+                                xvar=plot
                             )
                             fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
                             
@@ -1723,6 +1727,23 @@ class ThesisPlotsTests(unittest.TestCase):
         j.postprocess_leaves()
         j_ = j.prune(.7)
         j_.save(f)
+
+    def test_typst_tree(self):
+        model = 'turn'  # pr2, perception, move, turn
+        name = f"{model}-{Path(recent_example(os.path.join(locs.examples, model))).stem}"
+        j = JPT.load(os.path.join(recent_example(os.path.join(locs.examples, model)), f'000-{model}.tree'))
+
+        plot_typst(
+            j,
+            title=name,
+            filename=name,
+            directory=os.path.join(locs.logs, 'typst_test'),
+            plotvars=list(j.variables),
+            leaffill='#CCDAFF',
+            nodefill='#768ABE',
+            alphabet=True,
+            view=False
+        )
 
     def test_astar_cram_path(self) -> None:
         initx, inity, initdirx, initdiry = [20, 70, 0, -1]

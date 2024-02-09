@@ -195,12 +195,12 @@ def init(fp, args):
     if args.obstacles:
         obstacles = [
             # ((5, 5, 20, 10), "kitchen_island"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
+            # ((15, 10, 25, 20), "chair1"),
+            # ((35, 10, 45, 20), "chair2"),
             ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
+            # ((80, 30, 100, 70), "stove"),
+            # ((10, 80, 50, 100), "kitchen_unit"),
+            # ((60, 80, 80, 100), "fridge"),
         ]
 
         for o, n in obstacles:

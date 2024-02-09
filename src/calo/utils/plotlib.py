@@ -1,6 +1,11 @@
+import datetime
 import json
+import math
+import os
+import shutil
+import tempfile
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Iterable
 
 import dnutils
 import numpy as np
@@ -10,12 +15,15 @@ import plotly.figure_factory as ff
 import plotly.graph_objects as go
 import plotly.io as pio
 from _plotly_utils.colors import sample_colorscale
+from dnutils import ifnone
 from jpt.base.intervals import ContinuousSet
 from pandas import DataFrame
 from plotly.graph_objs import Figure
+from tqdm import tqdm
 
+from calo.utils import locs
 from calo.utils.constants import calologger
-from calo.utils.utils import unit, discr_colors
+from calo.utils.utils import unit, discr_colors, fmt
 from jpt import JPT
 from jpt.distributions import Gaussian
 from jpt.plotting.helpers import color_to_rgb
@@ -640,6 +648,14 @@ def plot_heatmap(
         # paper_bgcolor="black",
         # plot_bgcolor="black"
     )
+
+    if isinstance(fun, go.Surface):
+        fig.update_layout(
+            zaxis=dict(
+                range=[*limz],
+                nticks=5
+            )
+        )
 
     if save:
         fig_to_file(fig, save)
@@ -1302,6 +1318,134 @@ def plot_tree_leaves(
         fig_to_file(mainfig, save)
 
     return mainfig
+
+
+def plot_typst(
+        jpt,
+        title: str = "unnamed",
+        filename: str or None = None,
+        directory: str = None,
+        plotvars: Iterable[Any] = None,
+        view: bool = True,
+        max_symb_values: int = 10,
+        nodefill=None,
+        leaffill=None,
+        imgtype="svg",
+        alphabet=False
+) -> str:
+    """
+    Generates an SVG representation of the generated regression tree.
+
+    :param title: title of the plot
+    :param filename: the name of the JPT (will also be used as filename; extension will be added automatically)
+    :param directory: the location to save the SVG file to
+    :param plotvars: the variables to be plotted in the graph
+    :param view: whether the generated SVG file will be opened automatically
+    :param max_symb_values: limit the maximum number of symbolic values that are plotted to this number
+    :param nodefill: the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
+    :param leaffill: the color of the leaf nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
+    :param alphabet: whether to plot symbolic variables in alphabetic order, if False, they are sorted by
+    probability (descending); default is False
+
+    :return:   (str) the path under which the renderd image has been saved.
+    """
+    from jpt.trees import Leaf
+    import html
+    import yaml
+
+    # initialize directories
+    if directory is None:
+        directory = tempfile.mkdtemp(
+            prefix=f'jpt_{title}-{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")}',
+            dir=tempfile.gettempdir()
+        )
+    else:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    # initialize variables to plot
+    if plotvars is None:
+        plotvars = []
+
+    plotvars = [jpt.varnames[v] if type(v) is str else v for v in plotvars]
+
+    # initialize progress bar
+    pbar = tqdm(
+        total=len(jpt.allnodes),
+        desc='Generating images and building YAML...',
+        colour="green"
+    )
+
+    # helper function to generate contents of yaml file to be read by typst script
+    def generate_entry_(node, root=False) -> List:
+        pbar.update(1)
+        if isinstance(node, Leaf):
+            imgs = []
+            for i, pvar in enumerate(plotvars):
+                img_name = html.escape(f'{pvar.name}-{node.idx}.{imgtype}')
+
+                params = {} if pvar.numeric else {
+                    'horizontal': True,
+                    'max_values': max_symb_values,
+                    'alphabet': alphabet
+                }
+
+                node.distributions[pvar].plot(
+                    title=html.escape(pvar.name),
+                    fname=img_name,
+                    directory=directory,
+                    view=False,
+                    **params
+                )
+                imgs.append(img_name)
+            return [
+                {
+                    "type": "Leaf",
+                    "idx": node.idx,
+                    "expectations": {var.name: [var in jpt.targets, fmt(dist.expectation(), prec=2)] for var, dist in node.value.items()},
+                    "prior": node.prior,
+                    "samples": node.samples,
+                    "path": {var.name: fmt(val, prec=2) for var, val in node.path.items()},
+                    "edge_in": node.parent.str_edge(node.parent.children.index(node)),
+                    "images": imgs
+                }
+            ]
+        else:
+            n_ = [
+                {
+                    "type": "Node",
+                    "idx": node.idx,
+                    "label": node.str_node,
+                    "edge_in": node.parent.str_edge(node.parent.children.index(node)) if node.parent is not None else None,
+                    **(
+                        {
+                            "radius": 1,  # radius of the plotted inner nodes
+                            "sizex": 12.5,  # spread of the tree (horizontal)
+                            "sizey": max([len(l.path) for _, l in jpt.leaves.items()]) + len(jpt.variables) + math.ceil(math.sqrt(len(plotvars)))  # grow of the tree (vertical)
+                        } if root else {}
+                    )
+                }
+            ]
+            for child in node.children:
+                n_.append(generate_entry_(child))
+            return n_
+
+    # initiate generation of yaml file
+    l = generate_entry_(jpt.root, root=True)
+    pbar.close()
+
+    JPT.logger.warning(f'Saving yaml file to {os.path.join(directory, "treeplot.yaml")}...')
+    with open(os.path.join(directory, 'treeplot.yaml'), 'w') as file:
+        yaml.dump(l, file)
+
+    # generate and save tree plot
+    filepath = f"{os.path.join(directory, ifnone(filename, title))}.svg"
+    shutil.copyfile(os.path.join(locs.src, 'calo', 'utils', 'treeplot.typ'), os.path.join(directory, "treeplot.typ"))
+    cmd = f"/data/apps/typst compile {os.path.join(directory, 'treeplot.typ')} --root {directory} {filepath}"
+    JPT.logger.warning(f"Trying to execute {cmd}...")
+    os.system(cmd)
+
+    return filepath
 
 
 if __name__ == "__main__":

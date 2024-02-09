@@ -546,7 +546,7 @@ def fmt(val, prec=2, positive=False):
     elif isinstance(val, float):
         return f"{val:{'+' if positive else ''}.{prec}f}"
     elif isinstance(val, ContinuousSet):
-        return val.pfmt(f'%{"+" if positive else ""}.{prec}f')
+        return val.pfmt(f'%{"+" if positive else ""}.{prec}f', notation="sq")
     else:
         # cases val is str or int
         return str(val)
