@@ -1,5 +1,10 @@
+import re
+from collections import defaultdict
+from pathlib import Path
+
 from tqdm import tqdm
 
+from jpt import JPT
 from jpt.distributions import Gaussian
 import datetime
 import os
@@ -14,7 +19,7 @@ from calo.models.world import GridAgent, Grid
 from calo.utils import locs
 from calo.utils.constants import FILESTRFMT, calologger
 from calo.utils.dynamic_array import DynamicArray
-from calo.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, fig_to_file
+from calo.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, fig_to_file, plot_heatmap
 from calo.utils.utils import recent_example
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
@@ -26,6 +31,7 @@ def generate_data(fp, args):
     numpositions = args.numpositions if 'numpositions' in args else None
     areas = args.walkingareas if "areas" in args else False
     dropcollisions = args.dropcollisions if "dropcollisions" in args else False
+    dropinnerobstacles = args.dropinnerobstacles if "dropinnerobstacles" in args else False
     keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else True
 
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
@@ -52,24 +58,18 @@ def generate_data(fp, args):
     else:
         # OR draw samples from entire kitchen area
         logger.debug(f'Drawing samples from entire kitchen')
-        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=(
-        numpositions if numpositions is not None else int((xu - xl) * (yu - yl) * 1.5), 2))
-
-    logger.debug(
-        f'Generating up to {len(samplepositions) * lrturns} move data points representing {len(samplepositions)} positions with {lrturns} turns each...')
-    progbar = tqdm(total=len(samplepositions) * lrturns, desc='Generating data points', colour="green")
+        samplepositions = np.random.uniform(low=[xl, yl], high=[xu, yu], size=(numpositions if numpositions is not None else int((xu - xl) * (yu - yl) * 1.5), 2))
 
     logger.debug(f'Generating up to {len(samplepositions) * lrturns} move data points representing {len(samplepositions)} positions with {lrturns} turns each...')
     progbar = tqdm(total=len(samplepositions) * lrturns, desc='Generating data points', colour="green")
 
-    idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
+    initdir = tuple(np.random.uniform(low=[0, 0], high=[1, 1], size=2))
     dm_ = DynamicArray(shape=(len(samplepositions * lrturns), 7), dtype=np.float32)
     for i, (x, y) in enumerate(samplepositions):
         # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
         if w.collides((x, y)) and not keepinsidecollisions: continue
 
         # initially, agent always faces left, right, up or down
-        initdir = idirs[np.random.randint(len(idirs))]
         initpos = (x, y)
         a.dir = initdir
         a.pos = initpos
@@ -120,6 +120,14 @@ def generate_data(fp, args):
         logger.debug(f"Dropping collision data points...")
         data_moveforward = data_moveforward[(data_moveforward['x_out'] != 0) | (data_moveforward['y_out'] != 0)]
 
+    if dropinnerobstacles:
+        pattern = 'not ((`x_in` >= {}) & (`x_in` <= {}) & (`y_in` >= {}) & (`y_in` <= {}))'
+        q = []
+        for o, _ in w.obstacles:
+            q.append(pattern.format(o[0], o[2], o[1], o[3]))
+
+        data_moveforward = data_moveforward.query(" & ".join(q))
+
     logger.debug(f"...done! Saving {data_moveforward.shape[0]} data points to {os.path.join(fp, 'data', f'000-{args.example}.parquet')}...")
     data_moveforward.to_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'), index=False)
 
@@ -168,10 +176,50 @@ def plot_world(fp, args) -> go.Figure:
     fig_o.add_trace(
         plotly_sq(w.coords, lbl="kitchen_boundaries", color='rgb(59, 41, 106)', legend=False))
 
-    fig_to_file(fig_o, os.path.join(fp, 'plots', f'000-{args.example}-obstacles.json'), ftypes=['.svg', '.html', '.png'])
+    fig_to_file(fig_o, os.path.join(fp, 'plots', f'000-{args.example}-obstacles.html'), ftypes=['.svg', '.png'])
+    fig_o.show(config=defaultconfig(fname=os.path.join(fp, 'plots', f'000-{args.example}-obstacles.html')))
 
-    fig_o.show(config=defaultconfig)
     return fig_o
+
+
+def crossval(fp, args):
+    d = {}
+    for treefile in Path(os.path.join(fp, 'folds')).rglob('*.tree'):
+        # load tree file
+        tn = treefile.name
+        print(f"Loaded tree {tn}")
+        t = JPT.load(str(treefile))
+
+        # determine respective test dataset for this tree and load it
+        match = re.search(r"(\d+)\.tree", tn)
+        if match:
+            df_id = match.groups()[0]
+        else:
+            continue
+
+        print(f"Loading fold {df_id}")
+        df_ = pd.read_parquet(os.path.join(fp, 'folds', f'000-{args.example}-fold-{df_id}.parquet'))
+
+        # for each datapoint in test dataset, calculate and save likelihood
+        print(f"Calculating likelihoods")
+        probs, probspervar = t.likelihood(df_, single_likelihoods=True)
+        d[tn] = np.mean(probspervar, axis=0)
+
+    data = list(d.values())
+    data = pd.DataFrame(
+        data=[[np.array(list(d.keys())), np.array([v.name for v in t.variables]), np.array([np.around(d, decimals=2) for d in data]).T, np.array(data).T, np.array(data).T]],
+        columns=['tree', 'variable', 'text', 'z', 'lbl']
+    )
+
+    # draw matrix tree x datapoint = likelihood(tree, datapoint)
+    plot_heatmap(
+        data=data,
+        xvar='tree',
+        yvar='variable',
+        nolims=True,
+        text='text',
+        save=os.path.join(fp, 'folds', 'test.html')
+    )
 
 
 # init agent and world
@@ -195,12 +243,12 @@ def init(fp, args):
     if args.obstacles:
         obstacles = [
             # ((5, 5, 20, 10), "kitchen_island"),
-            # ((15, 10, 25, 20), "chair1"),
-            # ((35, 10, 45, 20), "chair2"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
             ((10, 30, 50, 50), "kitchen_island"),
-            # ((80, 30, 100, 70), "stove"),
-            # ((10, 80, 50, 100), "kitchen_unit"),
-            # ((60, 80, 80, 100), "fridge"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
         ]
 
         for o, n in obstacles:
