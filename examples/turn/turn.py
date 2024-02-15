@@ -12,7 +12,7 @@ from calo.models.world import GridAgent, Grid
 from calo.utils import locs
 from calo.utils.constants import FILESTRFMT, calologger
 from calo.utils.dynamic_array import DynamicArray
-from calo.utils.plotlib import defaultconfig
+from calo.utils.plotlib import defaultconfig, fig_to_file
 from calo.utils.utils import recent_example
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
@@ -20,7 +20,7 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 def generate_data(fp, args):
 
-    datapoints = args.datapoints if 'datapoints' in args else 9000
+    datapoints = args.datapoints if 'datapoints' in args else 35000
     range_t = args.range_t if 'range_t' in args else 45
 
     logger.debug(f'Generating {datapoints} direction data points...')
@@ -37,6 +37,7 @@ def generate_data(fp, args):
 
     dt_ = DynamicArray(shape=(datapoints, 5), dtype=np.float32)
     for deg1, deg2 in np.random.uniform(low=[0, -range_t], high=[360, range_t], size=(datapoints, 2)):
+
         # turn to new starting direction
         Move.turndeg(a, deg1)
         curdir = a.dir
@@ -52,37 +53,6 @@ def generate_data(fp, args):
         )
 
         a.dir = initdir
-
-    # idirs = {0: (1., 0.), 1: (-1., 0.), 2: (0., 1.), 3: (0., -1.)}
-    #
-    # # set initial position and facing direction
-    # a.pos = (0, 0)
-    # initdir = idirs[np.random.randint(len(idirs))]
-    # a.dir = initdir
-    #
-    # dt_ = DynamicArray(shape=(lrturns * 2 * range_t, 5), dtype=np.float32)
-    #
-    # for degi in np.random.uniform(low=0, high=360, size=lrturns):
-    #
-    #     # turn to new starting direction
-    #     Move.turndeg(a, degi)
-    #     curdir = a.dir
-    #
-    #     # make additional turns uniformly distributed to the left and right
-    #     # in a -x/+x degree range
-    #     for randdeg in np.random.uniform(low=-range_t, high=range_t, size=range_t*2):
-    #         # turn and save new direction
-    #         Move.turndeg(a, randdeg)
-    #         dt_.append(np.array(
-    #             [[
-    #                 *curdir,
-    #                 randdeg,
-    #                 *np.array(a.dir) - np.array(curdir)  # deltas!
-    #             ]])
-    #         )
-    #
-    #         a.dir = curdir
-    #     a.dir = initdir
 
     data_turn = pd.DataFrame(data=dt_.data, columns=['xdir_in', 'ydir_in', 'angle', 'xdir_out', 'ydir_out'])
     data_turn = data_turn.astype({
@@ -126,11 +96,8 @@ def plot_data(fp, args) -> go.Figure:
         include_plotlyjs="cdn"
     )
 
-    fig_d.to_json(os.path.join(fp, 'plots', f'000-{args.example}-data.json'))
-    fig_d.write_image(os.path.join(fp, 'plots', f'000-{args.example}-data.png'))
-    fig_d.write_image(os.path.join(fp, 'plots', f'000-{args.example}-data.svg'))
-
-    fig_d.show(config=defaultconfig)
+    fig_to_file(fig_d, os.path.join(fp, 'plots', f'000-{args.example}-data.html'), ftypes=['.svg', ".png"])
+    fig_d.show(config=defaultconfig(fname=os.path.join(fp, 'plots', f'000-{args.example}-data.html')))
 
     return fig_d
 
@@ -143,20 +110,7 @@ w = Grid(
 
 
 def init(fp, args):
-    logger.debug('Initializing obstacles...')
-
-    if args.obstacles:
-        obstacles = [
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
-
-        for o, n in obstacles:
-            w.obstacle(*o, name=n)
+    pass
 
 
 def learn_jpt(

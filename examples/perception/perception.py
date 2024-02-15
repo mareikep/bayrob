@@ -13,7 +13,7 @@ from calo.models.action import Move
 from calo.models.world import GridAgent, Grid
 from calo.utils import locs
 from calo.utils.constants import calologger, FILESTRFMT
-from calo.utils.plotlib import defaultconfig
+from calo.utils.plotlib import defaultconfig, fig_to_file, plot_heatmap
 from calo.utils.utils import recent_example
 from jpt import SymbolicVariable, SymbolicType
 from jpt.distributions import Gaussian, Bool
@@ -82,20 +82,27 @@ def generate_data(fp, args):
     # mx_, my_, stdx_, stdy_, dx_, dy_, deg, numsamples
     robot_positions = {
         "kitchen_unit": [
-            (30, 72, [15, .07], [.07, 1], 0, 1, 30, 30),
+            (20, 75, [15, .07], [.07, 1], 0, 1, 30, 50),
+            (30, 75, [15, .07], [.07, 1], 0, 1, 30, 50),
+            (40, 75, [15, .07], [.07, 1], 0, 1, 30, 50),
         ],
         "fridge": [
-            (63, 72, [5, -.07], [-.07, 1], .7, .7, 20, 10)
+            (65, 75, [5, -.07], [-.07, 1], .7, .7, 20, 30),
+            (75, 75, [5, -.07], [-.07, 1], .7, .7, 20, 30)
         ],
         "stove": [
-            (72, 50, [.2, -.07], [-.07, 10], 1, 0, 20, 20),
+            (75, 40, [.5, -.07], [-.07, 15], 1, 0, 20, 40),
+            (75, 50, [.5, -.07], [-.07, 15], 1, 0, 20, 40),
+            (75, 60, [.5, -.07], [-.07, 15], 1, 0, 20, 40),
         ],
         "kitchen_island": [
-            (30, 55, [15, .07], [.07, 1], 0, -1, 30, 25),
-            (55, 40, [0.2, -.07], [-.07, 10], -1, 0, 20, 15)
+            (20, 55, [15, .07], [.07, 1], 0, -1, 30, 50),
+            (30, 55, [15, .07], [.07, 1], 0, -1, 30, 50),
+            (40, 55, [15, .07], [.07, 1], 0, -1, 30, 50),
+            (52, 40, [0.2, -.07], [-.07, 10], -1, 0, 20, 30)
         ],
         "chair2": [
-            (55, 15, [0.2, -.07], [-.07, 10], -1, 0, 20, 12)
+            (47, 15, [0.2, -.07], [-.07, 10], -1, 0, 20, 12)
         ]
     }
 
@@ -477,13 +484,12 @@ def plot_data(fp, args) -> go.Figure:
         include_plotlyjs="cdn"
     )
 
-    fig_d.to_json(os.path.join(fp, 'plots', f'000-{args.example}-data.json'))
-    fig_d.to_json(os.path.join(fp, 'plots', f'000-{args.example}-data.png'))
-    fig_d.write_image(os.path.join(fp, 'plots', f'000-{args.example}-data.svg'))
-
-    fig_d.show(config=defaultconfig)
+    fig_to_file(fig_d, os.path.join(fp, 'plots', f'000-{args.example}-data.html'), ftypes=['.svg', ".png"])
+    fig_d.show(config=defaultconfig(fname=os.path.join(fp, 'plots', f'000-{args.example}-data.html')))
 
     return fig_d
+
+
 
 
 # init agent and world
