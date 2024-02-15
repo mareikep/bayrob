@@ -921,7 +921,7 @@ def plot_scatter_quiver(
         data: pd.DataFrame,
         title: str = None,
         save: str = None,
-        show: bool = False,
+        show: bool = False
 ) -> Figure:
     """Plot heatmap or 3D surface plot with plotly
     """
