@@ -329,7 +329,6 @@ def crossval_plot(fp, args):
         data=data,
         xvar='tree',
         yvar='variable',
-        nolims=True,
         text='text',
         save=os.path.join(fp, 'folds', f'000-{args.example}-kfold-hm.html')
     )
