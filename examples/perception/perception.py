@@ -1,6 +1,9 @@
 import datetime
 import os
+import re
+from collections import defaultdict
 from functools import reduce
+from pathlib import Path
 
 import dnutils
 import numpy as np
@@ -15,7 +18,7 @@ from calo.utils import locs
 from calo.utils.constants import calologger, FILESTRFMT
 from calo.utils.plotlib import defaultconfig, fig_to_file, plot_heatmap
 from calo.utils.utils import recent_example
-from jpt import SymbolicVariable, SymbolicType
+from jpt import SymbolicVariable, SymbolicType, JPT
 from jpt.distributions import Gaussian, Bool
 
 

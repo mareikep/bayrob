@@ -102,6 +102,10 @@ def plot_data(fp, args) -> go.Figure:
     return fig_d
 
 
+def crossval(fp, args):
+    pass
+
+
 # init agent and world
 w = Grid(
     x=[0, 100],
