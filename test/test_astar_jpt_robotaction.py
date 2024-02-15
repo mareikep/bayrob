@@ -257,8 +257,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
 
     def test_astar_bw_path_single(self) -> None:
-        initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75]  # [3, 60, 1, 0]
-        goalx, goaly = [5, 60]
+        initx, inity, initdirx, initdiry = [65, 75, .75, .75]  # [3, 60, 1, 0]
         tolerance_pos = 0.05
         tolerance_dir = .01
 
@@ -281,8 +280,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         tol = .5
         goal = Goal(
             {
-                'x_in': ContinuousSet(goalx - tol, goalx + tol),
-                'y_in': ContinuousSet(goaly - tol, goaly + tol)
+                "detected(milk)": {True}
             }
         )
 
@@ -304,8 +302,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path.reverse()
 
     def test_astar_bw_path_single_multinomialgoal(self) -> None:
-        initx, inity, initdirx, initdiry = [60, 72, .8, .1]  # [3, 60, 1, 0]
-        tolerance_pos = 0.05
+        initx, inity, initdirx, initdiry = [58.5, 74.5, .8, .1]  # [3, 60, 1, 0]
+        tolerance_pos = 1.5
         tolerance_dir = .01
 
         dx = Gaussian(initx, tolerance_pos).sample(500)

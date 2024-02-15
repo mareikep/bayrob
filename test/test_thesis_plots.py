@@ -912,8 +912,8 @@ class ThesisPlotsTests(unittest.TestCase):
         # for constrained MOVE FEATURE variables, plot heatmap, 3D and ground data of position (OUT) distribution
         mini = False
         addobstacles = True
-        stepsize = 1
-        
+        delta = 2
+
         if mini:
             # load data and JPT that has been learnt from this data
             j = JPT.load(os.path.join(self.recent_movemini, '000-move_exp.tree'))
@@ -936,25 +936,74 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            # "grid-corners": [  # all corners of gridworld
-            #     (ContinuousSet(xl, xl + stepsize), ContinuousSet(yl, yl + stepsize), None, None, {}),  # lower left
-            #     (ContinuousSet(xl, xl + stepsize), ContinuousSet(yu - stepsize, yu), None, None, {}),  # upper left
-            #     (ContinuousSet(xu - stepsize, xu), ContinuousSet(yl, yl + stepsize), None, None, {}),  # lower right
-            #     (ContinuousSet(xu - stepsize, xu), ContinuousSet(yu - stepsize, yu), None, None, {})  # upper right
+            # "in": [
+            #     (None, None, None, None, {"collided": True}),
+            #     (None, None, None, None, {"collided": False}),
+            #     (None, None, None, None, {}),
             # ],
+            # "apriori": [
+            #     # (None, None, None, None, {}),
+            #     (None, None, None, None, {"collided": True}),
+            #     (None, None, None, None, {"collided": False}),
+            #     (None, None, None, None, {}),
+            # ],
+            "grid-corners": [  # all corners of gridworld
+                (ContinuousSet(xl, xl + delta), ContinuousSet(yl, yl + delta), None, None, {}),  # lower left
+                (ContinuousSet(xl, xl + delta), ContinuousSet(yu - delta, yu), None, None, {}),  # upper left
+                (ContinuousSet(xu - delta, xu), ContinuousSet(yl, yl + delta), None, None, {}),  # lower right
+                (ContinuousSet(xu - delta, xu), ContinuousSet(yu - delta, yu), None, None, {})  # upper right
+            ],
             # "grid-edges": [  # all edges of gridworld (center)
-            #     (xl, None, -1, 0, {}),  # left edge
-            #     (xl, None, 1, 0, {}),  # left edge
             #     (xl, None, None, None, {}),  # left edge
             #     (xu, None, None, None, {}),  # right edge
             #     (None, yl, None, None, {}),  # lower edge
             #     (None, yu, None, None, {})  # upper edge
             # ],
+            # "free-pos": [  # all directions at random position in obstacle-free area
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, 0, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, -1, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, 1, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 1, 0, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.5, -.5, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.5, .5, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .5, -.5, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .5, .5, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.7, -.7, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.7, .7, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .7, -.7, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .7, .7, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, None, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 1, None, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, -1, {}),
+            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, 1, {}),
+            # ],
+            # "no-pos": [  # all directions without given pos
+            #     (None, None, -1, 0, {}),
+            #     (None, None, 0, -1, {}),
+            #     (None, None, 0, 1, {}),
+            #     (None, None, 1, 0, {}),
+            #     (None, None, -.5, -.5, {}),
+            #     (None, None, -.5, .5, {}),
+            #     (None, None, .5, -.5, {}),
+            #     (None, None, .5, .5, {}),
+            #     (None, None, -.7, -.7, {}),
+            #     (None, None, -.7, .7, {}),
+            #     (None, None, .7, -.7, {}),
+            #     (None, None, .7, .7, {}),
+            #     (None, None, -1, None, {}),
+            #     (None, None, 1, None, {}),
+            #     (None, None, None, -1, {}),
+            #     (None, None, None, 1, {}),
+            # ],
             # "obstacle-corners": [  # all corners of one obstacle
-            #     (oxl, oxl, None, None, {}),  # lower left
-            #     (oxl, oyu, None, None, {}),  # upper left
-            #     (oxu, oyl, None, None, {}),  # lower right
-            #     (oxu, oyu, None, None, {})  # upper right
+            #     (ContinuousSet(oxl, oxl + 2 * delta), ContinuousSet(oyl, oyl + 2 * delta), None, None, {}),  # lower left
+            #     (ContinuousSet(oxl, oxl + 2 * delta), ContinuousSet(oyu - 2 * delta, oyu), None, None, {}),  # upper left
+            #     (ContinuousSet(oxu - 2 * delta, oxu), ContinuousSet(oyl, oyl + 2 * delta), None, None, {}),  # lower right
+            #     (ContinuousSet(oxu - 2 * delta, oxu), ContinuousSet(oyu - 2 * delta, oyu), None, None, {})  # upper right
+            #     # (oxl, oyl, None, None, {}),  # lower left
+            #     # (oxl, oyu, None, None, {}),  # upper left
+            #     # (oxu, oyl, None, None, {}),  # lower right
+            #     # (oxu, oyu, None, None, {})  # upper right
             # ],
             # "obstacle-edges": [  # all edges of one obstacle
             #     (oxl, ContinuousSet(oyl, oyu), None, None, {}),  # left edge
@@ -962,42 +1011,6 @@ class ThesisPlotsTests(unittest.TestCase):
             #     (ContinuousSet(oxl, oxu), oyl, None, None, {}),  # lower edge
             #     (ContinuousSet(oxl, oxu), oyu, None, None, {})  # upper edge
             # ],
-            # "free-pos": [  # random position in obstacle-free area
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), -.7, -.7, {}),  # 20, 70 pos (orig)
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), .7, -.7, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), .7, .7, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), -.7, .7, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), -1, 0, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), 1, 0, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), 0, 1, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), 0, -1, {}),
-            #     (ContinuousSet(freepos - 2, freepos + 2), ContinuousSet(freepos - 2, freepos + 2), None, None, {}),  # 50, 50 pos (orig)
-            # ],
-            # "no-pos": [  # all directions without given pos
-            #     (None, None, 0, -1, {}),
-            #     (None, None, 0, 1, {}),
-            #     (None, None, 1, 0, {}),
-            #     (None, None, -1, 0, {}),
-            #     (None, None, .5, -.5, {}),
-            #     (None, None, .5, .5, {}),
-            #     (None, None, -.5, -.5, {}),
-            #     (None, None, -.5, .5, {}),
-            #     (None, None, -1, None, {}),
-            #     (None, None, 1, None, {}),
-            #     (None, None, None, -1, {}),
-            #     (None, None, None, 1, {}),
-            # ],
-            "apriori": [
-                # (None, None, None, None, {}),
-                (None, None, None, None, {"collided": True}),
-                (None, None, None, None, {"collided": False}),
-            ],
-            "in": [
-                (None, None, None, None, {"collided": True}),
-                (None, None, None, None, {"collided": False}),
-                # (None, None, None, None, {"x_out": 0, "y_out": 0}),
-                # (None, None, None, None, {}),
-            ],
         }
 
         for postype, pos in positions.items():
@@ -1035,6 +1048,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 if more is not None:
                     pdfvars.update(more)
+                pdfvars['collided'] = False
 
                 logger.info(f"Query: {pdfvars}")
                 prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})[{fmt(more)}]'
@@ -1208,10 +1222,10 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values (xdir_in, ydir_in, angle)
         dirs = {
-            "apriori": [
+            "in": [
                 (None, None, None),
             ],
-            "in": [
+            "apriori": [
                 (None, None, None),
             ],
             "dir": [  # all directions
@@ -1267,6 +1281,7 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 if angle is not None:
                     pdfvars['angle'] = angle if isinstance(angle, ContinuousSet) else ContinuousSet(angle - tolerance_, angle + tolerance_)
+                # pdfvars['angle'] = ContinuousSet(10, 45)
 
                 print("PDFVARS:", pdfvars)
 
@@ -1379,7 +1394,7 @@ class ThesisPlotsTests(unittest.TestCase):
             ],
             "apriori": [
                 ({}, detected_objects + open_containers + ['daytime', 'nearest_furniture', 'positions'])
-                # ({}, detected_objects)
+                # ({}, ['positions'])
             ],
         }
 
