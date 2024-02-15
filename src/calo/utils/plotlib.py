@@ -563,6 +563,7 @@ def plot_heatmap(
         limz: Tuple = None,
         save: str = None,
         show: bool = True,
+        text: str = None,
         fun: str = "heatmap",
         showbuttons: bool = True
 ) -> Figure:
@@ -591,17 +592,20 @@ def plot_heatmap(
 
     # determine limits, if not given
     # exclude first element from limit calculations, as it causes the lower probs to be all equal colors
-    if limx is None:
-        limx = min([df[xvar].min() for _, df in data.iterrows()]), max([df[xvar].max() for _, df in data.iterrows()])
+    # x and y limits should automatically be determined by plotly plot based on data
+    # if limx is None:
+    #     limx = min([df[xvar].min() for _, df in data.iterrows()]), max([df[xvar].max() for _, df in data.iterrows()])
+    #
+    # if limy is None:
+    #     limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
 
-    if limy is None:
-        limy = min([df[yvar].min() for _, df in data.iterrows()]), max([df[yvar].max() for _, df in data.iterrows()])
-
+    # z is only limited if explicitly asked for
     if limz is None:
         limz_ = min([df['z'].min() for _, df in data.iterrows()]), max([df['z'].max() for _, df in data.iterrows()])
     else:
         limz_ = limz
 
+    # the parameter for limiting z is different depending on whether the plot is a surface plot (cmin/max) or heatmap (zmin/max)
     addargs = {} if limz is None else {"zmin" if fun == "heatmap" else "cmin": limz_[0], "zmax" if fun == "heatmap" else "cmax": limz_[1]}
     fun = {"heatmap": go.Heatmap, "surface": go.Surface}.get(fun, go.Heatmap)
 
@@ -622,7 +626,8 @@ def plot_heatmap(
                               'y: %{y}<br>'
                               'z: %{z}'
                               '<extra>%{customdata}</extra>',
-                **addargs
+                **addargs,
+                **({} if text is None else {"text": d[text], "texttemplate": "%{text}", "textfont": {"size": 12}})
             )
         ) for i, d in data.iterrows()
     ]
@@ -638,12 +643,12 @@ def plot_heatmap(
     fig.update_layout(
         xaxis=dict(
             title=xvar,
-            side='top',
-            range=[*limx]
+            side='bottom',
+            range=[*limx] if limx is not None else limx
         ),
         yaxis=dict(
             title=yvar,
-            range=[*limy]
+            range=[*limy] if limy is not None else limy
         ),
         # paper_bgcolor="black",
         # plot_bgcolor="black"
@@ -652,7 +657,7 @@ def plot_heatmap(
     if isinstance(fun, go.Surface):
         fig.update_layout(
             zaxis=dict(
-                range=[*limz],
+                range=[*limz] if limz is not None else limz,
                 nticks=5
             )
         )
