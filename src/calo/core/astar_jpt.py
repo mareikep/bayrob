@@ -113,9 +113,10 @@ class State(dict):
             f'[{self.tree}({self.leaf})]'
 
     def __eq__(self, other) -> bool:
-        return (self.leaf == other.leaf and
-                self.tree == other.tree and
-                self.similarity(other) >= 0.8)
+        return self.leaf == other.leaf and self.tree == other.tree
+        # return (self.leaf == other.leaf and
+        #         self.tree == other.tree and
+        #         self.similarity(other) >= 0.8)
 
 
 class SubAStar(AStar):
@@ -576,8 +577,6 @@ class SubAStarBW(SubAStar):
             s_.leaf = l.idx
 
             for v, _ in l.distributions.items():
-                if treename == "perception" and l.idx in [19,20]:
-                    print("stop")
                 vname = v.name
 
                 if vname.endswith('_out'):
