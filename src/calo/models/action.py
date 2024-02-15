@@ -81,6 +81,7 @@ class Move:
             agent.pos = agent.x + agent.dirx * dist, agent.y + agent.diry * dist
         else:
             # add some Gaussian noise to the agent's position when a collision occurred
+            # leads to very small position deltas instead of only zeros.
             agent.pos = Gaussian(agent.x, 0.001).sample(1),  Gaussian(agent.y, 0.001).sample(1)
 
     @staticmethod
