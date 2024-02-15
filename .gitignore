@@ -47,3 +47,5 @@ examples/move/20*
 examples/perception/20*
 examples/move_exp/20*
 examples/pr2/20*
+examples/pr2_exp/*
+logs/*
