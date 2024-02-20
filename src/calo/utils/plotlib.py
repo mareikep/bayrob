@@ -1324,8 +1324,83 @@ def plot_tree_leaves(
 
     return mainfig
 
+def plot_typst_tree_json(
+        tree_data: dict,
+        title: str = "unnamed",
+        filename: str or None = None,
+        directory: str = None,
+) -> str:
+    """
+    Generates an SVG representation of the generated regression tree.
 
-def plot_typst(
+    :param title: title of the plot
+    :param filename: the name of the JPT (will also be used as filename; extension will be added automatically)
+    :param directory: the location to save the SVG file to
+    :param plotvars: the variables to be plotted in the graph
+    :param view: whether the generated SVG file will be opened automatically
+    :param max_symb_values: limit the maximum number of symbolic values that are plotted to this number
+    :param nodefill: the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
+    :param leaffill: the color of the leaf nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
+    :param alphabet: whether to plot symbolic variables in alphabetic order, if False, they are sorted by
+    probability (descending); default is False
+
+    :return:   (str) the path under which the renderd image has been saved.
+    """
+    import html
+    import yaml
+
+    # initialize directories
+    if directory is None:
+        directory = tempfile.mkdtemp(
+            prefix=f'jpt_{title}-{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")}',
+            dir=tempfile.gettempdir()
+        )
+    else:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+
+
+    # helper function to generate contents of yaml file to be read by typst script
+    def generate_entry_(node, root=False) -> List:
+        n_ = [
+            {
+                "type": "Node",
+                "idx": node['id'],
+                "label": f"{node['name']}",
+                "edge_in": None if root else f"{node['duration']:.2f} sec",
+                **(
+                    {
+                        "radius": 2,  # radius of the plotted inner nodes
+                        "sizex": 5,  # spread of the tree (horizontal)
+                        "sizey": 5,  # grow of the tree (vertical)
+                        "direction": "right"
+                    } if root else {}
+                )
+            }
+        ]
+        for child in node['children']:
+            n_.append(generate_entry_(child))
+        return n_
+
+    # initiate generation of yaml file
+    l = generate_entry_(tree_data, root=True)
+
+    JPT.logger.warning(f'Saving yaml file to {os.path.join(directory, "treeplot.yaml")}...')
+    with open(os.path.join(directory, 'treeplot.yaml'), 'w') as file:
+        yaml.dump(l, file)
+
+    # generate and save tree plot
+    filepath = f"{os.path.join(directory, ifnone(filename, title))}.svg"
+    shutil.copyfile(os.path.join(locs.src, 'calo', 'utils', 'treeplot.typ'), os.path.join(directory, "treeplot.typ"))
+    cmd = f"/data/apps/typst compile {os.path.join(directory, 'treeplot.typ')} --root {directory} {filepath}"
+    JPT.logger.warning(f"Trying to execute {cmd}...")
+    os.system(cmd)
+
+    return filepath
+
+
+def plot_typst_jpt(
         jpt,
         title: str = "unnamed",
         filename: str or None = None,

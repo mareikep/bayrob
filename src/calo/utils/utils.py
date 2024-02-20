@@ -302,7 +302,8 @@ def pcc_(
 
 def _actions_to_treedata(
         el,
-        ad
+        ad,
+        idname='id'
 ) -> dict:
     """For tree visualization; assuming ad is pd.DataFrame, el pd.Series; from NEEM data csv files like:
 
@@ -313,7 +314,7 @@ def _actions_to_treedata(
         Action_HNLQFJCG	Accessing	1600330075.04209	1600330075.14547	0.103375196456909	True		Action_YGLTFJUW
 
     """
-    tt = f'<b>action:</b> {el["type"]} ({el["id"]})<br>'
+    tt = f'<b>action:</b> {el["type"]} ({el[idname]})<br>'
     tt += f'<b>duration:</b> {float(el["duration"]):.2f} sec<br>'
     tt += f'<b>timestamps:</b> {float(el["startTime"]):.2f} - {float(el["endTime"]):.2f}<br>'
 
@@ -329,14 +330,39 @@ def _actions_to_treedata(
 
     return {
         "name": f'{el["type"]}',
-        "id": f'{el["id"]}',
+        idname: f'{el[idname]}',
         "tooltip": tt,
         "edgetext": f'<b>duration:</b> {float(el["duration"]):.2f} sec<br>',
         "edgetooltip": f'<b>timestamps:</b> {float(el["startTime"]):.2f} - {float(el["endTime"]):.2f}<br>',
         "type": f'{"steelblue" if el["success"] == True else "red"}',
         "showname": True,
         "showedge": False,
-        "children": [_actions_to_treedata(c, ad) for _, c in ad[ad['parent'] == el['id']].iterrows()]
+        "children": [_actions_to_treedata(c, ad, idname=idname) for _, c in ad[ad['parent'] == el[idname]].iterrows()]
+    }
+
+def actions_to_treedata(
+        el,
+        ad,
+        idname='id'
+) -> dict:
+    """For tree visualization; assuming ad is pd.DataFrame, el pd.Series; from NEEM data csv files like:
+
+            id	type	startTime	endTime	duration	success	failure	parent	next	previous	object_acted_on	object_type	bodyPartsUsed	arm	grasp	effort
+        Action_IRXOQHDJ	PhysicalTask	1600330068.38499	1600330375.44614	307.061154842377	True
+        Action_YGLTFJUW	Transporting	1600330074.30271	1600330375.40287	301.100160360336	True		Action_IRXOQHDJ
+        Action_RTGJLPIV	LookingFor	1600330074.64896	1600330074.79814	0.149180889129639	True		Action_YGLTFJUW
+        Action_HNLQFJCG	Accessing	1600330075.04209	1600330075.14547	0.103375196456909	True		Action_YGLTFJUW
+
+    """
+    return {
+        "name": el["type"],
+        "id": el[idname],
+        "duration": float(el["duration"]),
+        "starttime": el["startTime"],
+        "endtime": el["endTime"],
+        "success": el["success"],
+        "failure": el["failure"],
+        "children": [actions_to_treedata(c, ad, idname=idname) for _, c in ad[ad['parent'] == el[idname]].iterrows()]
     }
 
 

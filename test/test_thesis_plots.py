@@ -1,5 +1,6 @@
 import math
 import os
+import re
 import traceback
 import unittest
 
@@ -13,14 +14,16 @@ import pandas as pd
 import plotly.graph_objects as go
 from matplotlib import pyplot as plt
 from pandas import DataFrame
+from sklearn.model_selection import train_test_split
 
 from calo.core.astar_jpt import State
 from calo.utils import locs
 from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
     plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq, \
-    plot_tree_leaves, plot_typst
-from calo.utils.utils import recent_example, fmt
-from jpt import SymbolicType, NumericVariable, JPT
+    plot_tree_leaves, plot_typst_jpt, plot_typst_tree_json
+from calo.utils.utils import recent_example, fmt, _actions_to_treedata, actions_to_treedata
+from examples.examples import do_prune, distributions, manager
+from jpt import SymbolicType, NumericVariable, JPT, infer_from_dataframe
 from jpt.base.intervals import ContinuousSet, RealSet
 
 from jpt.base.functions import PiecewiseFunction
@@ -68,7 +71,7 @@ class ThesisPlotsTests(unittest.TestCase):
                    JPT.load(str(treefile))
                )
                for p in [cls.recent_move, cls.recent_turn, cls.recent_perception, cls.recent_pr2]
-               for treefile in Path(p).rglob('*.tree')
+               for treefile in Path(p).glob('*.tree')
            ]
        )
 
@@ -916,11 +919,9 @@ class ThesisPlotsTests(unittest.TestCase):
 
         if mini:
             # load data and JPT that has been learnt from this data
-            j = JPT.load(os.path.join(self.recent_movemini, '000-move_exp.tree'))
-            j.postprocess_leaves()
-            j = j.prune(.77)
-            df = pd.read_parquet(os.path.join(self.recent_movemini, 'data', f'000-move_exp.parquet'))
-            modelpath = self.recent_movemini
+            j = JPT.load(os.path.join(self.recent_move, '000-move.tree'))
+            df = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
+            modelpath = self.recent_move
             xl, yl, xu, yu = (0, 0, 10, 10)
             oxl, oyl, oxu, oyu = (5, 5, 7, 7)
             freepos = 8
@@ -936,29 +937,29 @@ class ThesisPlotsTests(unittest.TestCase):
 
         # constraints/query values (x_in, y_in, xdir_in, ydir_in)
         positions = {
-            # "in": [
-            #     (None, None, None, None, {"collided": True}),
-            #     (None, None, None, None, {"collided": False}),
-            #     (None, None, None, None, {}),
-            # ],
-            # "apriori": [
-            #     # (None, None, None, None, {}),
-            #     (None, None, None, None, {"collided": True}),
-            #     (None, None, None, None, {"collided": False}),
-            #     (None, None, None, None, {}),
-            # ],
-            "grid-corners": [  # all corners of gridworld
-                (ContinuousSet(xl, xl + delta), ContinuousSet(yl, yl + delta), None, None, {}),  # lower left
-                (ContinuousSet(xl, xl + delta), ContinuousSet(yu - delta, yu), None, None, {}),  # upper left
-                (ContinuousSet(xu - delta, xu), ContinuousSet(yl, yl + delta), None, None, {}),  # lower right
-                (ContinuousSet(xu - delta, xu), ContinuousSet(yu - delta, yu), None, None, {})  # upper right
+            "apriori": [
+                # (None, None, None, None, {}),
+                (None, None, None, None, {"collided": True}),
+                (None, None, None, None, {"collided": False}),
+                (None, None, None, None, {}),
             ],
-            # "grid-edges": [  # all edges of gridworld (center)
-            #     (xl, None, None, None, {}),  # left edge
-            #     (xu, None, None, None, {}),  # right edge
-            #     (None, yl, None, None, {}),  # lower edge
-            #     (None, yu, None, None, {})  # upper edge
-            # ],
+            "in": [
+                (None, None, None, None, {"collided": True}),
+                (None, None, None, None, {"collided": False}),
+                (None, None, None, None, {}),
+            ],
+            "grid-corners": [  # all corners of gridworld
+                (ContinuousSet(xl, xl + delta), ContinuousSet(yl, yl + delta), None, None, {"collided": False}),  # lower left
+                (ContinuousSet(xl, xl + delta), ContinuousSet(yu - delta, yu), None, None, {"collided": False}),  # upper left
+                (ContinuousSet(xu - delta, xu), ContinuousSet(yl, yl + delta), None, None, {"collided": False}),  # lower right
+                (ContinuousSet(xu - delta, xu), ContinuousSet(yu - delta, yu), None, None, {"collided": False})  # upper right
+            ],
+            "grid-edges": [  # all edges of gridworld (center)
+                (xl, None, None, None, {"collided": False}),  # left edge
+                (xu, None, None, None, {"collided": False}),  # right edge
+                (None, yl, None, None, {"collided": False}),  # lower edge
+                (None, yu, None, None, {"collided": False})  # upper edge
+            ],
             # "free-pos": [  # all directions at random position in obstacle-free area
             #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, 0, {}),
             #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, -1, {}),
@@ -977,39 +978,39 @@ class ThesisPlotsTests(unittest.TestCase):
             #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, -1, {}),
             #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, 1, {}),
             # ],
-            # "no-pos": [  # all directions without given pos
-            #     (None, None, -1, 0, {}),
-            #     (None, None, 0, -1, {}),
-            #     (None, None, 0, 1, {}),
-            #     (None, None, 1, 0, {}),
-            #     (None, None, -.5, -.5, {}),
-            #     (None, None, -.5, .5, {}),
-            #     (None, None, .5, -.5, {}),
-            #     (None, None, .5, .5, {}),
-            #     (None, None, -.7, -.7, {}),
-            #     (None, None, -.7, .7, {}),
-            #     (None, None, .7, -.7, {}),
-            #     (None, None, .7, .7, {}),
-            #     (None, None, -1, None, {}),
-            #     (None, None, 1, None, {}),
-            #     (None, None, None, -1, {}),
-            #     (None, None, None, 1, {}),
-            # ],
+            "no-pos": [  # all directions without given pos
+                (None, None, -1, 0, {}),
+                (None, None, 0, -1, {}),
+                (None, None, 0, 1, {}),
+                (None, None, 1, 0, {}),
+                (None, None, -.5, -.5, {}),
+                (None, None, -.5, .5, {}),
+                (None, None, .5, -.5, {}),
+                (None, None, .5, .5, {}),
+                (None, None, -.7, -.7, {}),
+                (None, None, -.7, .7, {}),
+                (None, None, .7, -.7, {}),
+                (None, None, .7, .7, {}),
+                (None, None, -1, None, {}),
+                (None, None, 1, None, {}),
+                (None, None, None, -1, {}),
+                (None, None, None, 1, {}),
+            ],
             # "obstacle-corners": [  # all corners of one obstacle
-            #     (ContinuousSet(oxl, oxl + 2 * delta), ContinuousSet(oyl, oyl + 2 * delta), None, None, {}),  # lower left
-            #     (ContinuousSet(oxl, oxl + 2 * delta), ContinuousSet(oyu - 2 * delta, oyu), None, None, {}),  # upper left
-            #     (ContinuousSet(oxu - 2 * delta, oxu), ContinuousSet(oyl, oyl + 2 * delta), None, None, {}),  # lower right
-            #     (ContinuousSet(oxu - 2 * delta, oxu), ContinuousSet(oyu - 2 * delta, oyu), None, None, {})  # upper right
+            #     (ContinuousSet(oxl, oxl + delta), ContinuousSet(oyl, oyl + delta), None, None, {"collided": False}),  # lower left
+            #     (ContinuousSet(oxl, oxl + delta), ContinuousSet(oyu - delta, oyu), None, None, {"collided": False}),  # upper left
+            #     (ContinuousSet(oxu - delta, oxu), ContinuousSet(oyl, oyl + delta), None, None, {"collided": False}),  # lower right
+            #     (ContinuousSet(oxu - delta, oxu), ContinuousSet(oyu - delta, oyu), None, None, {"collided": False})  # upper right
             #     # (oxl, oyl, None, None, {}),  # lower left
             #     # (oxl, oyu, None, None, {}),  # upper left
             #     # (oxu, oyl, None, None, {}),  # lower right
             #     # (oxu, oyu, None, None, {})  # upper right
             # ],
             # "obstacle-edges": [  # all edges of one obstacle
-            #     (oxl, ContinuousSet(oyl, oyu), None, None, {}),  # left edge
-            #     (oxu, ContinuousSet(oyl, oyu), None, None, {}),  # right edge
-            #     (ContinuousSet(oxl, oxu), oyl, None, None, {}),  # lower edge
-            #     (ContinuousSet(oxl, oxu), oyu, None, None, {})  # upper edge
+            #     (oxl, ContinuousSet(oyl, oyu), None, None, {"collided": False}),  # left edge
+            #     (oxu, ContinuousSet(oyl, oyu), None, None, {"collided": False}),  # right edge
+            #     (ContinuousSet(oxl, oxu), oyl, None, None, {"collided": False}),  # lower edge
+            #     (ContinuousSet(oxl, oxu), oyu, None, None, {"collided": False})  # upper edge
             # ],
         }
 
@@ -1048,7 +1049,6 @@ class ThesisPlotsTests(unittest.TestCase):
 
                 if more is not None:
                     pdfvars.update(more)
-                pdfvars['collided'] = False
 
                 logger.info(f"Query: {pdfvars}")
                 prefix = f'POS({fmt(x_, prec=1, positive=True)},{fmt(y_, prec=1, positive=True)})_DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})[{fmt(more)}]'
@@ -1283,6 +1283,8 @@ class ThesisPlotsTests(unittest.TestCase):
                     pdfvars['angle'] = angle if isinstance(angle, ContinuousSet) else ContinuousSet(angle - tolerance_, angle + tolerance_)
                 # pdfvars['angle'] = ContinuousSet(10, 45)
 
+                    RealSet()
+
                 print("PDFVARS:", pdfvars)
 
                 # generate tree conditioned on given position and/or direction
@@ -1318,7 +1320,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     columns=['x', 'y', 'z', 'lbl']
                 )
 
-                prefix = f'DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})_{fmt(angle, prec=1, positive=True)}°'
+                prefix = f'DIR({fmt(xd, prec=1, positive=True)},{fmt(yd, prec=1, positive=True)})_{fmt(angle, prec=1, positive=True)}deg'
 
                 # plot ground truth
                 gt = plot_data_subset(
@@ -1578,21 +1580,21 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries_ = {
-            "bodyparts": [
-                ({"bodyPartsUsed": ":LEFT"}, ["type", "object_acted_on", "success"]),
-                ({"bodyPartsUsed": ":RIGHT"}, ["type", "object_acted_on", "success"]),
-            ],
-            "failure": [  # failed actions
-                ({'success': False}, ['type', "failure", "positions"]),
-                ({'type': "Grasping", "success": False}, ["failure", "positions"]),
-                ({'type': "Placing", "success": False}, ["failure", "positions"]),
-            ],
-            "success": [
-                ({"success": True}, ['type', "failure", "positions"]),
-                ({"success": True, 'type': "Grasping"}, ["bodyPartsUsed", "positions"]),
-                ({"success": True, 'type': "Placing"}, ["bodyPartsUsed", "positions"]),
-                ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
-            ],
+            # "bodyparts": [
+            #     ({"bodyPartsUsed": ":LEFT"}, ["type", "object_acted_on", "success"]),
+            #     ({"bodyPartsUsed": ":RIGHT"}, ["type", "object_acted_on", "success"]),
+            # ],
+            # "failure": [  # failed actions
+            #     ({'success': False}, ['type', "failure", "positions"]),
+            #     ({'type': "Grasping", "success": False}, ["failure", "positions"]),
+            #     ({'type': "Placing", "success": False}, ["failure", "positions"]),  # only 0-positions!
+            # ],
+            # "success": [
+            #     ({"success": True}, ['type', "failure", "positions"]),
+            #     ({"success": True, 'type': "Grasping"}, ["bodyPartsUsed", "positions"]),
+            #     ({"success": True, 'type': "Placing"}, ["bodyPartsUsed", "positions"]),
+            #     ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
+            # ],
             "apriori": [
                 ({}, ['type', "arm", "bodyPartsUsed", "success", "object_acted_on", "failure", "positions"]),
             ],
@@ -1688,25 +1690,9 @@ class ThesisPlotsTests(unittest.TestCase):
                             limx=limx,
                             limy=limy,
                             show=False,
-                            save=None,
-                            showbuttons=False
+                            save=None
                         )
                         fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"), ftypes=['.svg', '.html'])
-
-                        # plot JPT Heatmap
-                        dist = plot_heatmap(
-                            xvar='x',
-                            yvar='y',
-                            data=data,
-                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                            limx=limx,
-                            limy=limy,
-                            show=False,
-                            save=None,
-                            showbuttons=False,
-                            fun='surface'
-                        )
-                        fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist-3d.html"), ftypes=['.svg', '.html'])
                     else:
                         if plot in post:
                             gt = plot_data_subset(
@@ -1731,6 +1717,206 @@ class ThesisPlotsTests(unittest.TestCase):
                             )
                             fig_to_file(dist, os.path.join(plotdir, f"{prefix}-{plot}-dist.html"), ftypes=['.svg', '.html'])
 
+    def test_crossval_plot(self):
+        import inspect
+        ex = 'move'
+        # ex = 'perception'
+        # ex = 'pr2'
+        # ex = 'turn'
+
+        if ex == 'move':
+            path = self.recent_move
+            gdata = '000-move.parquet'
+            settings = {
+                "prune-generative": {
+                    'min_samples_leaf': 0.001,
+                    'targets': None,
+                    'prune_or_split': True
+                },
+                "prune-discriminative": {
+                    'min_samples_leaf': 0.001,
+                    'targets': 4,
+                    'prune_or_split': True
+                },
+                "noprune-generative": {
+                    'min_samples_leaf': 0.001,
+                    'targets': None,
+                    'prune_or_split': False
+                },
+                "noprune-discriminative": {
+                    'min_samples_leaf': 0.001,
+                    'targets': 4,
+                    'prune_or_split': False
+                },
+            }
+        elif ex == 'perception':
+            path = self.recent_perception
+            gdata = '000-perception.parquet'
+            settings = {
+                "prune-msl-1": {
+                    'min_samples_leaf': 1,
+                    'targets': None,
+                    'prune_or_split': True
+                },
+                "noprune-msl-1": {
+                    'min_samples_leaf': 1,
+                    'targets': None,
+                    'prune_or_split': False
+                }
+            }
+        elif ex == 'pr2':
+            path = self.recent_pr2
+            gdata = '000-pr2.parquet'
+            settings = {
+                "prune-001": {
+                    'min_samples_leaf': 0.01,
+                    'targets': None,
+                    'prune_or_split': True
+                },
+                "noprune-001": {
+                    'min_samples_leaf': 0.01,
+                    'targets': None,
+                    'prune_or_split': False
+                },
+                "prune-0001": {
+                    'min_samples_leaf': 0.001,
+                    'targets': None,
+                    'prune_or_split': True
+                },
+                "noprune-0001": {
+                    'min_samples_leaf': 0.001,
+                    'targets': None,
+                    'prune_or_split': False
+                },
+            }
+        elif ex == 'turn':
+            path = self.recent_turn
+            gdata = '000-turn.parquet'
+            settings = {}
+        else:
+            logger.error('Invalid example', ex)
+            return
+
+        if not os.path.exists(os.path.join(path, 'crossval')):
+            os.mkdir(os.path.join(path, 'crossval'))
+
+        likelihoods_pervar = {}
+        likelihoods_cumulated = {}
+
+        # loading test data file
+        df_ = pd.read_parquet(os.path.join(path, 'data', gdata))
+
+        # shuffle data and divide into training and test sets
+        df_train, df_test = train_test_split(df_, test_size=0.1, shuffle=True)
+
+        logger.info(f'Split dataframe into {len(df_train)} training and {len(df_test)} test data')
+
+        # infer variables
+        variables = infer_from_dataframe(
+            df_,
+            scale_numeric_types=False,
+            precision=.025
+        )
+
+        for sname, setting in settings.items():
+            if 'targets' in setting and setting.get('targets', None) is not None:
+                setting['targets'] = variables[int(setting['targets']):]
+
+            logger.debug(f'Learning tree for setting {sname}...', setting)
+            print({k: v for k, v in setting.items() if k in list(inspect.signature(JPT).parameters.keys())})
+            jpt_ = JPT(
+                variables=variables,
+                **{k: v for k, v in setting.items() if k in list(inspect.signature(JPT).parameters.keys())}
+            )
+
+            jpt_.learn(
+                df_train.copy(),
+                close_convex_gaps=False,
+                prune_or_split=do_prune if setting['prune_or_split'] else None,
+                verbose=True
+            )
+
+            # for v in jpt_.variables:
+            #     jpt_.priors[v].plot(view=True)
+
+            logger.debug(f'...done! saving to file {os.path.join(path, "crossval", f"{sname}.tree")}')
+            jpt_.save(os.path.join(path, "crossval", f"{sname}.tree"))
+
+            # for each datapoint in test dataset, calculate and save likelihood
+            logger.debug(f"Calculating likelihoods for setting {sname}...")
+            probs, probspervar = jpt_.likelihood(df_test, single_likelihoods=True)
+            likelihoods_pervar[sname] = np.mean(probspervar, axis=0)
+            likelihoods_cumulated[sname] = np.mean(probs)
+
+            distributions.clear()
+
+        newline = ",\n    "
+        typst_data = list(zip([v.name for v in variables], np.array([np.around(d, decimals=3) for d in list(likelihoods_pervar.values())]).T))
+        content = f"{newline.join([f'[{var}], ' + ','.join([f'[{v}]' for v in vals]) for var, vals in typst_data])}"
+        typst_table = f'''
+#import "@preview/tablex:0.0.8": tablex, colspanx, rowspanx
+
+#tablex(
+    columns:  (auto,)*{2 + len(settings)},
+    align: (col, row) => if col == 1 {{ right + horizon }} else {{ center + horizon }},
+    auto-vlines: true,
+    auto-hlines: true,
+    repeat-header: true,
+    map-vlines: v => (..v, start: 1, stroke: if v.x != 2 {{ none }} else {{ .5pt }}),
+    map-hlines: h => (..h, start: 1, stroke: if h.y != 2 {{ none }} else {{ .5pt }}),
+    /* --- header --- */
+    [], [], colspanx({len(settings)})[*setting*],
+    [], [], {",".join(["[" + sname + "]" for sname in settings.keys()])},
+    rowspanx({len(variables)})[*#rotate(-90deg, [*variables*])*],
+    /* -------------- */
+    {content}
+)'''
+
+        with open(os.path.join(path, 'crossval', f'likelihoods_per_variable_typst.typ'), "w") as f:
+            print(typst_table)
+            f.write(typst_table)
+
+        # plot heatmap comparing likelihoods of multiple trees per variable
+        data_pervar = list(likelihoods_pervar.values())
+        data = pd.DataFrame(
+            data=[[np.array(list(likelihoods_pervar.keys())), np.array([v.name for v in variables]),
+                   np.array([np.around(d, decimals=2) for d in data_pervar]).T, np.array(data_pervar).T, np.array(data_pervar).T]],
+            columns=['tree', 'variable', 'text', 'z', 'lbl']
+        )
+        # draw matrix tree x variable = likelihood(tree, datapoint)
+        plot_heatmap(
+            data=data,
+            xvar='tree',
+            yvar='variable',
+            text='text',
+            save=os.path.join(path, 'crossval', f'likelihoods_per_variable.html')
+        )
+
+        # plot heatmap comparing overall likelihoods of multiple trees
+        fig_s = go.Figure()
+        fig_s.add_trace(
+            go.Bar(
+                x=list(likelihoods_cumulated.keys()),
+                y=list(likelihoods_cumulated.values()),
+                text=list(likelihoods_cumulated.values()),
+                orientation='v',
+                marker=dict(
+                    color='rgba(15,21,110,.6)',
+                    line=dict(color='rgb(15,21,110)', width=3)
+                )
+            )
+        )
+        fig_s.update_layout(
+            xaxis_title='setting',
+            yaxis_title='likelihood',
+            showlegend=False,
+            width=1000,
+            height=1000,
+            yaxis={}
+        )
+        fig_to_file(fig_s, os.path.join(path, 'crossval', f'likelihoods_cumulated.html'))
+        fig_s.show(config=defaultconfig("likelihoods_cumulated.html"))
+
     def test_jpt_leaves_plot(self):
         j = self.models['000-move.tree']
         plot_tree_leaves(j, j.varnames['x_in'], j.varnames['y_in'], limx=(0, 100), limy=(0, 100), show=True)
@@ -1743,12 +1929,59 @@ class ThesisPlotsTests(unittest.TestCase):
         j_ = j.prune(.7)
         j_.save(f)
 
+    def test_pr2_experiment_tree(self):
+        df = pd.read_parquet(os.path.join(self.recent_pr2, 'data', f'1600330375.parquet'))
+        first = df[df['parent'].isna()].iloc[0]
+        training_data = actions_to_treedata(first, df, idname='id_x')
+        plot_typst_tree_json(
+            training_data,
+            title='TEST',
+            filename=f"pr2-{Path(recent_example(os.path.join(locs.examples, 'pr2'))).stem}",
+            directory=os.path.join(locs.logs, 'typst_test'),
+        )
+
+
+    def test_drop_innerpoints(self):
+        df_ = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
+        # obstacles = [
+        #     # ((5, 5, 20, 10), "kitchen_island"),
+        #     ((15, 10, 25, 20), "chair1"),
+        #     ((35, 10, 45, 20), "chair2"),
+        #     ((10, 30, 50, 50), "kitchen_island"),
+        #     ((80, 30, 100, 70), "stove"),
+        #     ((10, 80, 50, 100), "kitchen_unit"),
+        #     ((60, 80, 80, 100), "fridge"),
+        # ]
+        #
+        # pattern = 'not ((`x_in` >= {}) & (`x_in` <= {}) & (`y_in` >= {}) & (`y_in` <= {}))'
+        # q = []
+        # for o, _ in obstacles:
+        #     q.append(pattern.format(o[0], o[2], o[1], o[3]))
+        #
+        # df = df_.query(" & ".join(q))
+
+        gt_ = plot_data_subset(
+            df_,
+            xvar=f'x_in',
+            yvar=f'y_in',
+            constraints={'collided': True},
+            limx=(0, 100),
+            limy=(0, 100),
+            save=None,
+            show=False,
+            color='rgb(0,104,180)'
+        )
+
+        gt_.show()
+
+
+
     def test_typst_tree(self):
         model = 'turn'  # pr2, perception, move, turn
         name = f"{model}-{Path(recent_example(os.path.join(locs.examples, model))).stem}"
         j = JPT.load(os.path.join(recent_example(os.path.join(locs.examples, model)), f'000-{model}.tree'))
 
-        plot_typst(
+        plot_typst_jpt(
             j,
             title=name,
             filename=name,
