@@ -505,7 +505,7 @@ class SubAStarBW_(SubAStarBW):
             parent
     ) -> float:
 
-        return self.dist(state, parent)
+        return max(self.dist(state, parent), 1)
 
     def h(
             self,
@@ -514,7 +514,7 @@ class SubAStarBW_(SubAStarBW):
         # for backwards direction, the heuristic measures the mean of the distances of the current state's variables
         # and the ones from the initstate. If `state` does not contain all variables of the initstate (which typically
         # applies to the goal state), the distance is infinite.
-        if not set(self.initstate.keys()).issubset(set(state.keys())): return np.inf
+        # if not set(self.initstate.keys()).issubset(set(state.keys())): return np.inf
 
         return self.dist(state, self.initstate)
 
@@ -615,6 +615,7 @@ class SubAStarBW_(SubAStarBW):
                 np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),     # dx
                 np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),     # dy
                 f'Step {i}',                    # step
+                f'<b>Step {i}</b><br>'
                 f'<b>{"ROOT" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br>'
                 f'<b>MPEs:</b><br>'
                 f'{"<br>".join(f"<i>{k}:</i> {fmt(v)}" for k, v in s.items())}<br>'
@@ -699,7 +700,9 @@ class SubAStarBW_(SubAStarBW):
             data=plotly_pt(
                 pt=(ix, iy),
                 dir=(ixd, iyd),
-                name=f"Start<br>x_in: {ix}<br>y_in: {iy}",
+                name=f"<b>Start bla blub long text</b><br>"
+                     f"x_in: {fmt(self.initstate[xvar].mpe()[0], prec=2)}<br>"
+                     f"y_in: {fmt(self.initstate[yvar].mpe()[0], prec=2)}<br>",
                 color='rgb(0,127,0)'
             ).data
         )

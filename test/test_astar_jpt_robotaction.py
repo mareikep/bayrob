@@ -302,7 +302,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path.reverse()
 
     def test_astar_bw_path_single_multinomialgoal(self) -> None:
-        initx, inity, initdirx, initdiry = [58.5, 74.5, .8, .1]  # [3, 60, 1, 0]
+        initx, inity, initdirx, initdiry = [65, 73, .72, .72]  # [3, 60, 1, 0]
         tolerance_pos = 1.5
         tolerance_dir = .01
 

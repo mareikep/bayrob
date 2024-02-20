@@ -48,12 +48,21 @@ class Node:
         return f"Node({len(self)}): {str(self.state)}"
 
     def __repr__(self) -> str:
-        path = ""
-        current_node = self
-        while current_node.parent is not None:
-            path = f" {repr(current_node.state)}{' ==>' if path else ''}{path}"
-            current_node = current_node.parent
-        return f"<Node({len(self)}): {path}>"
+        path = []
+        cn = self
+        while cn.parent is not None:
+            path.append(str(cn.state))
+            cn = cn.parent
+        path.append(repr(cn.state))
+        return f"<Node({len(self)}): {'=>'.join(path)}>"
+
+
+        # path = repr(self.state)
+        # current_node = self.parent
+        # while current_node is not None:
+        #     path = f" {repr(current_node.state)}{' ==>' if path else ''}{path}"
+        #     current_node = current_node.parent
+        # return f"<Node({len(self)}): {path}>"
 
     def __len__(self) -> int:
         cnt = 1
@@ -163,7 +172,11 @@ class AStar:
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
             if plotme:
-                self.plot(cur_node)
+                try:
+                    self.plot(cur_node)
+                except:
+                    logger.info('Could not plot result for some random reason.')
+                    traceback.print_exc()
             if self.isgoal(cur_node):
                 tse = datetime.now()
                 d, h, m, s = dhms(tse - ts)
@@ -177,6 +190,7 @@ class AStar:
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
                 except:
+                    logger.info('Could not plot result for some random reason.')
                     traceback.print_exc()
 
                 return self.retrace_path(cur_node)
