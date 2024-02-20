@@ -1,5 +1,7 @@
 import re
+import signal
 from collections import defaultdict
+from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
 from tqdm import tqdm
@@ -24,6 +26,49 @@ from calo.utils.utils import recent_example
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
+def _initialize_worker_process():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _gendata(data_range):
+    a = GridAgent(
+        world=w
+    )
+    initdir = tuple(np.random.uniform(low=[0, 0], high=[1, 1], size=2))
+    dm_ = []
+
+    for i, (x, y) in enumerate(data_range):
+        # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
+        if w.collides((x, y)): continue
+
+        # initially, agent always faces left, right, up or down
+        initpos = (x, y)
+        a.dir = initdir
+        a.pos = initpos
+
+        # for each position, uniformly sample lrturns angles from -180 to 180;
+        # after each turn, make one step forward, save datapoint
+        # and step back to initpos (i.e. the sampled pos around x/y)
+        # and turn back to initdir
+        for degi in np.random.uniform(low=0, high=360, size=360):
+            ipos = Gaussian(initpos, [[.001, 0], [0, .001]]).sample(1)  # initpos
+            a.pos = ipos
+
+            # turn to new starting direction
+            move.turndeg(a, degi)
+
+            # move forward and save new position/direction
+            move.moveforward(a, 1)
+            dm_.append([
+                *ipos,
+                *a.dir,
+                *np.array(a.pos) - np.array(ipos),  # deltas!
+                a.collided
+            ])
+
+            # step back/reset position and direction
+            a.dir = initdir
+    return dm_
 
 def generate_data(fp, args):
 
@@ -32,7 +77,7 @@ def generate_data(fp, args):
     areas = args.walkingareas if "areas" in args else False
     dropcollisions = args.dropcollisions if "dropcollisions" in args else False
     dropinnerobstacles = args.dropinnerobstacles if "dropinnerobstacles" in args else False
-    keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else True
+    keepinsidecollisions = args.insidecollisions if "insidecollisions" in args else False
 
     # for each x/y position in 100x100 grid turn 16 times in positive and negative direction and make one step ahead
     # respectively. check for collision/success
@@ -42,7 +87,6 @@ def generate_data(fp, args):
     a = GridAgent(
         world=w
     )
-
 
     if areas:
         # draw samples uniformly from the three walking areas instead of the entire kitchen
@@ -63,46 +107,27 @@ def generate_data(fp, args):
     logger.debug(f'Generating up to {len(samplepositions) * lrturns} move data points representing {len(samplepositions)} positions with {lrturns} turns each...')
     progbar = tqdm(total=len(samplepositions) * lrturns, desc='Generating data points', colour="green")
 
-    initdir = tuple(np.random.uniform(low=[0, 0], high=[1, 1], size=2))
-    dm_ = DynamicArray(shape=(len(samplepositions * lrturns), 7), dtype=np.float32)
-    for i, (x, y) in enumerate(samplepositions):
-        # if the xy pos is inside an obstacle, skip it, otherwise use as sample position
-        if w.collides((x, y)) and not keepinsidecollisions: continue
-
-        # initially, agent always faces left, right, up or down
-        initpos = (x, y)
-        a.dir = initdir
-        a.pos = initpos
-
-        # for each position, uniformly sample lrturns angles from -180 to 180;
-        # after each turn, make one step forward, save datapoint
-        # and step back to initpos (i.e. the sampled pos around x/y)
-        # and turn back to initdir
-        for degi in np.random.uniform(low=0, high=360, size=lrturns):
-            ipos = Gaussian(initpos, [[.001, 0], [0, .001]]).sample(1)  # initpos
-            a.pos = ipos
-
-            # turn to new starting direction
-            move.turndeg(a, degi)
-
-            # move forward and save new position/direction
-            move.moveforward(a, 1)
-            dm_.append(np.array(
-                [[
-                    *ipos,
-                    *a.dir,
-                    *np.array(a.pos) - np.array(ipos),  # deltas!
-                    a.collided
-                ]])
+    dm_ = []  # DynamicArray(shape=(len(samplepositions * lrturns), 7), dtype=np.float32)
+    nchunks = 1000
+    pool = Pool(
+        cpu_count(),
+        initializer=_initialize_worker_process
+    )
+    for i, data_chunk in enumerate(
+            pool.imap_unordered(
+                _gendata,
+                iterable=np.array_split(samplepositions, nchunks)
             )
-
-            # step back/reset position and direction
-            a.dir = initdir
-            progbar.update(1)
+    ):
+        dm_.extend(list(data_chunk))
+        # progbar.update(len(data_chunk))
+        progbar.update(int(len(samplepositions) / nchunks * lrturns))
+    pool.close()
+    pool.join()
 
     progbar.close()
 
-    data_moveforward = pd.DataFrame(data=dm_.data, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
+    data_moveforward = pd.DataFrame(data=dm_, columns=['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out', 'collided'])
 
     # save data
     data_moveforward = data_moveforward.astype({
