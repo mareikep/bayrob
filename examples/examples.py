@@ -1,27 +1,27 @@
+import argparse
 import ast
 import datetime
 import os
 import re
 import sys
-
-import argparse
+from multiprocessing import Manager
 from pathlib import Path
 
 import dnutils
 import numpy as np
 import pandas as pd
-from dnutils import ifnone
+import plotly.graph_objects as go
+from jpt.base.intervals import ContinuousSet
+from sklearn.model_selection import train_test_split
 
 from calo.logs.logs import init_loggers
 from calo.utils import locs
 from calo.utils.constants import calologger, FILESTRFMT
-from calo.utils.plotlib import plot_heatmap
+from calo.utils.plotlib import plot_heatmap, fig_to_file, defaultconfig
 from calo.utils.utils import recent_example
 from jpt import JPT, infer_from_dataframe
-from jpt.base.intervals import ContinuousSet
-
 from jpt.distributions import Distribution, Numeric
-from jpt.trees import DecisionNode
+from jpt.learning.c45 import JPTPartition, _locals
 from jpt.variables import VariableMap
 
 try:
@@ -33,6 +33,53 @@ except ModuleNotFoundError:
 
 
 logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+
+manager = Manager()
+distributions = manager.dict()
+
+
+def do_prune(
+        jpt: JPT,
+        partition: JPTPartition,
+        indices: np.ndarray
+):
+    data = _locals.data
+    node_idx = partition.node_idx
+
+    distributions[node_idx] = manager.dict()
+
+    for i, v in enumerate(jpt.targets):
+        dist = v.distribution()._fit(
+            data=data,
+            rows=indices[partition.start:partition.end],
+            col=jpt.variables.index(v)
+        )
+        distributions[node_idx][v] = dist
+
+    if partition.parent_idx is None:  # FIXME
+        return False
+
+    similarities = VariableMap(variables=jpt.targets)
+    for v in jpt.targets:
+        child_dist: Distribution = distributions[node_idx][v]
+        parent_dist: Distribution = distributions[partition.parent_idx][v]
+
+        if isinstance(child_dist, Numeric):
+            parent_dist = parent_dist.crop(child_dist.pdf.domain())
+        else:
+            parent_dist = parent_dist.crop({
+                v for v in parent_dist.labels.values() if child_dist.p(v)
+            })
+
+        similarities[v] = v.domain.jaccard_similarity(child_dist, parent_dist)
+
+    total_similarity = 1 * (1 - (partition.end - partition.start) / data.shape[0]) + (partition.end - partition.start) / data.shape[0] * np.min(
+        list(similarities.values()))
+
+    if total_similarity > .99:
+        return True
+    else:
+        return False
 
 
 def learn_jpt(
@@ -74,72 +121,34 @@ def learn_jpt(
     #   b) comma-separated string of variable names
     #   c) comma-separated string of variable names of features
     tgtidx = args.tgtidx if 'tgtidx' in args else None
+    ftidx = args.ftidx if 'ftidx' in args else None
+
     targets = args.targets if 'targets' in args else None
     features = args.features if 'features' in args else None
+
     tgts = None
+    fts = None
     if tgtidx is not None:
         tgts = variables[int(tgtidx):]
+    if ftidx is not None:
+        fts = variables[:ftidx]
+
     if targets is not None:
         tgts = [v for v in variables if v.name in targets]
     if features is not None:
-        tgts = [v for v in variables if v.name not in features]
+        fts = [v for v in variables if v.name in features]
 
     logger.debug(f"passing targets {tgts} to JPT")
+    logger.debug(f"passing features {fts} to JPT")
+    print(args)
     jpt_ = JPT(
         variables=variables,
         targets=tgts,
+        features=fts,
         min_impurity_improvement=args.min_impurity_improvement,
         min_samples_leaf=args.min_samples_leaf,
         max_depth=args.max_depth if "max_depth" in args else None
     )
-
-    distributions = {}
-
-    def do_prune(
-            jpt: JPT,
-            data: np.ndarray,
-            indices: np.ndarray,
-            start: int,
-            end: int,
-            parent: DecisionNode,
-            child_idx: int,
-            depth: int
-    ):
-        node_idx = len(jpt.allnodes)
-
-        distributions[node_idx] = VariableMap(variables=jpt.targets)
-
-        for i, v in enumerate(jpt.targets):
-            dist = v.distribution()._fit(
-                data=data,
-                rows=indices[start:end],
-                col=i + ifnone(tgtidx, 0)
-            )
-            distributions[node_idx][v] = dist
-
-        if parent is None:
-            return False
-
-        similarities = VariableMap(variables=jpt.targets)
-        for v in jpt.targets:
-            child_dist: Distribution = distributions[node_idx][v]
-            parent_dist: Distribution = distributions[parent.idx][v]
-
-            if isinstance(child_dist, Numeric):
-                parent_dist = parent_dist.crop(child_dist.pdf.domain())
-            else:
-                parent_dist = parent_dist.crop({
-                    v for v in parent_dist.labels.values() if child_dist.p(v)
-                })
-
-            similarities[v] = v.domain.jaccard_similarity(child_dist, parent_dist)
-
-        total_similarity = 1 * (1 - (end - start) / data.shape[0]) + (end - start) / data.shape[0] * np.min(list(similarities.values()))
-
-        if total_similarity > .99:
-            return True
-        else:
-            return False
 
     jpt_.learn(
         df,
@@ -156,6 +165,160 @@ def learn_jpt(
     jpt_.save(os.path.join(fp, f'000-{name}.tree'))
     logger.debug('...done.')
 
+
+def crossval(fp, args):
+    ex = args.example
+
+    if ex == 'move':
+        settings = {
+            "prune-generative": {
+                'min_samples_leaf': 0.001,
+                'targets': None,
+                'prune_or_split': True
+            },
+            "prune-discriminative": {
+                'min_samples_leaf': 0.001,
+                'targets': 4,
+                'prune_or_split': True
+            },
+            "noprune-generative": {
+                'min_samples_leaf': 0.001,
+                'targets': None,
+                'prune_or_split': False
+            },
+            "noprune-discriminative": {
+                'min_samples_leaf': 0.001,
+                'targets': 4,
+                'prune_or_split': False
+            },
+        }
+    elif ex == 'perception':
+        settings = {
+            "prune-msl-0005": {
+                'min_samples_leaf': 0.05,
+                'targets': None,
+                'prune_or_split': True
+            },
+            "prune-msl-01": {
+                'min_samples_leaf': 0.1,
+                'targets': None,
+                'prune_or_split': True
+            },
+            "noprune-msl-0005": {
+                'min_samples_leaf': 0.005,
+                'targets': None,
+                'prune_or_split': False
+            },
+            "noprune-msl-01": {
+                'min_samples_leaf': 0.1,
+                'targets': None,
+                'prune_or_split': False
+            },
+        }
+    elif ex == 'pr2':
+        settings = {}
+    elif ex == 'turn':
+        settings = {}
+    else:
+        logger.error('Invalid example', ex)
+        return
+
+    if not os.path.exists(os.path.join(fp, 'crossval')):
+        os.mkdir(os.path.join(fp, 'crossval'))
+
+    likelihoods_pervar = {}
+    likelihoods_cumulated = {}
+
+    # loading test data file
+    logger.debug(f"Loading {os.path.join(fp, 'data', f'000-{args.example}.parquet')}...")
+    df_ = pd.read_parquet(os.path.join(fp, 'data', f'000-{args.example}.parquet'))
+
+    # shuffle data and divide into training and test sets
+    df_train, df_test = train_test_split(df_, test_size=0.1, shuffle=True)
+
+    # infer variables
+    variables = infer_from_dataframe(
+        df_,
+        scale_numeric_types=False,
+        precision=.025
+    )
+
+    for sname, setting in settings.items():
+        logger.debug(f'Learning tree for setting {sname}...', setting)
+
+        tgts = None
+        if setting.get('targets', None) is not None:
+            tgts = variables[int(setting.get('targets', None)):]
+
+        jpt_ = JPT(
+            variables=variables,
+            targets=tgts,
+            min_impurity_improvement=setting.get('min_impurity_improvement', None),
+            min_samples_leaf=setting.get('min_samples_leaf', None),
+            max_depth=setting.get('max_depth', None)
+        )
+
+        jpt_.learn(
+            df_,
+            close_convex_gaps=False,
+            prune_or_split=do_prune if setting['prune_or_split'] else None,
+            verbose=True
+        )
+
+        # for v in jpt_.variables:
+        #     jpt_.priors[v].plot(view=True)
+
+        logger.debug(f'...done! saving to file {os.path.join(fp, "crossval", f"{sname}.tree")}')
+        jpt_.save(os.path.join(fp, "crossval", f"{sname}.tree"))
+
+        # for each datapoint in test dataset, calculate and save likelihood
+        logger.debug(f"Calculating likelihoods for setting {sname}...")
+        probs, probspervar = jpt_.likelihood(df_test, single_likelihoods=True)
+        likelihoods_pervar[sname] = np.mean(probspervar, axis=0)
+        likelihoods_cumulated[sname] = np.mean(probs)
+
+        distributions.clear()
+
+    # plot heatmap comparing likelihoods of multiple trees per variable
+    data_pervar = list(likelihoods_pervar.values())
+    data = pd.DataFrame(
+        data=[[np.array(list(likelihoods_pervar.keys())), np.array([v.name for v in variables]),
+               np.array([np.around(d, decimals=2) for d in data_pervar]).T, np.array(data_pervar).T, np.array(data_pervar).T]],
+        columns=['tree', 'variable', 'text', 'z', 'lbl']
+    )
+    # draw matrix tree x variable = likelihood(tree, datapoint)
+    plot_heatmap(
+        data=data,
+        xvar='tree',
+        yvar='variable',
+        text='text',
+        save=os.path.join(fp, 'crossval', f'likelihoods_per_variable.html')
+    )
+
+    # plot heatmap comparing overall likelihoods of multiple trees
+    fig_s = go.Figure()
+    fig_s.add_trace(
+        go.Bar(
+            x=list(likelihoods_cumulated.keys()),
+            y=list(likelihoods_cumulated.values()),
+            text=list(likelihoods_cumulated.values()),
+            orientation='v',
+            marker=dict(
+                color='rgb(15,21,110,.6)',
+                line=dict(color='rgb(15,21,110)', width=3)
+            )
+        )
+    )
+    fig_s.update_layout(
+        xaxis_title='setting',
+        yaxis_title='likelihood',
+        showlegend=False,
+        width=1000,
+        height=1000,
+        yaxis={}
+    )
+    fig_to_file(fig_s, os.path.join(fp, 'crossval', f'likelihoods_cumulated.html'))
+    fig_s.show(config=defaultconfig("likelihoods_cumulated.html"))
 
 def kfold(
         fp,
@@ -231,54 +394,6 @@ def kfold(
             min_samples_leaf=args.min_samples_leaf,
             max_depth=args.max_depth if "max_depth" in args else None
         )
-
-        distributions = {}
-
-        def do_prune(
-                jpt: JPT,
-                data: np.ndarray,
-                indices: np.ndarray,
-                start: int,
-                end: int,
-                parent: DecisionNode,
-                child_idx: int,
-                depth: int
-        ):
-            node_idx = len(jpt.allnodes)
-
-            distributions[node_idx] = VariableMap(variables=jpt.targets)
-
-            for i, v in enumerate(jpt.targets):
-                dist = v.distribution()._fit(
-                    data=data,
-                    rows=indices[start:end],
-                    col=i + ifnone(tgtidx, 0)
-                )
-                distributions[node_idx][v] = dist
-
-            if parent is None:
-                return False
-
-            similarities = VariableMap(variables=jpt.targets)
-            for v in jpt.targets:
-                child_dist: Distribution = distributions[node_idx][v]
-                parent_dist: Distribution = distributions[parent.idx][v]
-
-                if isinstance(child_dist, Numeric):
-                    parent_dist = parent_dist.crop(child_dist.pdf.domain())
-                else:
-                    parent_dist = parent_dist.crop({
-                        v for v in parent_dist.labels.values() if child_dist.p(v)
-                    })
-
-                similarities[v] = v.domain.jaccard_similarity(child_dist, parent_dist)
-
-            total_similarity = 1 * (1 - (end - start) / data.shape[0]) + (end - start) / data.shape[0] * np.min(list(similarities.values()))
-
-            if total_similarity > .99:
-                return True
-            else:
-                return False
 
         jpt_.learn(
             df,
@@ -396,7 +511,10 @@ def main(DT, args):
         else:
             learn_jpt(fp, args)
 
-    if args.crossfold:
+    if args.crossval:
+        crossval(fp, args)
+
+    if args.kfold > 0:
         kfold(fp, args)
         crossval_plot(fp, args)
 
@@ -421,10 +539,13 @@ if __name__ == '__main__':
     parser.add_argument('--modulelearn', action='store_true', help='use default learning function. otherwise use learning function of module', required=False)
     parser.add_argument('--plot', action='store_true', help='plot model', required=False)
     parser.add_argument('--showplots', action='store_true', help='show plots', required=False)
+    parser.add_argument('--targets', nargs='+')
+    parser.add_argument('--features', nargs='+')
     parser.add_argument('--data', action='store_true', help='trigger generating data/world plots', required=False)
     parser.add_argument('--obstacles', action='store_true', help='obstacles', required=False)
     parser.add_argument('--prune', action='store_true', help='pass prune or split callable to model learning function', required=False)
-    parser.add_argument('--crossfold', type=int, default=-1, help='learn multiple models', required=False)
+    parser.add_argument('--kfold', type=int, default=-1, help='learn multiple models', required=False)
+    parser.add_argument('--crossval', action='store_true', help='run crossval with different settings', required=False)
     parser.add_argument('-a', '--args', action='append', nargs=2, metavar=('arg', 'value'), help='other, example-specific argument of type (arg, value)')
     parser.add_argument('-e', '--example', type=str, default='perception', help='name of the data set', required=False)
     parser.add_argument('--min-samples-leaf', type=float, default=1, help='min_samples_leaf parameter', required=False)
