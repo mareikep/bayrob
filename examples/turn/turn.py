@@ -20,7 +20,7 @@ logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
 
 def generate_data(fp, args):
 
-    datapoints = args.datapoints if 'datapoints' in args else 35000
+    datapoints = args.datapoints if 'datapoints' in args else 10000
     range_t = args.range_t if 'range_t' in args else 45
 
     logger.debug(f'Generating {datapoints} direction data points...')

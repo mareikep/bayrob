@@ -273,7 +273,8 @@ def crossval(fp, args):
 
         # for each datapoint in test dataset, calculate and save likelihood
         logger.debug(f"Calculating likelihoods for setting {sname}...")
-        probs, probspervar = jpt_.likelihood(df_test, single_likelihoods=True)
+        probspervar = jpt_.likelihood(df_test, single_likelihoods=True)
+        probs = jpt_.likelihood(df_test, single_likelihoods=False)
         likelihoods_pervar[sname] = np.mean(probspervar, axis=0)
         likelihoods_cumulated[sname] = np.mean(probs)
 
@@ -431,8 +432,10 @@ def crossval_plot(fp, args):
 
         # for each datapoint in test dataset, calculate and save likelihood
         print(f"Calculating likelihoods")
-        probs, probspervar = t.likelihood(df_, single_likelihoods=True)
-        d[tn] = np.mean(probspervar, axis=0)
+        # probspervar = t.likelihood(df_, single_likelihoods=True)
+        probs = t.likelihood(df_, single_likelihoods=False)
+
+        # d[tn] = np.mean(probspervar, axis=0)
 
     data = list(d.values())
     data = pd.DataFrame(
