@@ -56,14 +56,6 @@ class Node:
         path.append(repr(cn.state))
         return f"<Node({len(self)}): {'=>'.join(path)}>"
 
-
-        # path = repr(self.state)
-        # current_node = self.parent
-        # while current_node is not None:
-        #     path = f" {repr(current_node.state)}{' ==>' if path else ''}{path}"
-        #     current_node = current_node.parent
-        # return f"<Node({len(self)}): {path}>"
-
     def __len__(self) -> int:
         cnt = 1
         cn = self
@@ -181,8 +173,9 @@ class AStar:
                 tse = datetime.now()
                 d, h, m, s = dhms(tse - ts)
                 logger.info(f'{tse.strftime("%Y-%m-%d_%H:%M:%S")}: Found path from {self.initstate} to {self.goal}:\n'
-                            f'{cs.join([str(p) for p in self.retrace_path(cur_node)])}.\n'
-                            f'Took me only {d} days, {h} hours, {m} minutes and {s} seconds!')
+                            f'{repr(cur_node)}.\n'
+                            f'Took me only {d} days, {h} hours, {m} minutes and {s} seconds!\n'
+                            f'Expanded nodes: {len(self.closed)}')
                 self.reached = True
 
                 try:
@@ -210,7 +203,7 @@ class AStar:
         if not self.reached:
             tse = datetime.now()
             d, h, m, s = dhms(tse-ts)
-            logger.warning(f'{tse.strftime("%Y-%m-%d_%H:%M:%S")}: Could not find a path from {self.initstate} to {self.goal}. '
+            logger.warning(f'{tse.strftime("%Y-%m-%d_%H:%M:%S")}: There is no path from {self.initstate} to {self.goal}. '
                            f'Took me {d} days, {h} hours, {m} minutes and {s} seconds to figure that out.')
             return []
 
