@@ -9,10 +9,11 @@ from calo.application.astar_jpt_app import SubAStar_, SubAStarBW_
 from calo.core.astar import BiDirAStar, Node
 from calo.core.astar_jpt import Goal, State
 from calo.utils import locs
-from calo.utils.plotlib import gendata, plot_heatmap
+from calo.utils.plotlib import gendata, plot_heatmap, plot_path, defaultconfig, plot_pos, plotly_animation, plot_dir
 from calo.utils.utils import recent_example
 from jpt import JPT, SymbolicVariable, SymbolicType
 from jpt.distributions import Numeric, Gaussian, Bool
+from jpt.distributions.quantile.quantiles import QuantileDistribution
 from utils import uniform_numeric
 
 
@@ -95,6 +96,140 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 'y_in': ContinuousSet(goaly - tol, goaly + tol)
             }
         )
+
+    def pathexecution(self, initstate, cmds, shift=False):
+        s = initstate
+        p = [[s, {}]]
+        for i, cmd in enumerate(cmds):
+            print(f'Step {i} of {len(cmds)}: {repr(cmd)}')
+            if cmd.tree is None:
+                continue
+            t = cmd.tree
+            best = self.models[t].leaves[cmd.leaf]
+
+            if best is None:
+                print('skipping command', str(cmd), 'unsatisfiable!')
+                continue
+
+            # create successor state
+            s_ = State()
+            s_.update({k: v for k, v in s.items()})
+            s_.tree = cmd.tree
+            s_.leaf = cmd.leaf
+
+            # update belief state of potential predecessor
+            nsegments = 20
+            for vn, d in best.distributions.items():
+                vname = vn.name
+                outvar = vname.replace('_in', '_out')
+                invar = vname.replace('_out', '_in')
+
+                if vname.endswith('_out') and vname.replace('_out', '_in') in s_:
+                    # if the _in variable is already contained in the state, update it by adding the delta
+                    # from the leaf distribution
+                    if shift:
+                        s_[invar] = Numeric().set(
+                            QuantileDistribution.from_cdf(s_[invar].cdf.xshift(-best.distributions[outvar].expectation())))
+                    else:
+                        indist = s_[invar]
+                        outdist = best.distributions[outvar]
+                        if len(indist.cdf.functions) > nsegments:
+                            print(
+                                f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions to {nsegments} functions")
+                            indist = indist.approximate(n_segments=nsegments)
+                            # s_[invar] = s_[invar].approximate_fast(eps=.01)
+                        if len(outdist.cdf.functions) > nsegments:
+                            print(
+                                f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions to {nsegments} functions")
+                            outdist = outdist.approximate(n_segments=nsegments)
+                        vname = invar
+                        s_[vname] = indist + outdist
+                elif vname.endswith('_in') and vname in s_:
+                    # do not overwrite '_in' distributions
+                    continue
+                else:
+                    s_[vname] = d
+
+                if not shift:
+                    if hasattr(s_[vname], 'approximate'):
+                        print(
+                            f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions to {nsegments} functions")
+                        s_[vname] = s_[vname].approximate(n_segments=nsegments)
+
+            p.append([s_, {'tree': cmd.tree, 'leaf': cmd.leaf}])
+            s = State()
+            s.update({k: v for k, v in s_.items()})
+        return p
+
+    def plot_cram_path(self, p, plotpath=True, plotpos=False, plotcollision=False, plotdir=False):
+        # plot annotated rectangles representing the obstacles and world boundaries
+        obstacles = [
+            ((0, 0, 100, 100), "kitchen_boundaries"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
+
+        if plotpath:
+            # plot path as scatter points with direction arrows in kitchen world
+            fig = plot_path(
+                'x_in',
+                'y_in',
+                p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path.svg'),
+                obstacles=obstacles,
+                show=False
+            )
+
+            fig.write_html(
+                os.path.join(locs.logs, f'test_astar_cram_path.html'),
+                config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')),
+                include_plotlyjs="cdn"
+            )
+
+            fig.show(config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')))
+
+        if plotpos:
+            # plot animation of heatmap representing position distribution update
+            plot_pos(
+                path=p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path-animation.html'),
+                show=True,
+                limx=(0, 100),
+                limy=(0, 100)
+            )
+
+            # plot animation of 3d surface representing position distribution update
+            plot_pos(
+                path=p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path-animation-3d.html'),
+                show=True,
+                limx=(0, 100),
+                limy=(0, 100),
+                fun="surface"
+            )
+
+        if plotcollision:
+            # plot animation of collision bar chart representing change of collision status
+            frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
+            plotly_animation(
+                data=frames,
+                save=os.path.join(locs.logs, f'collision.html'),
+                show=True
+            )
+
+        if plotdir:
+            plot_dir(
+                path=p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path-dirxy.html'),
+                show=True,
+                limx=(-3, 3),
+                limy=(-3, 3)
+            )
+
 
     def test_isgoal_fw_t(self) -> None:
         g = Goal()
@@ -210,6 +345,9 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         )
         self.path = list(self.a_star.search())
 
+        p = self.pathexecution(init, self.path, shift=False)
+        self.plot_cram_path(p, plotpath=True, plotpos=True, plotdir=True)
+
     def test_astar_fw_path_multiple(self) -> None:
         initx, inity, initdirx, initdiry = [3.5, 58.5, .6, .3]  # [3, 60, 1, 0]
         goalx, goaly = [10, 65]
@@ -257,7 +395,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
 
     def test_astar_bw_path_single(self) -> None:
-        initx, inity, initdirx, initdiry = [65, 75, .75, .75]  # [3, 60, 1, 0]
+        initx, inity, initdirx, initdiry = [3.5, 57, .75, .75]  # [3, 60, 1, 0]
+        goalx, goaly = [5, 60]
         tolerance_pos = 0.05
         tolerance_dir = .01
 
@@ -280,7 +419,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         tol = .5
         goal = Goal(
             {
-                "detected(milk)": {True}
+                'x_in': ContinuousSet(goalx - tol, goalx + tol),
+                'y_in': ContinuousSet(goaly - tol, goaly + tol)
             }
         )
 
@@ -301,9 +441,13 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
         self.path.reverse()
 
-    def test_astar_bw_path_single_multinomialgoal(self) -> None:
-        initx, inity, initdirx, initdiry = [65, 73, .72, .72]  # [3, 60, 1, 0]
-        tolerance_pos = 1.5
+        p = self.pathexecution(init, self.path, shift=False)
+        self.plot_cram_path(p, plotpath=True, plotpos=True, plotdir=True)
+
+    def test_astar_bw_path_multinomialgoal(self) -> None:
+        initx, inity, initdirx, initdiry = [62, 74, .3, .9]  # <--- WORKS! DO NOT TOUCH
+        initx, inity, initdirx, initdiry = [62, 74, 1, 0]
+        tolerance_pos = .1
         tolerance_dir = .01
 
         dx = Gaussian(initx, tolerance_pos).sample(500)
@@ -345,6 +489,9 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
         self.path.reverse()
 
+        # TEST: execution of found path, check if goal is met.
+
+
     def test_astar_bw_path_single_step_from_beliefstate(self) -> None:
         tp = self.models['perception']
         lp = tp.leaves[167]
@@ -366,9 +513,10 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path = list(self.a_star.search())
         self.path.reverse()
 
-    def test_astar_fw_path_single_multinomialgoal(self) -> None:
-        initx, inity, initdirx, initdiry = [63, 74, -.75, -.75]  # [3, 60, 1, 0]
-        tolerance_pos = 0.05
+    def test_astar_fw_path_multinomialgoal(self) -> None:
+        initx, inity, initdirx, initdiry = [62, 73, .3, .9]  # <--- WORKS! DO NOT TOUCH
+        # initx, inity, initdirx, initdiry = [62, 74, 1, 0]
+        tolerance_pos = .1
         tolerance_dir = .01
 
         dx = Gaussian(initx, tolerance_pos).sample(500)
@@ -408,7 +556,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             models=self.models
         )
         self.path = list(self.a_star.search())
-        self.path.reverse()
 
     # @unittest.skip
     def test_astar_bw_path_multiple(self) -> None:

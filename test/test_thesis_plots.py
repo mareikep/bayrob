@@ -92,6 +92,164 @@ class ThesisPlotsTests(unittest.TestCase):
            (cls.obstacle_fridge, "fridge"),
        ]
 
+    def pathexecution(self, initstate, cmds, shift=False):
+        s = initstate
+        p = [[s, {}]]
+        for i, cmd in enumerate(cmds):
+            print(f'Step {i} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
+            t = self.models[cmd['tree']]
+
+            # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
+            evidence = {
+                var: ContinuousSet(s[var].ppf(.05), s[var].ppf(.95)) for var in s.keys() if var != 'collided'
+            }
+
+            if cmd["params"] is not None:
+                evidence.update(cmd["params"])
+
+            # candidate is the conditional tree
+            # t_ = self.generate_steps(evidence, t)
+            best = t.posterior(
+                variables=t.targets,
+                evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
+                                allow_singular_values=False
+                                ),
+                fail_on_unsatisfiability=False
+            )
+            # cond = t.conditional_jpt(
+            #     evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
+            #         allow_singular_values=False
+            #     ),
+            #     fail_on_unsatisfiability=False
+            # )
+            #
+            # best = cond.posterior(variables=t.targets,)
+
+            if best is None:
+                print('skipping command', cmd, 'unsatisfiable!')
+                continue
+
+            # create successor state
+            s_ = State()
+            s_.update({k: v for k, v in s.items()})
+            s_.tree = cmd['tree']
+            s_.leaf = None
+
+            # update belief state of potential predecessor
+            nsegments = 20
+            for vn, d in best.items():
+                vname = vn.name
+                outvar = vn.name.replace('_in', '_out')
+                invar = vn.name.replace('_out', '_in')
+
+                if vname.endswith('_out') and vname.replace('_out', '_in') in s_:
+                    # if the _in variable is already contained in the state, update it by adding the delta
+                    # from the leaf distribution
+                    if shift:
+                        s_[invar] = Numeric().set(
+                            QuantileDistribution.from_cdf(s_[invar].cdf.xshift(-best[outvar].expectation())))
+                    else:
+                        indist = s_[invar]
+                        outdist = best[outvar]
+                        if len(indist.cdf.functions) > nsegments:
+                            print(
+                                f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions to {nsegments} functions")
+                            indist = indist.approximate(n_segments=nsegments)
+                            # s_[invar] = s_[invar].approximate_fast(eps=.01)
+                        if len(outdist.cdf.functions) > nsegments:
+                            print(
+                                f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions to {nsegments} functions")
+                            outdist = outdist.approximate(n_segments=nsegments)
+                            # best[outvar] = best[outvar].approximate_fast(eps=.01)
+                        vname = invar
+                        s_[vname] = indist + outdist
+                elif vname.endswith('_in') and vname in s_:
+                    # do not overwrite '_in' distributions
+                    continue
+                else:
+                    s_[vname] = d
+
+                if not shift:
+                    if hasattr(s_[vname], 'approximate'):
+                        print(
+                            f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions to {nsegments} functions")
+                        s_[vname] = s_[vname].approximate(n_segments=nsegments)
+
+            p.append([s_, cmd['params']])
+            s = State()
+            s.update({k: v for k, v in s_.items()})
+        return p
+
+    def plot_cram_path(self, p, plotpath=True, plotpos=False, plotcollision=False, plotdir=False):
+        # plot annotated rectangles representing the obstacles and world boundaries
+        obstacles = [
+            ((0, 0, 100, 100), "kitchen_boundaries"),
+            ((15, 10, 25, 20), "chair1"),
+            ((35, 10, 45, 20), "chair2"),
+            ((10, 30, 50, 50), "kitchen_island"),
+            ((80, 30, 100, 70), "stove"),
+            ((10, 80, 50, 100), "kitchen_unit"),
+            ((60, 80, 80, 100), "fridge"),
+        ]
+
+        if plotpath:
+            # plot path as scatter points with direction arrows in kitchen world
+            fig = plot_path(
+                'x_in',
+                'y_in',
+                p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path.svg'),
+                obstacles=obstacles,
+                show=False
+            )
+
+            fig.write_html(
+                os.path.join(locs.logs, f'test_astar_cram_path.html'),
+                config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')),
+                include_plotlyjs="cdn"
+            )
+
+            fig.show(config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')))
+
+        if plotpos:
+            # plot animation of heatmap representing position distribution update
+            plot_pos(
+                path=p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path-animation.html'),
+                show=True,
+                limx=(0, 100),
+                limy=(0, 100)
+            )
+
+            # plot animation of 3d surface representing position distribution update
+            plot_pos(
+                path=p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path-animation-3d.html'),
+                show=True,
+                limx=(0, 100),
+                limy=(0, 100),
+                fun="surface"
+            )
+
+        if plotcollision:
+            # plot animation of collision bar chart representing change of collision status
+            frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
+            plotly_animation(
+                data=frames,
+                save=os.path.join(locs.logs, f'collision.html'),
+                show=True
+            )
+
+        if plotdir:
+            plot_dir(
+                path=p,
+                save=os.path.join(locs.logs, f'test_astar_cram_path-dirxy.html'),
+                show=True,
+                limx=(-3, 3),
+                limy=(-3, 3)
+            )
+
+
     def test_plot_init_dist(self) -> None:
         # plot initial position (in) distribution of move tree
         t = self.models['000-move.tree']
@@ -960,24 +1118,40 @@ class ThesisPlotsTests(unittest.TestCase):
                 (None, yl, None, None, {"collided": False}),  # lower edge
                 (None, yu, None, None, {"collided": False})  # upper edge
             ],
-            # "free-pos": [  # all directions at random position in obstacle-free area
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, 0, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, -1, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, 1, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 1, 0, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.5, -.5, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.5, .5, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .5, -.5, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .5, .5, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.7, -.7, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.7, .7, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .7, -.7, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .7, .7, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, None, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 1, None, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, -1, {}),
-            #     (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, 1, {}),
-            # ],
+            "obstacle-corners": [  # all corners of one obstacle
+                (ContinuousSet(oxl, oxl + 2*delta), ContinuousSet(oyl, oyl + 2*delta), None, None, {"collided": False}),  # lower left
+                (ContinuousSet(oxl, oxl + 2*delta), ContinuousSet(oyu - 2*delta, oyu), None, None, {"collided": False}),  # upper left
+                (ContinuousSet(oxu - 2*delta, oxu), ContinuousSet(oyl, oyl + 2*delta), None, None, {"collided": False}),  # lower right
+                (ContinuousSet(oxu - 2*delta, oxu), ContinuousSet(oyu - 2*delta, oyu), None, None, {"collided": False})  # upper right
+                # (oxl, oyl, None, None, {}),  # lower left
+                # (oxl, oyu, None, None, {}),  # upper left
+                # (oxu, oyl, None, None, {}),  # lower right
+                # (oxu, oyu, None, None, {})  # upper right
+            ],
+            "obstacle-edges": [  # all edges of one obstacle
+                (oxl, ContinuousSet(oyl, oyu), None, None, {"collided": False}),  # left edge
+                (oxu, ContinuousSet(oyl, oyu), None, None, {"collided": False}),  # right edge
+                (ContinuousSet(oxl, oxu), oyl, None, None, {"collided": False}),  # lower edge
+                (ContinuousSet(oxl, oxu), oyu, None, None, {"collided": False})  # upper edge
+            ],
+            "free-pos": [  # all directions at random position in obstacle-free area
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, 0, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, -1, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 0, 1, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 1, 0, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.5, -.5, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.5, .5, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .5, -.5, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .5, .5, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.7, -.7, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -.7, .7, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .7, -.7, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), .7, .7, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), -1, None, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), 1, None, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, -1, {}),
+                (ContinuousSet(freepos - delta, freepos + delta), ContinuousSet(freepos - delta, freepos + delta), None, 1, {}),
+            ],
             "no-pos": [  # all directions without given pos
                 (None, None, -1, 0, {}),
                 (None, None, 0, -1, {}),
@@ -996,22 +1170,6 @@ class ThesisPlotsTests(unittest.TestCase):
                 (None, None, None, -1, {}),
                 (None, None, None, 1, {}),
             ],
-            # "obstacle-corners": [  # all corners of one obstacle
-            #     (ContinuousSet(oxl, oxl + delta), ContinuousSet(oyl, oyl + delta), None, None, {"collided": False}),  # lower left
-            #     (ContinuousSet(oxl, oxl + delta), ContinuousSet(oyu - delta, oyu), None, None, {"collided": False}),  # upper left
-            #     (ContinuousSet(oxu - delta, oxu), ContinuousSet(oyl, oyl + delta), None, None, {"collided": False}),  # lower right
-            #     (ContinuousSet(oxu - delta, oxu), ContinuousSet(oyu - delta, oyu), None, None, {"collided": False})  # upper right
-            #     # (oxl, oyl, None, None, {}),  # lower left
-            #     # (oxl, oyu, None, None, {}),  # upper left
-            #     # (oxu, oyl, None, None, {}),  # lower right
-            #     # (oxu, oyu, None, None, {})  # upper right
-            # ],
-            # "obstacle-edges": [  # all edges of one obstacle
-            #     (oxl, ContinuousSet(oyl, oyu), None, None, {"collided": False}),  # left edge
-            #     (oxu, ContinuousSet(oyl, oyu), None, None, {"collided": False}),  # right edge
-            #     (ContinuousSet(oxl, oxu), oyl, None, None, {"collided": False}),  # lower edge
-            #     (ContinuousSet(oxl, oxu), oyu, None, None, {"collided": False})  # upper edge
-            # ],
         }
 
         for postype, pos in positions.items():
@@ -1159,7 +1317,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     dist.layout = dist_.layout
                     dist.add_traces(dist_.data)
 
-                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])# if postype not in ['in', 'apriori'] else None)
+                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-hm.html"), ftypes=['.svg', '.html'])# if postype not in ['in', 'apriori'] else None)
 
     def test_reproduce_data_turn(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1348,7 +1506,7 @@ class ThesisPlotsTests(unittest.TestCase):
                     save=None,
                     fun="heatmap"
                 )
-                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-surface.html"), ftypes=['.svg', '.html'])
+                fig_to_file(dist, os.path.join(plotdir, f"{prefix}-dist-hm.html"), ftypes=['.svg', '.html'])
 
     def test_reproduce_data_perception(self) -> None:
         # MULTIPLE sets of constraints:
@@ -1515,8 +1673,7 @@ class ThesisPlotsTests(unittest.TestCase):
                             limx=limx,
                             limy=limy,
                             show=False,
-                            save=None,
-                            showbuttons=False
+                            save=None
                         )
                         if addobstacles:
                             hm.layout = hm_.layout
@@ -1524,22 +1681,6 @@ class ThesisPlotsTests(unittest.TestCase):
                         hm.add_traces(hm_.data)
 
                         fig_to_file(hm, os.path.join(plotdir, f"{prefix}-{plot}-dist-hm.html"), ftypes=['.svg', '.html'])
-
-                        # plot JPT surface
-                        sf = plot_heatmap(
-                            xvar='x',
-                            yvar='y',
-                            data=data,
-                            title=False,  # f'pdf({",".join([f"{vname}: {val}" for vname, val in pdfvars.items()])})',
-                            limx=limx,
-                            limy=limy,
-                            show=False,
-                            save=None,
-                            showbuttons=False,
-                            fun="surface"
-                        )
-
-                        fig_to_file(sf, os.path.join(plotdir, f"{prefix}-{plot}-dist-3d.html"), ftypes=['.svg', '.html'])
                     else:
                         if plot in post:
                             gt = plot_data_subset(
@@ -1580,21 +1721,21 @@ class ThesisPlotsTests(unittest.TestCase):
         # constraints/query values
         # the postype determines a category, tp
         queries_ = {
-            # "bodyparts": [
-            #     ({"bodyPartsUsed": ":LEFT"}, ["type", "object_acted_on", "success"]),
-            #     ({"bodyPartsUsed": ":RIGHT"}, ["type", "object_acted_on", "success"]),
-            # ],
-            # "failure": [  # failed actions
-            #     ({'success': False}, ['type', "failure", "positions"]),
-            #     ({'type': "Grasping", "success": False}, ["failure", "positions"]),
-            #     ({'type': "Placing", "success": False}, ["failure", "positions"]),  # only 0-positions!
-            # ],
-            # "success": [
-            #     ({"success": True}, ['type', "failure", "positions"]),
-            #     ({"success": True, 'type': "Grasping"}, ["bodyPartsUsed", "positions"]),
-            #     ({"success": True, 'type': "Placing"}, ["bodyPartsUsed", "positions"]),
-            #     ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
-            # ],
+            "bodyparts": [
+                ({"bodyPartsUsed": ":LEFT"}, ["type", "object_acted_on", "success"]),
+                ({"bodyPartsUsed": ":RIGHT"}, ["type", "object_acted_on", "success"]),
+            ],
+            "failure": [  # failed actions
+                ({'success': False}, ['type', "failure", "positions"]),
+                ({'type': "Grasping", "success": False}, ["failure", "positions"]),
+                ({'type': "Placing", "success": False}, ["failure", "positions"]),  # only 0-positions!
+            ],
+            "success": [
+                ({"success": True}, ['type', "failure", "positions"]),
+                ({"success": True, 'type': "Grasping"}, ["bodyPartsUsed", "positions"]),
+                ({"success": True, 'type': "Placing"}, ["bodyPartsUsed", "positions"]),
+                ({"success": True, 'object_acted_on': 'milk_1'}, ["type"]),
+            ],
             "apriori": [
                 ({}, ['type', "arm", "bodyPartsUsed", "success", "object_acted_on", "failure", "positions"]),
             ],
@@ -1719,8 +1860,8 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_crossval_plot(self):
         import inspect
-        ex = 'move'
-        # ex = 'perception'
+        # ex = 'move'
+        ex = 'perception'
         # ex = 'pr2'
         # ex = 'turn'
 
@@ -1760,6 +1901,16 @@ class ThesisPlotsTests(unittest.TestCase):
                 },
                 "noprune-msl-1": {
                     'min_samples_leaf': 1,
+                    'targets': None,
+                    'prune_or_split': False
+                },
+                "noprune-msl-01": {
+                    'min_samples_leaf': .1,
+                    'targets': None,
+                    'prune_or_split': False
+                },
+                "noprune-msl-001": {
+                    'min_samples_leaf': .01,
                     'targets': None,
                     'prune_or_split': False
                 }
@@ -1823,7 +1974,6 @@ class ThesisPlotsTests(unittest.TestCase):
                 setting['targets'] = variables[int(setting['targets']):]
 
             logger.debug(f'Learning tree for setting {sname}...', setting)
-            print({k: v for k, v in setting.items() if k in list(inspect.signature(JPT).parameters.keys())})
             jpt_ = JPT(
                 variables=variables,
                 **{k: v for k, v in setting.items() if k in list(inspect.signature(JPT).parameters.keys())}
@@ -1836,15 +1986,13 @@ class ThesisPlotsTests(unittest.TestCase):
                 verbose=True
             )
 
-            # for v in jpt_.variables:
-            #     jpt_.priors[v].plot(view=True)
-
             logger.debug(f'...done! saving to file {os.path.join(path, "crossval", f"{sname}.tree")}')
             jpt_.save(os.path.join(path, "crossval", f"{sname}.tree"))
 
             # for each datapoint in test dataset, calculate and save likelihood
             logger.debug(f"Calculating likelihoods for setting {sname}...")
-            probs, probspervar = jpt_.likelihood(df_test, single_likelihoods=True)
+            probspervar = jpt_.likelihood(df_test, single_likelihoods=True)
+            probs = probspervar.prod(axis=1)
             likelihoods_pervar[sname] = np.mean(probspervar, axis=0)
             likelihoods_cumulated[sname] = np.mean(probs)
 
@@ -1994,7 +2142,8 @@ class ThesisPlotsTests(unittest.TestCase):
         )
 
     def test_astar_cram_path(self) -> None:
-        initx, inity, initdirx, initdiry = [20, 70, 0, -1]
+        # initx, inity, initdirx, initdiry = [20, 70, 0, -1]  # don't touch
+        initx, inity, initdirx, initdiry = [50, 28, .7, .7]
         shift = True
         tolerance = .01
 
@@ -2028,197 +2177,48 @@ class ThesisPlotsTests(unittest.TestCase):
         cmds = [
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -30}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -20}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 10}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 20}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
             {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 20}},
             {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 30}},
+            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
         ]
 
         # do not touch, diss-plot configuration!
-        cmds = [
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
-            # {'tree': '000-move.tree', 'params': {'action': 'move'}},
-            # {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
-        ]
+        # cmds = [
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -15}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -10}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -12}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': -5}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 3}},
+        #     {'tree': '000-move.tree', 'params': {'action': 'move'}},
+        #     {'tree': '000-turn.tree', 'params': {'action': 'turn', 'angle': 15}},
+        # ]
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
-        s = initstate
-        p = [[s, {}]]
-        for i, cmd in enumerate(cmds):
-            print(f'Step {i} of {len(cmds)}: {cmd["params"]["action"]}({cmd["params"].get("angle", "")})')
-            t = self.models[cmd['tree']]
+        p = self.pathexecution(initstate, cmds, shift=shift)
+        self.plot_cram_path(p, plotpath=True, plotpos=True, plotdir=True)
 
-            # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
-            evidence = {
-                var: ContinuousSet(s[var].ppf(.05), s[var].ppf(.95)) for var in s.keys() if var != 'collided'
-            }
-
-            if cmd["params"] is not None:
-                evidence.update(cmd["params"])
-
-            # candidate is the conditional tree
-            # t_ = self.generate_steps(evidence, t)
-            # best = t.posterior(
-            #     variables=t.targets,
-            #     evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
-            #         allow_singular_values=False
-            #     ),
-            #     fail_on_unsatisfiability=False
-            # )
-            cond = t.conditional_jpt(
-                evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
-                    allow_singular_values=False
-                ),
-                fail_on_unsatisfiability=False
-            )
-
-            best = cond.posterior(variables=t.targets,)
-
-            if best is None:
-                print('skipping command', cmd, 'unsatisfiable!')
-                continue
-
-            # create successor state
-            s_ = State()
-            s_.update({k: v for k, v in s.items()})
-            s_.tree = cmd['tree']
-            s_.leaf = None
-
-            # update belief state of potential predecessor
-            for vn, d in best.items():
-                vname = vn.name
-                outvar = vn.name.replace('_in', '_out')
-                invar = vn.name.replace('_out', '_in')
-
-                if vname.endswith('_out') and vname.replace('_out', '_in') in s_:
-                    # if the _in variable is already contained in the state, update it by adding the delta
-                    # from the leaf distribution
-                    if shift:
-                        s_[invar] = Numeric().set(
-                            QuantileDistribution.from_cdf(s_[invar].cdf.xshift(-best[outvar].expectation())))
-                    else:
-                        indist = s_[invar]
-                        outdist = best[outvar]
-                        if len(indist.cdf.functions) > 20:
-                            print(f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions")
-                            indist = indist.approximate(n_segments=20)
-                            # s_[invar] = s_[invar].approximate_fast(eps=.01)
-                        if len(outdist.cdf.functions) > 20:
-                            print(f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions")
-                            outdist = outdist.approximate(n_segments=20)
-                            # best[outvar] = best[outvar].approximate_fast(eps=.01)
-                        vname = invar
-                        s_[vname] = indist + outdist
-                elif vname.endswith('_in') and vname in s_:
-                    # do not overwrite '_in' distributions
-                    continue
-                else:
-                    s_[vname] = d
-
-                if not shift:
-                    if hasattr(s_[vname], 'approximate'):
-                        print(f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions")
-                        s_[vname] = s_[vname].approximate(n_segments=20)
-
-            p.append([s_, cmd['params']])
-            s = State()
-            s.update({k: v for k, v in s_.items()})
-
-        # plot annotated rectangles representing the obstacles and world boundaries
-        obstacles = [
-            ((0, 0, 100, 100), "kitchen_boundaries"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
-
-        # plot path as scatter points with direction arrows in kitchen world
-        fig = plot_path(
-            'x_in',
-            'y_in',
-            p,
-            save=os.path.join(locs.logs, f'test_astar_cram_path.svg'),
-            obstacles=obstacles,
-            show=False
-        )
-
-        fig.write_html(
-            os.path.join(locs.logs, f'test_astar_cram_path.html'),
-            config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')),
-            include_plotlyjs="cdn"
-        )
-
-        fig.show(config=defaultconfig(os.path.join(locs.logs, f'test_astar_cram_path.html')))
-
-        # plot animation of heatmap representing position distribution update
-        plot_pos(
-            path=p,
-            save=os.path.join(locs.logs, f'test_astar_cram_path-animation.html'),
-            show=True,
-            limx=(0, 100),
-            limy=(0, 100)
-        )
-
-        # plot animation of 3d surface representing position distribution update
-        plot_pos(
-            path=p,
-            save=os.path.join(locs.logs, f'test_astar_cram_path-animation-3d.html'),
-            show=True,
-            limx=(0, 100),
-            limy=(0, 100),
-            fun="surface"
-        )
-
-        # plot animation of collision bar chart representing change of collision status
-        # frames = [s['collided'].plot(view=False).data for (s, _) in p if 'collided' in s]
-        # plotly_animation(
-        #     data=frames,
-        #     save=os.path.join(locs.logs, f'collision.html'),
-        #     show=True
-        # )
-
-        plot_dir(
-            path=p,
-            save=os.path.join(locs.logs, f'test_astar_cram_path-dirxy.html'),
-            show=True,
-            limx=(-3, 3),
-            limy=(-3, 3)
-        )
-
-        # plot_xyvars(
-        #     xvar='x_in',
-        #     yvar='y_in',
-        #     path=p,
-        #     title=f'Position(x,y)',
-        #     limx=[-75, -25],
-        #     limy=[40, 75],
-        #     limz=[0, 0.05],
-        #     save=f'test_astar_cram_path_posxy',
-        #     show=False
-        # )
 
     def test_two_gaussians_diff(self) -> None:
 
@@ -2255,14 +2255,15 @@ class ThesisPlotsTests(unittest.TestCase):
         # position near obstacle or wall and move a couple of stepps, observe state of collision variable
         print("loading example", self.recent_move)
 
-        initx, inity, initdirx, initdiry = [7, 70, -1, 0]
+        initx, inity, initdirx, initdiry = [5, 70, -1, 0]
+        tolerance_pos = .1
         tolerance = .01
 
-        dx = Gaussian(initx, tolerance).sample(500)
+        dx = Gaussian(initx, tolerance_pos).sample(500)
         distx = Numeric()
         distx.fit(dx.reshape(-1, 1), col=0)
 
-        dy = Gaussian(inity, tolerance).sample(500)
+        dy = Gaussian(inity, tolerance_pos).sample(500)
         disty = Numeric()
         disty.fit(dy.reshape(-1, 1), col=0)
 
@@ -2274,21 +2275,18 @@ class ThesisPlotsTests(unittest.TestCase):
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
-        initstate = State()
-        initstate.update(
-            {
-                'x_in': distx,
-                'y_in': disty,
-                'xdir_in': distdx,
-                'ydir_in': distdy
-            }
-        )
+        initstate = State({
+            'x_in': distx,
+            'y_in': disty,
+            'xdir_in': distdx,
+            'ydir_in': distdy
+        })
 
         # VARIANT II: each leaf of the conditional tree represents one possible action
         s = initstate
         p = [[s, {}]]
         t = self.models['000-move.tree']
-        for i, step in enumerate(range(4)):
+        for i, step in enumerate(range(7)):
             print(f'Step {i}: move()')
 
             # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
@@ -2297,21 +2295,13 @@ class ThesisPlotsTests(unittest.TestCase):
             }
 
             # candidate is the conditional tree
-            best = t.posterior(
-                variables=t.targets,
+            cond = t.conditional_jpt(
                 evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
                     allow_singular_values=False
                 ),
                 fail_on_unsatisfiability=False
             )
-
-            # cond = t.conditional_jpt(
-            #     evidence=t.bind({k: v for k, v in evidence.items() if k in t.varnames},
-            #         allow_singular_values=False
-            #     ),
-            #     fail_on_unsatisfiability=False
-            # )
-            # best = cond.posterior(variables=t.targets)
+            best = cond.posterior(variables=t.targets)
 
             if best is None:
                 print('skipping at step', step, 'unsatisfiable!')
@@ -2325,27 +2315,35 @@ class ThesisPlotsTests(unittest.TestCase):
 
             # update belief state of potential predecessor
             print("Updating new state...")
+            nsegments = 20
             for vn, d in best.items():
-                outvar = vn.name
+                vname = vn.name
+                outvar = vn.name.replace('_in', '_out')
                 invar = vn.name.replace('_out', '_in')
-                if outvar != invar and invar in s_:
+                print('Updating', vname)
+
+                if vname.endswith('_out') and vname.replace('_out', '_in') in s_:
                     # if the _in variable is already contained in the state, update it by adding the delta
                     # from the leaf distribution
-                    try:
-                        if len(s_[invar].cdf.functions) > 20:
-                            s_[invar] = s_[invar].approximate(n_segments=20)
-                        if len(best[outvar].cdf.functions) > 20:
-                            best[outvar] = best[outvar].approximate(n_segments=20)
-
-                        s_[invar] = s_[invar] + best[outvar]
-                    except:
-                        print(f"Crashing belief state for variable\n{outvar}:\n{best[outvar].pdf}\n\n{best[outvar].cdf}")
-                        traceback.print_exc()
+                    indist = s_[invar]
+                    outdist = best[outvar]
+                    if len(indist.cdf.functions) > nsegments:
+                        print(f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions to {nsegments} functions")
+                        indist = indist.approximate(n_segments=nsegments)
+                    if len(outdist.cdf.functions) > nsegments:
+                        print(f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions to {nsegments} functions")
+                        outdist = outdist.approximate(n_segments=nsegments)
+                    vname = invar
+                    s_[vname] = indist + outdist
+                elif vname.endswith('_in') and vname in s_:
+                    # do not overwrite '_in' distributions
+                    continue
                 else:
-                    s_[invar] = d
+                    s_[vname] = d
 
-                if hasattr(s_[invar], 'approximate'):
-                    s_[invar] = s_[invar].approximate(n_segments=20)
+                if hasattr(s_[vname], 'approximate'):
+                    print(f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions to {nsegments} functions")
+                    s_[vname] = s_[vname].approximate(n_segments=nsegments)
 
             p.append([s_, {'action': 'move'}])
             s = State()
