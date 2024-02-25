@@ -573,6 +573,8 @@ def fmt(val, prec=2, positive=False):
         return f"{val:{'+' if positive else ''}.{prec}f}"
     elif isinstance(val, ContinuousSet):
         return val.pfmt(f'%{"+" if positive else ""}.{prec}f', notation="sq")
+    elif isinstance(val, dict):
+        return ','.join([f"{var}_{fmt(val_)}" for var, val_ in val.items()])
     else:
         # cases val is str or int
         return str(val)
