@@ -121,7 +121,7 @@ class SubAStar_(SubAStar):
             parent
     ) -> float:
 
-        return self.dist(state, parent)
+        return state.distance(parent)
 
     def h(
             self,
@@ -132,7 +132,7 @@ class SubAStar_(SubAStar):
         # applies to the goal state), the distance is infinite.
         if not set(self.goal.keys()).issubset(set(state.keys())): return np.inf
 
-        return self.dist(state, self.goal)
+        return state.distance(self.goal)
 
     def plot_pos(
             self,
@@ -505,7 +505,7 @@ class SubAStarBW_(SubAStarBW):
             parent
     ) -> float:
 
-        return max(self.dist(state, parent), 1)
+        return max(state.distance(parent), 1)
 
     def h(
             self,
@@ -516,7 +516,7 @@ class SubAStarBW_(SubAStarBW):
         # applies to the goal state), the distance is infinite.
         # if not set(self.initstate.keys()).issubset(set(state.keys())): return np.inf
 
-        return self.dist(state, self.initstate)
+        return state.distance(self.initstate)
 
     def plot_pos(
             self,

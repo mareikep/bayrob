@@ -12,7 +12,7 @@ from calo.utils.constants import calologger
 from calo.utils.utils import fmt
 from jpt.base.errors import Unsatisfiability
 from jpt.distributions import Distribution, Bool, Multinomial, Integer, Numeric
-from jpt.variables import Variable
+from jpt.variables import Variable, SymbolicVariable
 from utils import uniform_numeric
 
 pyximport.install()
@@ -45,16 +45,16 @@ class Goal(dict):
                 ]
             )
         else:
-            # a goal and a state are compared in terms of their shared keys by evaluating the goal's values in the
-            # distributions of the state
-            if set(self.keys()).issubset(set(other.keys())):
-                return 0.
+            return other.similarity(self)
 
-            return np.mean(
-                [
-                    other[vn].pdf(val) for vn, val in self.items()
-                ]
-            )
+    def distance(self, other, variables=None):
+        if isinstance(other, Goal):
+            # other is goal
+            raise ValueError(
+                f"This should never happen. A case where the distance between two Goal objects "
+                f"has to be calculated, should not occur. Got states {self} and {other}")
+        else:
+            return other.distance(self, vars=variables)
 
     def __str__(self) -> str:
         return f'Goal[{";".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])}]'
@@ -104,6 +104,81 @@ class State(dict):
                     type(val).jaccard_similarity(val, other[vn]) for vn, val in self.items()
                 ]
             )
+        
+    def distance(self, other, vars=None):
+        if vars is None:
+            vars = []
+
+        # if the states do not share any variables, they are maximally dissimilar
+        if not set(self.keys()).intersection(set(other.keys())): return np.inf
+        if not set(self.keys()).intersection(set(other.keys())).issuperset(set(vars)): return np.inf
+
+        # return mean of distances between distributions of common variables in states self and other
+        dists = []
+        for k in set(self.keys()).intersection(set(other.keys())):
+
+            # skip distance calculation for variables not specified in vars
+            if vars and k not in vars: continue
+
+            v1 = self[k]
+            if isinstance(other[k], ContinuousSet):
+                # other is goal
+                v2 = uniform_numeric(other[k].lower, other[k].upper)
+            elif isinstance(other[k], set):
+                # other is goal: transform set into multinomial/boolean distribution,
+                # where all accepted values (as of the goal set) are uniformly distributed
+                # and all values not in the set have probability 0, then compute multinomial
+                # version of the wasserstein distance: mover_dist (effort it takes to transform
+                # one distribution into other
+                v2_ = SymbolicVariable(v1.__class__.__name__, type(v1))
+                v2 = v2_.distribution().set([(1 if x in other[k] else 0)/len(other[k]) for x in list(v2_.domain.values)])
+            else:
+                v2 = other[k]
+            dists.append(v1.distance(v2))
+
+            # # convert ContinuousSet of variable in state2 into Numeric distribution to allow calculating Wasserstein
+            # # distance
+            # if isinstance(self[k], ContinuousSet):
+            #     v1 = uniform_numeric(self[k].lower, self[k].upper)
+            # else:
+            #     v1 = self[k]
+            # if isinstance(other[k], ContinuousSet):
+            #     v2 = uniform_numeric(other[k].lower, other[k].upper)
+            # else:
+            #     v2 = other[k]
+            #
+            # # case numeric/integer variables: determine Wasserstein distance
+            # if isinstance(v1, (Numeric, Integer)):  # this will not work for Integer constraints like {1,2,5,6,7}
+            #     dists.append(Numeric.distance(v1, v2))
+            # # case multinomial variables: determine 1- probability of matching sets
+            # elif isinstance(v1, Multinomial):
+            #     # self is state
+            #     if isinstance(v2, Multinomial):
+            #         # other is state
+            #         dists.append(1 - v1.pdf(v2.mpe()[0]))
+            #     else:
+            #         # other is goal
+            #         dists.append(1 - v1.pdf(v2))
+            # elif isinstance(v1, Bool):
+            #     # self is state
+            #     if isinstance(v2, Bool):
+            #         # other is state
+            #         dists.append(1 - v1.pdf(v2.mpe()[0]))
+            #     else:
+            #         # other is goal
+            #         dists.append(1 - v1.pdf(v2))
+            # else:
+            #     # self must be Goal (values are sets of multinomial or boolean values)
+            #     if isinstance(v2, (Multinomial, Bool)):
+            #         # other is state
+            #         dists.append(1 - v2.pdf(v1))
+            #     else:
+            #         # other is goal
+            #         raise ValueError(
+            #             f"This should never happen. A case where the distance between two Goal objects "
+            #             f"has to be calculated, should not occur. Got states {self} and {other}")
+
+        return np.mean(dists)
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}[{self.tree}({self.leaf})]'
@@ -113,10 +188,7 @@ class State(dict):
             f'[{self.tree}({self.leaf})]'
 
     def __eq__(self, other) -> bool:
-        return self.leaf == other.leaf and self.tree == other.tree
-        # return (self.leaf == other.leaf and
-        #         self.tree == other.tree and
-        #         self.similarity(other) >= 0.8)
+        return isinstance(other, State) and self.leaf == other.leaf and self.tree == other.tree
 
 
 class SubAStar(AStar):
@@ -184,59 +256,6 @@ class SubAStar(AStar):
         else:
             raise ValueError(f"Both d1 and d2 must be of the same type, either ContinuousSet or set. Got {d1}({type(d1)}) for d1 and {d2}({type(d2)}) for d2.")
 
-    @staticmethod
-    def dist(s1, s2):
-        # if the states do not share any variables, they are maximally dissimilar
-        if not set(s1.keys()).intersection(set(s2.keys())): return np.inf
-
-        # return mean of distances between distributions of common variables in states s1 and s2
-        dists = []
-        for k in set(s1.keys()).intersection(set(s2.keys())):
-
-            # convert ContinuousSet of variable in state2 into Numeric distribution to allow calculating Wasserstein
-            # distance
-            if isinstance(s1[k], ContinuousSet):
-                v1 = uniform_numeric(s1[k].lower, s1[k].upper)
-            else:
-                v1 = s1[k]
-            if isinstance(s2[k], ContinuousSet):
-                v2 = uniform_numeric(s2[k].lower, s2[k].upper)
-            else:
-                v2 = s2[k]
-
-            # case numeric/integer variables: determine Wasserstein distance
-            if isinstance(v1, (Numeric, Integer)):  # this will not work for Integer constraints like {1,2,5,6,7}
-                dists.append(Numeric.distance(v1, v2))
-            # case multinomial variables: determine 1- probability of matching sets
-            elif isinstance(v1, Multinomial):
-                # s1 is state
-                if isinstance(v2, Multinomial):
-                    # s2 is state
-                    dists.append(1-v1.pdf(v2.mpe()[0]))
-                else:
-                    # s2 is goal
-                    dists.append(1-v1.pdf(v2))
-            elif isinstance(v1, Bool):
-                # s1 is state
-                if isinstance(v2, Bool):
-                    # s2 is state
-                    dists.append(1-v1.pdf(v2.mpe()[0]))
-                else:
-                    # s2 is goal
-                    dists.append(1-v1.pdf(v2))
-            else:
-                # s1 must be Goal (values are sets of multinomial or boolean values)
-                if isinstance(v2, (Multinomial, Bool)):
-                    # s2 is state
-                    dists.append(1-v2.pdf(v1))
-                else:
-                    # s2 is goal
-                    raise ValueError(f"This should never happen. A case where the distance between two Goal objects "
-                                     f"has to be calculated, should not occur. Got states {s1} and {s2}")
-                    # dists.append(0 if v1 == v2 else 1)
-
-        return np.mean(dists)
-
     def isgoal(
             self,
             node: Node
@@ -250,21 +269,15 @@ class SubAStar(AStar):
         # to change if Goal objects contain actual distributions instead of (Continuous)sets
         if isinstance(node.state, Goal): return False
 
+        if node.state.distance(self.goal, vars=[]) <= 0.5: return True
+
         for var in self.goal:
             if isinstance(node.state[var], Distribution):
                 # case node state is intermediate state -> values are distributions
+                # if less than 70% of the node.state match the goal spec, return false
                 intersection = node.state[var].mpe()[0].intersection(self.goal[var])
                 if self.jaccard_similarity(intersection, node.state[var].mpe()[0]) < .7:
                     return False
-                # alternative: probability of desired value range specified in goal of the
-                # state's distribution
-                # if node.state[var].p(self.goal[var]) < .7:
-                #     return False
-            # else:
-                # if self.jaccard_similarity(node.state[var], self.goal[var]) < .7:
-                #     return False
-
-
         return True
 
     def generate_steps(
@@ -296,22 +309,6 @@ class SubAStar(AStar):
         ]
 
         return condtrees
-
-        # posteriors = [
-        #     [
-        #         tn,
-        #         tree.posterior(
-        #             variables=tree.targets,
-        #             evidence=tree.bind(
-        #                 {k: v for k, v in evidence.items() if k in tree.varnames},
-        #                 allow_singular_values=False
-        #             ),
-        #             fail_on_unsatisfiability=False
-        #         )
-        #     ] for tn, tree in self.models.items()
-        # ]
-
-        # return posteriors
 
     def generate_successors(
             self,
@@ -441,66 +438,6 @@ class SubAStarBW(SubAStar):
         else:
             raise ValueError(f"Both d1 and d2 must be of the same type, either ContinuousSet or set. Got {d1}({type(d1)}) for d1 and {d2}({type(d2)}) for d2.")
 
-    @staticmethod
-    def dist(s1, s2, vars=None):
-        if vars is None:
-            vars = []
-
-        # if the states do not share any variables, they are maximally dissimilar
-        if not set(s1.keys()).intersection(set(s2.keys())): return np.inf
-        if not set(s1.keys()).intersection(set(s2.keys())).issuperset(set(vars)): return np.inf
-
-        # return mean of distances between distributions of common variables in states s1 and s2
-        dists = []
-        for k in set(s1.keys()).intersection(set(s2.keys())):
-
-            # skip distance calculation for variables not specified in vars
-            if vars and k not in vars: continue
-
-            # convert ContinuousSet of variable in state2 into Numeric distribution to allow calculating Wasserstein
-            # distance
-            if isinstance(s1[k], ContinuousSet):
-                v1 = uniform_numeric(s1[k].lower, s1[k].upper)
-            else:
-                v1 = s1[k]
-            if isinstance(s2[k], ContinuousSet):
-                v2 = uniform_numeric(s2[k].lower, s2[k].upper)
-            else:
-                v2 = s2[k]
-
-            # case numeric/integer variables: determine Wasserstein distance
-            if isinstance(v1, (Numeric, Integer)):  # this will not work for Integer constraints like {1,2,5,6,7}
-                dists.append(Numeric.distance(v1, v2))
-            # case multinomial variables: determine 1- probability of matching sets
-            elif isinstance(v1, Multinomial):
-                # s1 is state
-                if isinstance(v2, Multinomial):
-                    # s2 is state
-                    dists.append(1-v1.pdf(v2.mpe()[0]))
-                else:
-                    # s2 is goal
-                    dists.append(1-v1.pdf(v2))
-            elif isinstance(v1, Bool):
-                # s1 is state
-                if isinstance(v2, Bool):
-                    # s2 is state
-                    dists.append(1-v1.pdf(v2.mpe()[0]))
-                else:
-                    # s2 is goal
-                    dists.append(1-v1.pdf(v2))
-            else:
-                # s1 must be Goal (values are sets of multinomial or boolean values)
-                if isinstance(v2, (Multinomial, Bool)):
-                    # s2 is state
-                    dists.append(1-v2.pdf(v1))
-                else:
-                    # s2 is goal
-                    raise ValueError(f"This should never happen. A case where the distance between two Goal objects "
-                                     f"has to be calculated, should not occur. Got states {s1} and {s2}")
-                    # dists.append(0 if v1 == v2 else 1)
-
-        return np.mean(dists)
-
     def isgoal(
             self,
             node: Node
@@ -510,26 +447,27 @@ class SubAStarBW(SubAStar):
         # REMOVED BECAUSE: initstate does not necessarily have to be a complete assignment of all possible variables,
         # as these may not be known beforehand. It is much more important, that the variables that ARE present in
         # the initstate do not violate the requirements (preconditions) of the current state
-        if not set(node.state.keys()).issubset(set(self.initstate.keys())): return False
+        # if not set(node.state.keys()).issubset(set(self.initstate.keys())): return False
+        if not set(self.initstate.keys()).issubset(set(node.state.keys())): return False
 
-        if self.dist(node.state, self.initstate, vars=[]) <= 0.5: return True
+        if node.state.distance(self.initstate, vars=[]) <= 0.5: return True
 
-        for var, val in node.state.items():
-            if isinstance(val, Distribution):
-                # skip check for variables not present in the initstate as the initstate might be underspecified and
-                # variables not set are considered "wild cards"
-                if var not in self.initstate.keys(): continue
-                # default: node.state is belief state (values of both node.state and self.initstate are distributions)
-                if type(val).jaccard_similarity(self.initstate[var], val) < .7:
-                    return False
-            else:
-                # first step: node.state is Goal object (values are sets or ContinuousSets)
-                # if less than 70% of the node.state match the goal spec or if any of the variables in the goal
-                # specification is not present in the initstate at all, return false
+        if isinstance(node, Goal):
+            # first step: node.state is Goal object (values are sets or ContinuousSets)
+            # if less than 70% of the node.state match the goal spec or if any of the variables in the goal
+            # specification is not present in the initstate at all, return false
+            for var, val in node.items():
                 if var not in self.initstate.keys(): return False
                 intersection = val.intersection(self.initstate[var].mpe()[0])
                 if self.jaccard_similarity(intersection, val) < .7:
                     return False
+        else:
+            if np.mean(
+                [
+                    type(val).jaccard_similarity(self.initstate[var], val) for var, val in node.state.items() if var in self.initstate.keys()
+                ]
+            ) < .7:
+                return False
         return True
 
     @staticmethod
