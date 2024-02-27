@@ -7,11 +7,11 @@ import dnutils
 import numpy as np
 import pandas as pd
 
-from calo.utils import locs
-from calo.utils.constants import calologger, FILESTRFMT
-from calo.utils.utils import recent_example, euler_from_quaternion
+from bayrob.utils import locs
+from bayrob.utils.constants import bayroblogger, FILESTRFMT
+from bayrob.utils.utils import recent_example, euler_from_quaternion
 
-logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
 
 def generate_data(fp, args):

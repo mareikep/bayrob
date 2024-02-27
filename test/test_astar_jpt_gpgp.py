@@ -11,15 +11,15 @@ import pandas as pd
 from dnutils import first
 from pandas import DataFrame
 
-from calo.application.astar_jpt_app import SubAStar_, SubAStarBW_, State_
-from calo.core.astar import BiDirAStar
-from calo.core.astar_jpt import Goal
-from calo.utils import locs
-from calo.utils.constants import calologger
+from bayrob.application.astar_jpt_app import SubAStar_, SubAStarBW_, State_
+from bayrob.core.astar import BiDirAStar
+from bayrob.core.astar_jpt import Goal
+from bayrob.utils import locs
+from bayrob.utils.constants import bayroblogger
 from jpt import infer_from_dataframe, JPT
 from jpt.distributions import Gaussian, Integer, IntegerType
 
-logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
 
 class GPGP:

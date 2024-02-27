@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from calo.utils.utils import pnt2line
+from bayrob.utils.utils import pnt2line
 from ddt import ddt, data, unpack
 
 

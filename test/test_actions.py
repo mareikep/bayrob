@@ -3,8 +3,8 @@ import unittest
 
 from ddt import unpack, data, ddt
 
-from calo.models.action import Move
-from calo.models.world import GridAgent, Grid
+from bayrob.models.action import Move
+from bayrob.models.world import GridAgent, Grid
 
 @ddt
 class ThesisActionTests(unittest.TestCase):

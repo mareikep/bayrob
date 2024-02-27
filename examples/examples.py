@@ -14,11 +14,11 @@ import plotly.graph_objects as go
 from jpt.base.intervals import ContinuousSet
 from sklearn.model_selection import train_test_split
 
-from calo.logs.logs import init_loggers
-from calo.utils import locs
-from calo.utils.constants import calologger, FILESTRFMT
-from calo.utils.plotlib import plot_heatmap, fig_to_file, defaultconfig
-from calo.utils.utils import recent_example
+from bayrob.logs.logs import init_loggers
+from bayrob.utils import locs
+from bayrob.utils.constants import bayroblogger, FILESTRFMT
+from bayrob.utils.plotlib import plot_heatmap, fig_to_file, defaultconfig
+from bayrob.utils.utils import recent_example
 from jpt import JPT, infer_from_dataframe
 from jpt.distributions import Distribution, Numeric
 from jpt.learning.c45 import JPTPartition, _locals
@@ -32,7 +32,7 @@ except ModuleNotFoundError:
     sys.path.append(os.path.join('..', 'examples'))
 
 
-logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
 manager = Manager()
 distributions = manager.dict()
@@ -535,7 +535,7 @@ if __name__ == '__main__':
     # The arguments are not limited to the list below. For any example-specific arguments use the -a (--args), e.g.
     # python example -o -l -p -a prune 0.77
 
-    parser = argparse.ArgumentParser(description='CALOWeb.')
+    parser = argparse.ArgumentParser(description='BayRoBWeb.')
     parser.add_argument("-v", "--verbose", dest="verbose", default='debug', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
     parser.add_argument('--recent', action='store_true', help='use most recent folder created', required=False)
     parser.add_argument('--learn', action='store_true', help='learn model', required=False)

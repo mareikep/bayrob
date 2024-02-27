@@ -9,12 +9,12 @@ Reasoning
 
     :Example:
 
-    >>> from matcalo.core.base import MatCALO
-    >>> calo = MatCALO()
-    >>> calo.query = query
-    >>> calo.threshold = threshold
-    >>> calo.strategy = MatCALO.Strategy(strategy)
-    >>> calo.infer()
+    >>> from matcalo.core.base import BayRoB
+    >>> br = BayRoB()
+    >>> br.query = query
+    >>> br.threshold = threshold
+    >>> br.strategy = BayRoB.Strategy(strategy)
+    >>> br.infer()
 
 
 .. note::

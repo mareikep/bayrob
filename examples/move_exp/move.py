@@ -7,16 +7,16 @@ import pandas as pd
 import plotly.graph_objects as go
 from tqdm import tqdm
 
-from calo.models.action import Move
-from calo.models.world import GridAgent, Grid
-from calo.utils import locs
-from calo.utils.constants import FILESTRFMT, calologger
-from calo.utils.dynamic_array import DynamicArray
-from calo.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, fig_to_file
-from calo.utils.utils import recent_example
+from bayrob.models.action import Move
+from bayrob.models.world import GridAgent, Grid
+from bayrob.utils import locs
+from bayrob.utils.constants import FILESTRFMT, bayroblogger
+from bayrob.utils.dynamic_array import DynamicArray
+from bayrob.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, fig_to_file
+from bayrob.utils.utils import recent_example
 from jpt.distributions import Gaussian
 
-logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
 
 def generate_data(fp, args):

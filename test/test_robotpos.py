@@ -8,11 +8,11 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from calo.core.base import CALO
-from calo.models.action import TrajectorySimulation, Move
-from calo.models.world import Agent, Grid
-from calo.utils import locs
-from calo.utils.constants import FILESTRFMT
+from bayrob.core.base import BayRoB
+from bayrob.models.action import TrajectorySimulation, Move
+from bayrob.models.world import Agent, Grid
+from bayrob.utils import locs
+from bayrob.utils.constants import FILESTRFMT
 from jpt import infer_from_dataframe, JPT
 from jpt.distributions import Gaussian
 
@@ -296,7 +296,7 @@ class JointProbabilityTreesMPE(unittest.TestCase):
 
 
     def test_calo(self):
-        calo = CALO()
+        calo = BayRoB()
         calo.adddatapath(locs.logs)
         calo.reloadmodels()
 

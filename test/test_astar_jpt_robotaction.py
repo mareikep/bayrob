@@ -5,12 +5,12 @@ from pathlib import Path
 import pandas as pd
 from jpt.base.intervals import ContinuousSet
 
-from calo.application.astar_jpt_app import SubAStar_, SubAStarBW_
-from calo.core.astar import BiDirAStar, Node
-from calo.core.astar_jpt import Goal, State
-from calo.utils import locs
-from calo.utils.plotlib import gendata, plot_heatmap, plot_path, defaultconfig, plot_pos, plotly_animation, plot_dir
-from calo.utils.utils import recent_example
+from bayrob.application.astar_jpt_app import SubAStar_, SubAStarBW_
+from bayrob.core.astar import BiDirAStar, Node
+from bayrob.core.astar_jpt import Goal, State
+from bayrob.utils import locs
+from bayrob.utils.plotlib import gendata, plot_heatmap, plot_path, defaultconfig, plot_pos, plotly_animation, plot_dir
+from bayrob.utils.utils import recent_example
 from jpt import JPT, SymbolicVariable, SymbolicType
 from jpt.distributions import Numeric, Gaussian, Bool
 from jpt.distributions.quantile.quantiles import QuantileDistribution
@@ -19,7 +19,7 @@ from utils import uniform_numeric
 
 class AStarRobotActionJPTTests(unittest.TestCase):
 
-    # assumes trees robotaction_move and robotaction_move generated previously from functions in calo-dev/test/test_robotpos.py,
+    # assumes trees robotaction_move and robotaction_move generated previously from functions in bayrob-dev/test/test_robotpos.py,
     # executed in the following order:
     # test_robot_pos_random (xor test_robot_pos) --> generates csv files from consecutive (random) move/turn actions
     # test_data_curation --> curates the previously generaed csv files to one large file each for robotaction_move and turn
@@ -466,9 +466,13 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         distdy = Numeric()
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
+        goal_ = {True}
+        milk_ = self.models['perception'].priors['detected(milk)']
+        dmilk_ = SymbolicVariable(milk_.__class__.__name__, type(milk_))
+        dmilk = dmilk_.distribution().set([(1 if x in goal_ else 0) / len(goal_) for x in list(dmilk_.domain.values)])
         goal = Goal(
             {
-                'detected(milk)': {True},
+                'detected(milk)': dmilk,
             }
         )
 
@@ -514,7 +518,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         self.path.reverse()
 
     def test_astar_fw_path_multinomialgoal(self) -> None:
-        initx, inity, initdirx, initdiry = [62, 73, .3, .9]  # <--- WORKS! DO NOT TOUCH
+        initx, inity, initdirx, initdiry = [62, 72, .3, .9]  # <--- WORKS! DO NOT TOUCH
         # initx, inity, initdirx, initdiry = [62, 74, 1, 0]
         tolerance_pos = .1
         tolerance_dir = .01

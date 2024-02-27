@@ -1,11 +1,11 @@
 import os
 import unittest
 
-# from calo.application.astar_jpt_app_gridworld import SubAStarBW_, State_, SubAStar_
-from calo.application.astar_jpt_app import SubAStarBW_, State_, SubAStar_
-from calo.core.astar import BiDirAStar
-from calo.core.astar_jpt import Goal
-from calo.utils import locs
+# from bayrob.application.astar_jpt_app_gridworld import SubAStarBW_, State_, SubAStar_
+from bayrob.application.astar_jpt_app import SubAStarBW_, State_, SubAStar_
+from bayrob.core.astar import BiDirAStar
+from bayrob.core.astar_jpt import Goal
+from bayrob.utils import locs
 from jpt import JPT
 from dnutils import first
 

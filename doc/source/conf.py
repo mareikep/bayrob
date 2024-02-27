@@ -71,8 +71,8 @@ master_doc = 'index'
 
 # General information about the project.
 year = 2022
-project = u'CALO'
-projectlow = u'calo'
+project = u'BayRoB'
+projectlow = u'bayrob'
 copyright = f'{year}, Mareike Picklum'
 leaddev = u'Mareike Picklum'
 leaddevmail = u'mareikep@cs.uni-bremen.de'

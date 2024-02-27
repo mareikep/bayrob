@@ -3,7 +3,7 @@ import math
 import unittest
 from typing import List, Any
 
-from calo.core.astar import AStar, Node, BiDirAStar
+from bayrob.core.astar import AStar, Node, BiDirAStar
 
 
 class GridWorld:

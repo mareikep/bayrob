@@ -7,13 +7,13 @@ import numpy as np
 import dnutils
 
 import pandas as pd
-from calo.logs.logs import init_loggers
-from calo.utils import locs
-from calo.utils.constants import calologger
+from bayrob.logs.logs import init_loggers
+from bayrob.utils import locs
+from bayrob.utils.constants import bayroblogger
 from jpt import JPT, infer_from_dataframe
 from pandas import DataFrame
 
-logger = dnutils.getlogger(calologger, level=dnutils.DEBUG)
+logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
 ACTIONS = [(-1, 0), (0, -1), (1, 0), (0, 1)]
 DIRACTIONS = {-90: -1, 0: 0, 90: 1}

@@ -11,7 +11,7 @@ own inference task conveniently in your own applications.
 *********
 
 .. automodule:: calo.core.base
-    :members: CALO, Hypothesis, ResTree, Step
+    :members: BayRoB, Hypothesis, ResTree, Step
 
 ****
 

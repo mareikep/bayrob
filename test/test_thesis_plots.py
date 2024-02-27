@@ -16,12 +16,12 @@ from matplotlib import pyplot as plt
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 
-from calo.core.astar_jpt import State
-from calo.utils import locs
-from calo.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
+from bayrob.core.astar_jpt import State
+from bayrob.utils import locs
+from bayrob.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
     plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq, \
     plot_tree_leaves, plot_typst_jpt, plot_typst_tree_json
-from calo.utils.utils import recent_example, fmt, _actions_to_treedata, actions_to_treedata
+from bayrob.utils.utils import recent_example, fmt, _actions_to_treedata, actions_to_treedata
 from examples.examples import do_prune, distributions, manager
 from jpt import SymbolicType, NumericVariable, JPT, infer_from_dataframe
 from jpt.base.intervals import ContinuousSet, RealSet
