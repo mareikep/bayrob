@@ -9,14 +9,13 @@ import pyximport
 import jpt
 from bayrob.core.astar import AStar, Node
 from bayrob.utils.constants import bayroblogger
-from bayrob.utils.utils import fmt
+from bayrob.utils.utils import fmt, uniform_numeric
 from jpt.base.errors import Unsatisfiability
-from jpt.distributions import Distribution, Bool, Multinomial, Integer, Numeric
+from jpt.distributions import Distribution
 from jpt.variables import Variable, SymbolicVariable
-from utils import uniform_numeric
 
 pyximport.install()
-from jpt.base.intervals import R, ContinuousSet
+from jpt.base.intervals import ContinuousSet
 
 logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
@@ -123,14 +122,14 @@ class Goal(State):
         else:
             return other.similarity(self)
 
-    def distance(self, other, variables=None):
+    def distance(self, other, vars=None):
         if isinstance(other, Goal):
             # other is goal
             raise ValueError(
                 f"This should never happen. A case where the distance between two Goal objects "
                 f"has to be calculated, should not occur. Got states {self} and {other}")
         else:
-            return other.distance(self, vars=variables)
+            return other.distance(self, vars=vars)
 
     def __str__(self) -> str:
         return f'Goal[{";".join([f"{var}: {fmt(self[var], prec=2)}" for var in self.keys()])}]'
