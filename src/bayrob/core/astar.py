@@ -85,6 +85,8 @@ class AStar:
         self.open = []
         self.closed = []
 
+        self.verbose = dnutils.DEBUG
+
         self.reached = False
         self.init()
 
@@ -179,7 +181,8 @@ class AStar:
                 self.reached = True
 
                 try:
-                    self.plot(cur_node)
+                    if self.verbose <= dnutils.DEBUG:
+                        self.plot(cur_node)
                 except NotImplementedError:
                     logger.info('Could not plot result. Function not implemented.')
                 except:
