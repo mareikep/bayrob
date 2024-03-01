@@ -1,61 +1,44 @@
 import argparse
-import datetime
-import inspect
-import itertools
-import json
 import mimetypes
 import os
-import random
 import shutil
 import tempfile
 import traceback
-from collections import OrderedDict, defaultdict
 from functools import wraps
-
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import normalize
+from pathlib import Path
+from typing import Callable, List
 
 import dnutils
-from typing import Tuple, List, Callable
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from dnutils import out
+from jpt.base.intervals import ContinuousSet
 
 import pyrap
-from dnutils import out, LinearScale
-
-from bayrob.utils.constants import bayroblogger, bayrobjsonlogger
 from bayrob import config
-from bayrob.core.base import BayRoB, ResTree
+from bayrob.core.astar_jpt import Goal
+from bayrob.core.base import Query, Search
 from bayrob.logs.logs import init_loggers
-from bayrob.utils.utils import res
-from jpt import JPT, infer_from_dataframe
-from jpt.base.intervals import ContinuousSet
-from bayrob.web.dialogs import MinMaxBox
-from bayrob.web.thread import BayRoBSessionThread
 from bayrob.utils import locs
-from bayrob.utils.constants import TABLEFORMAT, TMPFILESTRFMT
-from bayrob.utils.errors import InvalidTypeError, UsageError, TooManyFilesError, FileTooLargeError, \
-    MaximumAllowanceError, UploadError
-from bayrob.utils.utils import toxls, pearson, _actions_to_treedata
+from bayrob.utils.constants import bayroblogger, bayrobjsonlogger, obstacles, obstacle_kitchen_boundaries, querypresets, \
+    searchpresets
+from bayrob.utils.plotlib import build_constraints, fig_to_file, plot_heatmap, plot_data_subset, plot_path, \
+    plot_pos, plot_dir, gendata
+from bayrob.utils.utils import res, urlable, fmt
+from bayrob.web.thread import BayRoBSessionThread
+from jpt.distributions.univariate import Bool, Numeric
 from pyrap import session
-from pyrap.constants import DLG
-from pyrap.dialogs import options_list, ask_input, msg_err, MessageBox, FileUploadDialog
 from pyrap.layout import RowLayout, ColumnLayout, CellLayout, StackLayout
 from pyrap.ptypes import Color, Image, Pixels, px
-from pyrap.pwt.bubblyclusters.bubblyclusters import BubblyClusters
-from pyrap.pwt.graph.graph import Graph
-from pyrap.pwt.heatmap.heatmap import Heatmap
-from pyrap.pwt.plot.plot import Scatterplot
-from pyrap.pwt.plotly.plotly import Plotly
-from pyrap.pwt.radialtree.radialtree import RadialTree
+from pyrap.widgets import Shell, Composite, Label, Button, Separator, TabFolder, Browser, Combo, Edit, Group, Link, \
+    SashMenuComposite, ScrolledComposite
 from pyrap.pwt.svg.svg import SVG
-from pyrap.pwt.tree.tree import Tree
-from pyrap.widgets import Shell, Composite, Label, Button, Separator, TabFolder, Browser, Combo, Table, Menu, MenuItem, \
-    Edit, Group, Option, FileUpload, Link, ScrolledComposite, Checkbox, ToolTip, SashMenuComposite
 
 if config.getboolean('bayrob', 'smoothed', fallback=False):
-    from pyrap.pwt.radar_smoothed.radar_smoothed import RadarSmoothed as Radar
+    pass
 else:
-    from pyrap.pwt.radar.radar import RadarChart as Radar
+    pass
 
 logger = dnutils.getlogger(bayroblogger)
 jsonlogger = dnutils.getlogger(bayrobjsonlogger)
@@ -64,18 +47,13 @@ jsonlogger = dnutils.getlogger(bayrobjsonlogger)
 class BayRoBWeb:
     def __init__(self):
         self.bayrob = BayRoBSessionThread(self)
-        self.bayrob.adddatapath(locs.examples)
-        self.radar = None
-        self.wnd_reqprof = None
-        self.stats = {}
-        self.expdata = []
-        self.candidates = None
+        self.bayrob.adddatapath([os.path.join(locs.examples, 'demo', d) for d in os.listdir(os.path.join(locs.examples, 'demo'))])
+        self.wnd_query_model = None
+        self.wnd_search = None
+        self.qo = Query()
+        self.asr = Search()
         self.uploaddir = None
-        self.descrs = BayRoBWeb.loaddescrs()
-        self.inf_menu_visible = False
-        self.da_menu_visible = False
-        self.radialmenu_visble = False
-        self.menu_width = 260
+        self.menu_width = 250
         self.wnd_wait = None
 
     @staticmethod
@@ -88,13 +66,6 @@ class BayRoBWeb:
         BayRoBWeb.compiledoku()
 
     @staticmethod
-    def loaddescrs() -> dict:
-        fpath = os.path.join(locs.examples, 'paperexample', 'charvals.json')
-        with open(fpath) as f:
-            d = json.load(f)
-        return d
-
-    @staticmethod
     def compiledoku() -> None:
         '''
         Compiles the documentation for this software in html, such that the most recent version
@@ -102,8 +73,8 @@ class BayRoBWeb:
         :return:
         '''
         if config.get('bayrob', 'mode', fallback='release') != 'debug':
-            os.system("make -s html -C {} SPHINXOPTS=-Q".format(locs.doc))
-            # os.system("make clean -C {0} && make html -C {0}".format(locs.doc))
+            # os.system("make -s html -C {} SPHINXOPTS=-Q".format(locs.doc))
+            os.system("make clean -C {0} && make html -C {0}".format(locs.doc))
 
     @staticmethod
     def setupdoku() -> None:
@@ -119,52 +90,7 @@ class BayRoBWeb:
                     with open(os.path.join(root, f), 'rb') as fi:
                         session.runtime.mngr.resources.registerf(fname, mimetypes.guess_type(fname)[0], fi, force=True)
                 except UnicodeDecodeError:
-                    out('Could not register file', fname, '. unicodeerror')
-
-    @staticmethod
-    def getdirsize(path='.') -> Tuple[int, int]:
-        total_size = 0
-        numfiles = 0
-        for dirpath, dirnames, filenames in os.walk(path):
-            for f in filenames:
-                fp = os.path.join(dirpath, f)
-                total_size += os.path.getsize(fp)
-                numfiles += 1
-        return total_size, numfiles
-
-    def upload(self, token) -> List[str]:
-        files = session.runtime.servicehandlers.fileuploadhandler.files[token]
-
-        if not files:
-            raise UploadError('Could not upload files')
-
-        # determine number of files in upload directory and its size (in bytes)
-        dirsize, numf = self.getdirsize(path=self.uploaddir)
-
-        # restrict the number of files to be uploaded
-        if numf + len(files) > config.getint('upload', 'maxfilecnt', fallback=500):
-            raise TooManyFilesError('You have already uploaded {} files. Uploading {} files will exceed the maximum upload allowance of {} files.'.format(numf, len(files), config.getint('upload', 'maxfilecnt', fallback=2)))
-        for f in files:
-            # only allow certain file extensions
-            if not any([f['filename'].endswith(ext) for ext in config.get('upload', 'allowedext', fallback='.csv,.txt').split(',')]):
-                raise InvalidTypeError('File type is not allowed! Allowed filetypes are {}'.format(
-                    config.get('upload', 'allowedext', fallback='.csv,.txt')))
-
-            # only allow a limited total size of the upload directory per session
-            if dirsize + len(f['filecontent']) > config.getfloat('upload', 'maxdirsize', fallback=4e+6):
-                raise MaximumAllowanceError('You have already uploaded {}MB of data. Uploading the file will exceed the maximum upload allowance of {}MB.'.format(dirsize / 1e+6, config.getfloat('upload', 'maxdirsize', fallback=4e+6) / 1e+6))
-
-            # only allow a limited size per file
-            if len(f['filecontent']) > config.getfloat('upload', 'maxfilesize', fallback=1e+7):
-                raise FileTooLargeError('A file may not be larger than {:.2f}MB.'.format(
-                    config.getfloat('upload', 'maxfilesize', fallback=1e+7) / 1e+6))
-
-            # everything ok, save file
-            fpath = os.path.join(self.uploaddir, f['filename'])
-            with open(fpath, 'wb+') as fd:
-                fd.write(f['filecontent'])
-
-        return files
+                    logger.error('Could not register file', fname, '. unicodeerror')
 
     def checkthread(self, f) -> Callable:
         @wraps(f)
@@ -172,7 +98,7 @@ class BayRoBWeb:
             if self.bayrob.is_alive():
                 self.bayrob.join()
             self.bayrob = BayRoBSessionThread(self)
-            self.bayrob.adddatapath(locs.examples)
+            self.bayrob.adddatapath([os.path.join(locs.examples, 'demo', d) for d in os.listdir(os.path.join(locs.examples, 'demo'))])
             return f(*args, **kwargs)
         return decorated
 
@@ -182,19 +108,73 @@ class BayRoBWeb:
         :return:
         '''
         ufldr = config.get('upload', 'uploadfldr', fallback=tempfile.gettempdir())
-        logger.debug('Setting upload folder to', ufldr)
 
         if not os.path.exists(ufldr):
             os.mkdir(ufldr)
 
         dirname = tempfile.mkdtemp(prefix='bayrob', dir=ufldr)
         self.uploaddir = os.path.join(ufldr, dirname)
+        logger.debug('Setting upload folder to', self.uploaddir)
 
         def cleanup(*_):
             if os.path.exists(os.path.join(ufldr, dirname)):
                 shutil.rmtree(os.path.join(ufldr, dirname))
 
         session.on_kill += cleanup
+
+    def presets(
+            self,
+            qtype
+    ):
+        if qtype == 'queryjpt':
+            return querypresets
+        elif qtype == 'search':
+            return searchpresets
+        elif qtype == "plotvars":
+            return {
+                'perception.tree': {
+                    f'x_in x y_in': [self.bayrob.models["perception.tree"].varnames["x_in"],
+                                     self.bayrob.models["perception.tree"].varnames["y_in"]],
+                    f'xdir_in x ydir_in': [self.bayrob.models["perception.tree"].varnames["xdir_in"],
+                                           self.bayrob.models["perception.tree"].varnames["ydir_in"]],
+                    **{
+                        k: v for k, v in self.bayrob.models['perception.tree'].varnames.items() if
+                        k not in ['x_in', 'y_in', 'xdir_in', 'ydir_in']
+                    }
+                },
+                'move.tree': {
+                    f'x_in x y_in': [self.bayrob.models["move.tree"].varnames["x_in"],
+                                     self.bayrob.models["move.tree"].varnames["y_in"]],
+                    f'xdir_in x ydir_in': [self.bayrob.models["move.tree"].varnames["xdir_in"],
+                                           self.bayrob.models["move.tree"].varnames["ydir_in"]],
+                    f'x_out x y_out': [self.bayrob.models["move.tree"].varnames["x_in"],
+                                       self.bayrob.models["move.tree"].varnames["y_in"]],
+                    **{
+                        k: v for k, v in self.bayrob.models['move.tree'].varnames.items() if
+                        k not in ['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out']
+                    }
+                },
+                'turn.tree': {
+                    f'xdir_in x ydir_in': [self.bayrob.models["turn.tree"].varnames["xdir_in"],
+                                           self.bayrob.models["turn.tree"].varnames["ydir_in"]],
+                    f'xdir_out x ydir_out': [self.bayrob.models["turn.tree"].varnames["xdir_out"],
+                                             self.bayrob.models["turn.tree"].varnames["ydir_out"]],
+                    **{
+                        k: v for k, v in self.bayrob.models['turn.tree'].varnames.items() if
+                        k not in ['xdir_in', 'ydir_in', 'xdir_out', 'ydir_out']
+                    }
+                },
+                'pr2.tree': {
+                    f't_x x t_y': [self.bayrob.models["pr2.tree"].varnames["t_x"],
+                                   self.bayrob.models["pr2.tree"].varnames["t_y"]],
+                    **{
+                        k: v for k, v in self.bayrob.models['pr2.tree'].varnames.items() if
+                        k not in ['t_x', 't_y', 't_z', 'duration', 'angle_z']
+                    }
+                }
+            }
+        else:
+            return {}
 
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     # DESKTOP VERSION
@@ -230,78 +210,8 @@ class BayRoBWeb:
         unilogo.bg = Color('transp')
 
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # TABFOLDER
+        # WAIT LOGO
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        tabfldr_body = TabFolder(comp_mainframe, tabpos='bottom', halign='fill', valign='fill')
-        tabfldr_body.css = 'navbar'
-
-        Separator(comp_mainframe, horizontal=True, halign='fill')
-
-        comp_status = Composite(comp_mainframe, text='Status')
-        comp_status.layout = ColumnLayout(halign='fill', valign='fill', flexcols=1)
-
-        Label(comp_status, text='Status:', halign='fill', valign='fill')
-        lbl_status = Edit(comp_status, text='OK', multiline=True, halign='fill', valign='fill', border=False, minheight=20)
-        Link(comp_status, text="<a href='http://ai.uni-bremen.de/doku.php?id=impressum' target='_blank'>Disclaimer</a>", markup=True, padding=5, halign='fill', valign='fill')
-
-        # INFERENCE TAB #
-        inference_stack = tabfldr_body.addtab('BayRoB')
-        inference_stack.content.layout = StackLayout(halign='fill', valign='fill')
-        tabfldr_body.selected = 0
-
-        inf_sash_menu = SashMenuComposite(inference_stack.content, self._shell, color='#5882B5', mwidth=260)
-
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # INFERENCE MENU
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        inf_comp_menu = inf_sash_menu.menu
-
-        btn_defreq = Button(inf_comp_menu, text='Define Requirement Profile', minwidth=px(self.menu_width - 30), halign='left', valign='fill')
-        btn_dlviz = Button(inf_comp_menu, text='Download Visualization', minwidth=px(self.menu_width - 30), halign='left', valign='fill')
-        btn_dlhypsjson = Button(inf_comp_menu, text='Download results as JSON', minwidth=px(self.menu_width - 30), halign='left', valign='fill')
-        btn_dlhypscsv = Button(inf_comp_menu, text='Download results as XLS', minwidth=px(self.menu_width - 30), halign='left', valign='fill')
-
-        ToolTip(self._shell, text='Menu', message='Click on the blue bar on the <b>left</b> to show/hide the menu for this page!', markup=True, autohide=True, location=[10, 50], icon=DLG.INFORMATION)
-
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # INFERENCE
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        comp_inference = Composite(inf_sash_menu.content)
-        comp_inference.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
-
-        tabfldr_body.selected = 0
-        comp_body = Composite(comp_inference)
-        comp_body.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-
-        comp_col1 = Composite(comp_body)
-        comp_col1.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 8, 1: 2})
-
-        comp_radar = Composite(comp_col1)
-        comp_radar.layout = CellLayout(halign='fill', valign='fill')
-
-        comp_candidatedetails = Composite(comp_col1)
-        comp_candidatedetails.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-
-        table_candidates = Table(comp_candidatedetails, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
-
-        def sort_by_sim(down=None) -> None:
-            if isinstance(down, bool):
-                table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=down)
-            else:
-                table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=table_candidates.sortedby[1] == 'down')
-
-        def sort_by_cand(*_) -> None:
-            table_candidates.items = sorted(table_candidates.items, key=lambda item: str(item.texts[0]), reverse=table_candidates.sortedby[1] == 'down')
-
-        col_candidatename = table_candidates.addcol('Candidate', sortable=True, width=100)
-        col_candidatename.on_select += sort_by_cand
-
-        col_sim = table_candidates.addcol('Probability', sortable=True, width=200)
-        col_sim.on_select += sort_by_sim
-
-        tcm = Menu(table_candidates, popup=True)
-        mitem_showproc = MenuItem(tcm, 'Show process history of candidate')
-        table_candidates.menu = tcm
 
         # initialize wait logo but hide it so it can be shown/hidden when query is running/finished
         self.wnd_wait = Shell(parent=self._shell, titlebar=False, border=False, resize=False, modal=False, halign='right', valign='bottom')
@@ -327,54 +237,54 @@ class BayRoBWeb:
         self.wnd_wait.show()
         self.wnd_wait.visible = False
 
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        # TABFOLDER
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        tabfldr_body = TabFolder(comp_mainframe, tabpos='bottom', halign='fill', valign='fill')
+        tabfldr_body.css = 'navbar'
 
-        # ANALYSIS TAB #
-        da_stack = tabfldr_body.addtab('Data Analysis', idx=2)
+        Separator(comp_mainframe, horizontal=True, halign='fill')
+
+        comp_status = Composite(comp_mainframe, text='Status')
+        comp_status.layout = ColumnLayout(halign='fill', valign='fill', flexcols=1)
+
+        Label(comp_status, text='Status:', halign='fill', valign='fill')
+        lbl_status = Edit(comp_status, text='OK', multiline=True, halign='fill', valign='fill', border=False, minheight=20)
+        Link(comp_status, text="<a href='http://ai.uni-bremen.de/doku.php?id=impressum' target='_blank'>Disclaimer</a>", markup=True, padding=5, halign='fill', valign='fill')
+
+        # BAYROB TAB #
+        da_stack = tabfldr_body.addtab('BayRoB', idx=2)
         da_stack.content.layout = StackLayout(halign='fill', valign='fill')
 
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # ANALYSIS MENU
+        # BAYROB MENU
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
         da_sash_menu = SashMenuComposite(da_stack.content, self._shell, color='#5882B5', mwidth=self.menu_width)
         da_comp_menu = da_sash_menu.menu
-        da_comp_menu.layout.flexrows = {4: 1}
+        da_comp_menu.layout.flexrows = {2: 1}
 
-        # Setting the accepted filetypes will only filter non-accepted filetypes from the view, but will not prevent
-        # users from uploading them. The restrictions for file extension/number/size will take place in self.upload()
-        Label(da_comp_menu, text='Upload data as csv', valign='fill', halign='center')
-        btn_uploadproj = FileUpload(da_comp_menu, text='Upload', accepted=config.get('upload', 'allowedext', fallback='.csv,.txt'), multi=True, halign='left', minwidth=px(self.menu_width - 30))
-        combo_uploadedfiles = Combo(da_comp_menu, editable=False, items=[], halign='left', minwidth=px(self.menu_width - 30))
-        combo_uploadedfiles.enabled = False
+        btn_query_model = Button(da_comp_menu, text='Query model', minwidth=px(self.menu_width - 50), halign='fill', valign='fill')
+        btn_search = Button(da_comp_menu, text='Search', minwidth=px(self.menu_width - 50), halign='fill', valign='fill')
 
-        Separator(da_comp_menu, horizontal=True, halign='fill')
         Label(da_comp_menu, text='', valign='fill', halign='fill')
         Separator(da_comp_menu, horizontal=True, halign='fill')
 
-        Label(da_comp_menu, text='Select Analysis tool', valign='fill', halign='center')
-        combo_analysis = Combo(da_comp_menu, editable=False, items=[], halign='left', minwidth=px(self.menu_width - 30))
-        combo_analysis.enabled = False
-        edit_parameters = Edit(da_comp_menu, message='param1:value1;param2:value2;...', halign='left', minwidth=px(self.menu_width - 30))
-        #TODO remove
-        edit_parameters.text = 'targets:variety;plotvars:all'
-        edit_parameters.enabled = False
-        btn_download = Button(da_comp_menu, text='Download', halign='left', minwidth=px(self.menu_width - 30))
+        btn_download = Button(da_comp_menu, text='Download', halign='fill', valign='fill', minwidth=px(self.menu_width - 50))
         btn_download.enabled = False
-        btn_clearviz = Button(da_comp_menu, text='Clear', halign='left', minwidth=px(self.menu_width - 30))
-        btn_analyze = Button(da_comp_menu, text='Analyze', halign='left', minwidth=px(self.menu_width - 30))
-        btn_fu = Button(da_comp_menu, text='FileUploadDialog', halign='left', minwidth=px(self.menu_width - 30))
-        btn_analyze.enabled = False
+        btn_clearviz = Button(da_comp_menu, text='Clear', halign='fill', valign='fill', minwidth=px(self.menu_width - 50))
 
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # ANALYSIS
+        # BAYROB
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
         comp_analysis = Composite(da_sash_menu.content)
-        comp_analysis.layout = RowLayout(flexrows={0: 3, 2: 1}, halign='fill', valign='fill')
+        comp_analysis.layout = RowLayout(flexrows={0: 5, 2: 1}, halign='fill', valign='fill')
 
         grp_analysisviz = Group(comp_analysis, 'Visualization')
         grp_analysisviz.layout = RowLayout(halign='fill', valign='fill', flexrows=0, padding_left=12)
         comp_analysisviz = Composite(grp_analysisviz)
         comp_analysisviz.layout = CellLayout(halign='fill', valign='fill')
+        bglogo = Label(comp_analysisviz, img=Image(res('static/images/logo.png')).resize(height=Pixels(200)), valign='center', halign='center')
+        bglogo.bg = Color(html='#3b296a99', alpha=.4)
 
         Separator(comp_analysis, horizontal=True, halign='fill')
 
@@ -382,641 +292,77 @@ class BayRoBWeb:
         comp_analysistext.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0, padding_left=12)
         lbl_textresults = Edit(comp_analysistext, text='', multiline=True, border=False, halign='fill', valign='fill')
 
-        def uploaded(*_) -> None:
-            try:
-                files = self.upload(btn_uploadproj.token)
-                lbl_status.text = 'Uploaded files {}.'.format(', '.join([f['filename'] for f in files]))
-                for f in files:
-                    btn_analyze.enabled = True
-                    btn_download.enabled = True
-                    combo_analysis.enabled = True
-                    edit_parameters.enabled = True
-                    combo_uploadedfiles.enabled = True
-                    combo_uploadedfiles.additems([f['filename']])
-                    combo_uploadedfiles.selection = f['filename']
-
-                self._shell.dolayout()
-            except (InvalidTypeError, UsageError, FileTooLargeError, MaximumAllowanceError, TooManyFilesError) as e:
-                logger.error('File upload failed', e)
-                lbl_status.text = str(e)
-            except Exception as e:
-                logger.error('File upload failed', traceback.format_exc())
-                traceback.print_exc()
-
-        def analyze(*_) -> None:
-            clear()
-
-            fname = combo_uploadedfiles.selection
-            lbl_status.text = 'Analyzing file {} using {}...'.format(fname, list(combo_analysis.items.keys())[combo_analysis.selidx])
-
-            # clear previous prints
-            lbl_textresults.text = ''
-
-            # retrieve parameters for analysis algorithm
-            # params are expected to be given in the form: param1:value1;param2:value2;...
-            params = dict([p.strip().split(':') for p in edit_parameters.text.strip().split(';')]) if edit_parameters.text else {}
-            for k, v in params.items():
-                try:
-                    params[k] = float(v)
-                except ValueError:
-                    continue
-
-            # calling analyzing function
-            try:
-                training_data = pd.read_csv(os.path.join(self.uploaddir, fname),
-                                            delimiter=';',
-                                            header=0)
-
-                combo_analysis.selection(fname, training_data, params=params)
-            except (ValueError, IndexError):
-
-                lbl_status.text = 'Error analyzing file {}!'.format(fname)
-                Label(comp_analysisviz, text=TABLEFORMAT, markup=True, halign='fill', valign='fill')
-
-                logger.warning("Could not load data. Probably wrong format.")
-                traceback.print_exc()
-            finally:
-                self._shell.dolayout()
-
-        def openfu(*_) -> None:
-            ret = FileUploadDialog(self._shell)
-
-            def on_dragleave(args, **kwargs):
-                out('on_dragleave')
-
-            def on_dragoperationchanged(args, **kwargs):
-                out('on_dragoperationchanged')
-
-            def on_dragover(args, **kwargs):
-                out('on_dragover')
-
-            def on_dragenter(args, **kwargs):
-                out('on_dragenter')
-
-            def on_finished(data):
-                out('on_finished')
-                files = self.upload(ret.token)
-                out(f'Uploaded {len(files)} files')
-
-            def on_dropaccept(ed, **kwargs):
-                out('on_dropaccept')
-
-            ret.on_dragleave += on_dragleave
-            ret.on_dragenter += on_dragenter
-            ret.on_dragoperationchanged += on_dragoperationchanged
-            ret.on_dragover += on_dragover
-            ret.on_dropaccept += on_dropaccept
-            ret.on_finished += on_finished
-
-        def action(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: generates tree from NEEM data csv files like:
-
-                    id	type	startTime	endTime	duration	success	failure	parent	next	previous	object_acted_on	object_type	bodyPartsUsed	arm	grasp	effort
-                Action_IRXOQHDJ	PhysicalTask	1600330068.38499	1600330375.44614	307.061154842377	True
-                Action_YGLTFJUW	Transporting	1600330074.30271	1600330375.40287	301.100160360336	True		Action_IRXOQHDJ
-                Action_RTGJLPIV	LookingFor	1600330074.64896	1600330074.79814	0.149180889129639	True		Action_YGLTFJUW
-                Action_HNLQFJCG	Accessing	1600330075.04209	1600330075.14547	0.103375196456909	True		Action_YGLTFJUW
-
-             and visualizes the svg.
-
-            :param fname:   the name of the csv file containing NEEM data
-            :type fname:    str
-            :param data:    the NEEM data
-            :type data:     pd.DataFrame
-            :param params:  parameters for the task execution
-            :type params:   dict
-            :return:        None
-            '''
-            clear()
-
-            fname = combo_uploadedfiles.selection
-            lbl_status.text = 'Generating visualization for Robot experiment {} using {}...'.format(fname, list(combo_analysis.items.keys())[combo_analysis.selidx])
-
-            # clear previous prints
-            lbl_textresults.text = ''
-
-            # retrieve parameters for analysis algorithm:
-            params = dict([p.strip().split(':') for p in edit_parameters.text.strip().split(';')]) if edit_parameters.text else {}
-            print('got params', params)
-            for k, v in params.items():
-                try:
-                    params[k] = float(v)
-                except ValueError:
-                    continue
-
-            # calling analyzing function
-            try:
-                first = data[data['parent'].isna()].iloc[0]
-
-                training_data = _actions_to_treedata(first, data)
-
-                t = (RadialTree if 'tree' in params and params['tree'] == 'radial' else Tree)(comp_analysisviz, css=[res('static/css/tree_.css')], halign='fill', valign='fill')
-                t.setdata(training_data)
-            except:
-                traceback.print_exc()
-                logger.error('Could not generate Tree tree visualization from data.')
-
-            self._shell.dolayout()
-
-        def actioncluster(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: Finds clusters in NEEM data csv files like:
-
-                    id	type	startTime	endTime	duration	success	failure	parent	next	previous	object_acted_on	object_type	bodyPartsUsed	arm	grasp	effort
-                Action_IRXOQHDJ	PhysicalTask	1600330068.38499	1600330375.44614	307.061154842377	True
-                Action_YGLTFJUW	Transporting	1600330074.30271	1600330375.40287	301.100160360336	True		Action_IRXOQHDJ
-                Action_RTGJLPIV	LookingFor	1600330074.64896	1600330074.79814	0.149180889129639	True		Action_YGLTFJUW
-                Action_HNLQFJCG	Accessing	1600330075.04209	1600330075.14547	0.103375196456909	True		Action_YGLTFJUW
-
-             and visualizes the svg.
-
-            :param fname:   the name of the csv file containing NEEM data
-            :type fname:    str
-            :param data:    the NEEM data
-            :type data:     pd.DataFrame
-            :param params:  parameters for the task execution
-            :type params:   dict
-            :return:        None
-            '''
-            # clear potential previous visualizations on screen
-            clear()
-
-            # update status text on screen
-            fname = combo_uploadedfiles.selection
-            lbl_status.text = 'Generating visualization for Robot experiment {} using {}...'.format(fname, list(combo_analysis.items.keys())[combo_analysis.selidx])
-
-            # clear previous prints (lower box on screen)
-            lbl_textresults.text = ''
-
-            cluster_dict = defaultdict(float)
-            for fname in combo_uploadedfiles.items:
-                combo_data = pd.read_csv(os.path.join(self.uploaddir, fname),
-                                            delimiter=';',
-                                            header=0)
-                # for example in data:
-                for i, row in combo_data.iterrows():
-                    action_type = row['type']
-                    duration = row['duration']
-                    cluster_dict[action_type] += float(duration)
-
-            m = max(cluster_dict.values())
-            cluster_dict = {k: v / m for k, v in cluster_dict.items()}
-            dict_list = []
-            for i, (action, rad) in enumerate(cluster_dict.items()):
-                dict_list.append({'cluster': i,
-                                  'tooltip': action,
-                                  'radius': rad*200})
-
-            bc = BubblyClusters(comp_analysisviz, opts={'threed': True}, halign='fill', valign='fill')
-            bc.setdata(dict_list)
-
-            self._shell.dolayout()
-
-        def regtree(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: Trains a JPT from the data and visualizes the svg.
-
-            :param fname:   the name of the csv file containing data
-            :type fname:    str
-            :param data:    the data
-            :type data:     pd.DataFrame
-            :param params:  parameters for the task execution
-            :type params:   dict
-            :return:        None
-            '''
-            name = os.path.splitext(fname)[0]
-
-            # update params
-            params_ = {'min_samples_leaf': .01, 'name': name}
-            if params is not None:
-                params_.update(params)
-
-            lbl_status.text = 'Generating JPT from data in file {} using params {}...'.format(fname, ', '.join(['{}: {}'.format(k, v) for k, v in params_.items()]))
-            logger.info('Generating JPT from data in file', fname, params_)
-            grp_analysisviz.text = 'Visualization - JPT'
-
-            variables = infer_from_dataframe(data)
-            params_.update({'variables': variables})
-            if 'targets' in params_:
-                params_.update({'targets': [v for v in variables if v.name in params_.get('targets', [])]})
-            if 'plotvars' in params_:
-                if params_['plotvars'] == 'all':
-                    params_['plotvars'] = variables
-                else:
-                    params_['plotvars'] = [v for v in variables if v.name in params_.get('plotvars', [])]
-
-            tree_ = JPT(**{k: v for k, v in params_.items() if k in vars(JPT)['__init__'].__code__.co_names})
-            tree_.learn(columns=data.values.T)
-            tree_.plot('{}-jpt'.format(name), directory=self.uploaddir, view=False, **{k: v for k, v in params_.items() if k in inspect.getfullargspec(JPT.plot).args})
-            tree_.pickle(os.path.join(self.uploaddir, '{}.tree'.format(name)))
-
-            c = ScrolledComposite(comp_analysisviz, valign='fill', halign='fill', hscroll=True, vscroll=True)
-            s = SVG(c.content, svg=os.path.join(self.uploaddir, '{}-jpt.svg'.format(name)), halign='fill', valign='fill')
-            s.maxheight(comp_analysisviz.bounds[3])
-            s.maxwidth(comp_analysisviz.bounds[2])
-
-            self.lastcreated = os.path.join(self.uploaddir, '{}-jpt.svg'.format(name))
-
-            self.wnd_wait.visible = False
-            self._shell.dolayout()
-
-        def pca(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: Performs a Principal component analysis (PCA) on the input data which is used emphasize variation and
-            bring out strong patterns in a dataset.
-
-            :param fname:
-            :param data:
-            :return:
-            '''
-            # update params
-            params_ = {'n_components': 2, 'svd_solver': 'full'}
-            if params is not None:
-                params_.update(params)
-
-            lbl_status.text = 'Running PCA on {} using params {}...'.format(fname, ', '.join(['{}: {}'.format(k, v) for k, v in params_.items()]))
-            logger.info('Running PCA on', fname, params_)
-            grp_analysisviz.text = 'Visualization - PCA'
-
-            from sklearn.decomposition import PCA
-
-            for d in data:
-                d.tosklearn()
-
-            # prepare data
-            ids = [d.identifier for d in data]
-
-            # use all variables for PCA analysis
-            # X_input = [x.tosklearn() for x in data]
-
-            # only use target vars for PCA analysis
-            X_input = [x.tsklearn() for x in data]
-            X = np.array(X_input)
-            X = X.astype(np.float)
-
-            # run PCA algorithm
-            # pca = PCA(**params_)
-            pca = PCA(**{k: v for k, v in params_.items() if k in vars(PCA)['__init__'].__code__.co_names})
-            transformed = pca.fit_transform(X)
-
-            comps = ',\n'.join([', '.join([str(x) for x in row]) for row in pca.components_])
-
-            s = '#Components:\t\t\t{}\n' \
-                'Noise variance:\t\t\t{}\n'\
-                'Singular values:\t\t\t{}\n' \
-                'Explained variance:\t\t{}\n' \
-                'Explained variance ratio:\t{}\n' \
-                'Mean:\t\t\t\t\t{}\n' \
-                'Components:\n[{}]'.format(pca.n_components_,
-                                                         pca.noise_variance_,
-                                                         pca.singular_values_,
-                                                         pca.explained_variance_,
-                                                         pca.explained_variance_ratio_,
-                                                         list(pca.mean_),
-                                                         comps)
-
-            scatterdata = [{'name': cname, 'x': comp[0], 'y': comp[1], 'tooltip': '{}\nx: {}\ny: {}'.format(cname, comp[0], comp[1])} for (comp, cname) in sorted(zip(transformed, ids), key=lambda x: x[0][0])]
-            linedata = {"Dataset_{}".format(idx): [{'x': x, 'y': y} for x, y in zip(range(-1300, 2200, 100), random.sample(range(-75, 75), 50))] for idx in range(7)}
-
-            plot_pcares = Scatterplot(comp_analysisviz, halign='fill', valign='fill')
-            plot_pcares.axeslabels('PC 0', 'PC 1')
-            plot_pcares.formats(xformat=['', ".2f", ''], yformat=['', ".2f", ''])
-            plot_pcares.setdata({'scatter': scatterdata, 'line': []})
-
-            logger.info(scatterdata)
-
-            logger.debug(s)
-            lbl_textresults.text = s
-
-        def correlate(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: Performs a pairwise pearson correlation on the data and visualizes them in a heatmap.
-
-            :param fname:
-            :param data:
-            :return:
-            '''
-            # update params
-            params_ = {'use_tgts': True, 'use_fts': False}
-            if params is not None:
-                params_.update(params)
-
-            lbl_status.text = 'Correlating data in file {} using params {}...'.format(fname, ', '.join(['{}: {}'.format(k, v) for k, v in params_.items()]))
-            logger.info('Correlating data in file', fname, params_)
-            grp_analysisviz.text = 'Visualization - Pearson Correlation Coefficients'
-
-            for d in data:
-                out(d)
-                d.tosklearn()
-
-            # tgts, cdata = pcc(data, use_tgts=False)
-            tgts, cdata = pearson(data, ignore=-6000000, **{k: v for k, v in params_.items() if k in pearson.__code__.co_varnames})
-
-            heatmapdata = [{'x': var.split(' - ')[0], 'y': var.split(' - ')[1], 'value': val} for r1, r2 in zip(tgts, cdata) for var, val in zip(r1, r2)]
-
-            hm = Heatmap(comp_analysisviz, halign='fill', valign='fill')
-            hm.setlimits([-1, 1])
-            hm.setdata(heatmapdata)
-
-            lbl_textresults.text = '\n'.join(['{}: {}'.format(var, val) for r1, r2 in zip(tgts, cdata) for var, val in zip(r1, r2)])
-
-            self._shell.dolayout()
-
-        def isomap(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: Performs non-linear dimensionality reduction through Isometric Mapping
-
-                        :param fname:
-                        :param data:
-                        :return:
-                        '''
-            # update params
-            params_ = {'n_neighbors': 5, 'n_components': 2, 'eigen_solver': 'auto', 'tol': 0, 'max_iter': None,
-                       'path_method': 'auto', 'neighbors_algorithm': 'auto', 'n_jobs': None}
-            if params is not None:
-                params_.update(params)
-
-            lbl_status.text = 'Running Isomap on {} using params {}...'.format(fname, ', '.join(['{}: {}'.format(k, v) for k, v in params_.items()]))
-            logger.info('Running Isomap on', fname, params_)
-            grp_analysisviz.text = 'Visualization - Isomap'
-
-            for d in data:
-                d.tosklearn()
-
-            ids = [d.identifier for d in data]
-            X_input = [x.xsklearn() for x in data]
-            X = np.array(X_input)
-
-            from sklearn.manifold import Isomap
-            embedding = Isomap(**params_)
-            embedding.fit(X)
-
-            nbrs = embedding.nbrs_
-            distances, indices = nbrs.kneighbors(X)
-
-            data = []
-            edges = []
-            for i, (idx, dist) in enumerate(zip(indices, distances)):
-                for j, d in zip(idx, dist):
-
-                    # if the edge already exists in the other direction, skip it. We don't need edges in both directions
-                    # as we are createing an undirected graph
-                    if (ids[j], ids[i]) in edges: continue
-
-                    edges.append((ids[i], ids[j]))
-                    data.append({
-                                  "arcStyle": "steelblue",
-                                  "value": f'{d:.2g}',
-                                  "show": True,
-                                  "tttext": f'{d:.2g}',
-                                  "target": {
-                                    "name": ids[j],
-                                    "show": True
-                                  },
-                                  "source": {
-                                    "name": ids[i],
-                                    "show": True
-                                  }
-                                })
-
-            graph = Graph(comp_analysisviz, css=[res('static/css/graphstyle.css')], halign='fill', valign='fill')
-            graph.linkdist = 100
-            graph.updatedata(data)
-
-            self._shell.dolayout()
-
-        def knn(fname, data, params=None) -> None:
-            '''ANALYSIS-TOOL: Performs non-linear dimensionality reduction through Isometric Mapping
-
-                        :param fname:
-                        :param data:
-                        :return:
-                        '''
-            # update params
-            params_ = {'n_neighbors': 5, 'radius': 1.0, 'algorithm': 'auto', 'leaf_size': 30, 'metric': 'minkowski',
-                       'p': 2, 'metric_params': None, 'n_jobs': None}
-            if params is not None:
-                params_.update(params)
-
-            lbl_status.text = 'Running KNN on {} using params {}...'.format(fname, ', '.join(['{}: {}'.format(k, v) for k, v in params_.items()]))
-            logger.info('Running KNN on', fname, params_)
-            grp_analysisviz.text = 'Visualization - KNN'
-
-            for d in data:
-                d.tosklearn()
-
-            X_input = [x.xsklearn() for x in data]
-            ids = [d.identifier for d in data]
-            X = np.array(X_input)
-
-            from sklearn.neighbors import NearestNeighbors
-            nbrs = NearestNeighbors(**params).fit(X)
-            distances, indices = nbrs.kneighbors(X)
-
-            data = []
-            edges = []
-            for i, (idx, dist) in enumerate(zip(indices, distances)):
-                for j, d in zip(idx, dist):
-
-                    # if the edge already exists in the other direction, skip it. We don't need edges in both directions
-                    # as we are createing an undirected graph
-                    if (ids[j], ids[i]) in edges: continue
-
-                    edges.append((ids[i], ids[j]))
-                    data.append({
-                                  "arcStyle": "steelblue",
-                                  "value": f'{d:.2g}',
-                                  "show": True,
-                                  "tttext": f'{d:.2g}',
-                                  "target": {
-                                    "name": ids[j],
-                                    "show": True
-                                  },
-                                  "source": {
-                                    "name": ids[i],
-                                    "show": True
-                                  }
-                                })
-
-            graph = Graph(comp_analysisviz, css=[res('static/css/graphstyle.css')], halign='fill', valign='fill')
-            graph.linkdist = 100
-            graph.updatedata(data)
-
-            self._shell.dolayout()
-
-        def cluster(fname, data, params=None):
-            '''ANALYSIS-TOOL: Performs a clustering algorithm on the data and visualizes the clusters.
-
-            :param fname:
-            :param data:
-            :return:
-            '''
-            # update params
-            params_ = {'eps': 0.7, 'min_samples': 4, 'algorithm': 'auto', 'metric': 'euclidean'}
-            if params is not None:
-                params_.update(params)
-
-            lbl_status.text = 'Clustering data in file {} using params {}...'.format(fname, ', '.join(['{}: {}'.format(k, v) for k, v in params_.items()]))
-            logger.info('Clustering data in file', fname, params_)
-            grp_analysisviz.text = 'Visualization - Clusters'
-
-            from sklearn import metrics
-            from sklearn.cluster import DBSCAN
-            from sklearn.preprocessing import StandardScaler
-
-            # prepare data
-            for d in data:
-                d.tosklearn()
-
-            if isinstance(data[0].t, list):
-                header = [x.name for x in data[0].t]
-            else:
-                header = data[0].t.name
-
-            X_input = [x.tsklearn() for x in data]
-            ids = [d.identifier for d in data]
-
-            print(X_input)
-            X = np.array(X_input)
-            # X = X.astype(np.float)
-            X = StandardScaler().fit_transform(X)
-
-            # run clustering algorithm
-            db = DBSCAN(**params_).fit(X)
-
-            core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-            core_samples_mask[db.core_sample_indices_] = True
-            labels = db.labels_
-
-            # increment label id such that 0 = noise points
-            labels = [l + 1 for l in list(labels)]
-
-            # Number of clusters in labels, ignoring noise if present.
-            n_clusters_ = len(set(labels)) - (1 if 0 in labels else 0)
-
-            n_noise_ = list(labels).count(0)
-
-            lbls = {}
-            for k, v in zip(labels, ids):
-                lbls[k] = lbls.get(k, ()) + (v,)
-
-            lblstr = ',\n'.join(['{} ({}):\t[{}]'.format(k, len(lbls[k]),', '.join([str(x) for x in lbls[k]])) for k in sorted(lbls.keys())])
-
-            s = 'Estimated number of noise points: \t{}\n' \
-                'Estimated number of clusters: \t\t{}\n' \
-                'Silhouette Coefficient: \t\t\t\t{}\n' \
-                'Estimated labels ("Cluster" 0 contains noise points):\n{}'.format(n_noise_, n_clusters_, metrics.silhouette_score(X, labels), lblstr)
-            lbl_textresults.text = s
-
-            clusters = {}
-            means = {}
-            dists = {}
-            dists_norm = {}
-            snd = lambda x: x[1]
-
-            # collecting necessary information for calculating cluster means
-            for xmplid, cid, xmpldata in sorted(list(zip(ids, labels, X)), key=snd):
-                clusters[cid] = clusters.get(cid, ()) + ((xmplid, xmpldata),)
-
-            # calculate means for each cluster
-            for clid, d in clusters.items():
-                # means.update({clid: np.mean(list(d.values()), axis=0)})
-                means.update({clid: np.mean([xmpldata for xmplid, xmpldata in d], axis=0)})
-                dists[clid] = []
-                # determine distance to cluster mean for each cluster item
-                for k, v in d:
-                    # Euclidean distance
-                    dists[clid].append([k, np.linalg.norm(np.array(means[clid]) - np.array(v))])
-
-                dists_norm[clid] = np.array(dists[clid])
-                dists_norm[clid][:, 1] = normalize(dists_norm[clid][:, 1].reshape(1, -1), axis=1)
-
-            # ---------------------------------------------------
-
-            # map the item's distance to cluster to a radius value
-            linsc = LinearScale([0, 1], [1, 25])
-
-            data = [{"cluster": int(cluster),
-                     "radius": linsc(float(dist)),
-                     "clustersize": len(clusters[cluster]),
-                     "tooltip": "ID: {}<br>{}<br>Means: {}<br>#points: {}<br>Distance to mean: {}".format(idx,
-                                                                                                          '{}'.format('Cluster: {}'.format(int(cluster)) if int(cluster) > 0 else "Noise Points"),
-                                                                                                          means[cluster],
-                                                                                                          len(clusters[cluster]),
-                                                                                                          dist)} for cluster, d in dists_norm.items() for idx, dist in d]
-
-            drawcluster(data)
-
-        def drawcluster(data) -> None:
-            logger.debug('Got data', data)
-
-            # draw new clustering visualization
-            bc = BubblyClusters(comp_analysisviz, halign='fill', valign='fill')
-            bc.setdata(data)
-
         def clear(*_) -> None:
             # clear previously loaded visualizations
             for c in comp_analysisviz.children:
                 c.dispose()
 
+            bglogo = Label(comp_analysisviz, img=Image(res('static/images/logo.png')).resize(height=Pixels(200)), valign='center', halign='center')
+            bglogo.bg = Color(html='#3b296a99', alpha=.4)
+
             # clear text results
             lbl_textresults.text = ''
+            self._shell.dolayout()
 
-        def downloadviz(*_) -> None:
-            ufname = combo_uploadedfiles.selection if combo_uploadedfiles.selidx is not None else datetime.datetime.now().strftime(TMPFILESTRFMT)
-            name = os.path.splitext(ufname)[0]
-            viztype = '_'.join(list(combo_analysis.items.keys())[combo_analysis.selidx].split()).lower()
-            svgfile = os.path.join(self.uploaddir, '{}-{}.svg'.format(name, viztype))
-            out('checking if file', svgfile, 'exists')
+        def download_visualization(*_) -> None:
+            # download pdf of conditional tree generated by query model call
+
+            fn_tree_dists = os.path.join(self.uploaddir, f"conditional_tree_dists.pdf")
+            if not os.path.isfile(fn_tree_dists):
+                from svglib.svglib import svg2rlg
+                from reportlab.graphics import renderPDF
+
+                drawing = svg2rlg(fn_tree_dists.replace(".pdf", ".svg"))
+                renderPDF.drawToFile(drawing, fn_tree_dists)
+
             try:
-                if os.path.isfile(svgfile):
-                    logger.debug('Downloading existing file', svgfile)
-                    session.runtime.download(svgfile, 'image/svg+xml')
+                if os.path.isfile(fn_tree_dists):
+                    logger.debug('Downloading existing file', fn_tree_dists)
+                    session.runtime.download(fn_tree_dists, 'application/pdf')
                 else:
-                    logger.debug('Creating new svg file')
-                    if comp_analysisviz.children:
-                        comp_analysisviz.children[-1].download(pdf=False)
-                    else:
-                        lbl_status.text = 'No visualization available for download.'
+                    lbl_status.text = 'No visualization available for download.'
             except:
                 traceback.print_exc()
+                session.runtime.download(fn_tree_dists, 'application/pdf', force=True)
 
-        combo_analysis.items = {'Cluster': cluster,
-                                'PCA': pca,
-                                'JPT': regtree,
-                                'Action-Tree': action,
-                                'Action-Cluster': actioncluster,
-                                'Correlate': correlate,
-                                'KNN': knn,
-                                'Isomap': isomap}
-        combo_analysis.selection = 'JPT'
-        btn_uploadproj.on_finished += uploaded
-        btn_analyze.on_select += analyze
-        btn_fu.on_select += openfu
+        def suggestions(
+                var,
+                mean=False,
+                tolerance=False
+        ):
+            # return string of value suggestions for variable selection in query model window
+            if var.domain is Numeric:
+                if mean:
+                    return "mean value, e.g. 3"
+                elif tolerance:
+                    return "variance, e.g. 0.01"
+                else:
+                    return "range/interval, e.g. [3, 50] or [10, 20["
+            if var.domain is Bool:
+                return "anything Boolean-like, e.g. True, true, y, yes, 1, ..."
+            else:
+                return f"comma-separated, e.g. {', '.join(list(var.domain.values)[:5])}"
+
+        def parseval(
+                val,
+                var=None,
+                onlysets=False
+        ):
+            # transform entered values into valid query values for that type of variable (both query model and search)
+            try:
+                if var.domain is Numeric:
+                    return ContinuousSet.fromstring(val)
+                elif var.domain is Bool:
+                    if onlysets:
+                        return set(map(lambda x: x.strip(), val.split(',')))
+                    return val.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly', 'uh-huh']
+                else:
+                    return set(map(lambda x: x.strip(), val.split(',')))
+            except:
+                return val
+
         btn_clearviz.on_select += clear
-        btn_download.on_select += downloadviz
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # # PLOTLY TAB #
-
-        plt_stack = tabfldr_body.addtab('Plotly')
-        plt_stack.content.layout = StackLayout(halign='fill', valign='fill')
-        tabfldr_body.selected = 0
-
-        plt_sash_menu = SashMenuComposite(plt_stack.content, self._shell, color='#5882B5', mwidth=260)
-
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # PLOTLY MENU
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        plt_comp_menu = plt_sash_menu.menu
-
-        btn_plotly = Button(plt_comp_menu, text='Plot!', minwidth=px(self.menu_width - 30), halign='left', valign='fill')
-
-        comp_plotly = Composite(plt_sash_menu.content)
-        comp_plotly.layout = CellLayout(halign='fill', valign='fill')
-
-        comp_body_plt = Composite(comp_plotly)
-        comp_body_plt.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 0.2, 1: 0.8})
-        Label(comp_body_plt, "", halign='fill', valign='fill')
-        plotly = Plotly(comp_body_plt, opts={'url': "http://127.0.0.1:5005/calo/empty"}, halign='fill', valign='fill')
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        btn_download.on_select += download_visualization
 
         # DOCUMENTATION TAB #
         comp_docs = tabfldr_body.addtab('Documentation', idx=2)
@@ -1030,955 +376,1322 @@ class BayRoBWeb:
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-        ######################
-        # LISTENER FUNCTIONS #
-        ######################
+        def plot_ground_truth(
+                df,
+                limx,
+                limy,
+                plot,
+                plottype,
+                pdfvars
+        ):
+            # return plot of ground truth (bar chart or scatter plot)
+            gt = go.Figure()
 
-        def plotly_plot(*_) -> None:
-            logger.warning('PLOTLY PLOT FN CALLED')
-            from chart_studio import plotly as ply
-            import plotly.express as pxpress
+            gt_ = plot_data_subset(
+                df,
+                xvar=plot[0].name if isinstance(plot, list) and len(plot) > 1 else plot.name,
+                yvar=plot[1].name if isinstance(plot, list) and len(plot) > 1 else None,
+                constraints=pdfvars,
+                limx=limx,
+                limy=limy,
+                save=None,
+                show=False,
+                color='rgb(0,104,180)',
+                plot_type=plottype
+            )
+            if gt_ is not None:
+                gt.layout = gt_.layout
+                gt.add_traces(gt_.data)
 
-            df = pxpress.data.gapminder().query("country=='Canada'")
-            fig = pxpress.line(df, x="year", y="lifeExp", title='Life expectancy in Canada')
-            logger.warning('GENERATED PLOT')
+            return gt
 
-            url = ply.plot(fig, filename='stacked-bar', auto_open=False)
-            logger.warning(f"GOT URL {url}.. calling...")
-            plotly.url = url
+        def plot_dist_heatmap(
+                data,
+                limx,
+                limy
+        ):
+            # return plot of distribution (heatmap)
+            dist = go.Figure()
 
+            # plot heatmap
+            dist_ = plot_heatmap(
+                xvar='x',
+                yvar='y',
+                data=data,
+                limx=limx,
+                limy=limy,
+                # limz=(0, 1),
+                show=False,
+                save=None,
+                fun="heatmap"
+            )
 
-        def definereqprofile(*_) -> None:
+            if dist_ is not None:
+                dist.layout = dist_.layout
+                dist.add_traces(dist_.data)
 
-            if self.wnd_reqprof is None or self.wnd_reqprof.disposed:
-                self.wnd_reqprof = Shell(parent=self._shell, title='BayRoB Query',
-                                         border=True, btnclose=True, btnmin=True,
-                                         resize=True, modal=False, titlebar=True)
-                self.wnd_reqprof.on_resize += self.wnd_reqprof.dolayout
+            return dist
 
-                w = min(1000., 0.9 * session.runtime.display.width.value)
-                h = min(600., 0.7 * session.runtime.display.height.value)
-                self.wnd_reqprof.bounds = self._shell.width.value/2 - w/2, self._shell.height.value/2 - h/2, w, h
-                comp = Composite(self.wnd_reqprof.content, hscroll=True, vscroll=True)
-                comp.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+        def plot_dist_bar(
+                posterior,
+                plot
+        ):
+            # return plot of distribution (bar chart)
+            plot_ = posterior[plot].plot(
+                    view=False,
+                    title=False,  # f'Dist: {plot}<br>(Query): {querystring}',
+                    alphabet=True,
+                    color='rgb(59, 41, 106)',
+                    xvar=plot.name
+            )
+            return plot_
 
-                comp_profile = Composite(comp)
-                comp_profile.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 4, 1: 3})
+        def gendata_path(
+                xvar: str,
+                yvar: str,
+                path: List
+        ):
+            # generate data for path plot (result of search)
+            d = [
+                (
+                    np.mean([s[xvar].mpe()[0].lower, s[xvar].mpe()[0].upper]),  # x
+                    np.mean([s[yvar].mpe()[0].lower, s[yvar].mpe()[0].upper]),  # y
+                    np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),  # dx
+                    np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),  # dy
+                    f'Step {i}',  # step
+                    f'<b>Step {i}</b><br>'
+                    f'<b>{"ROOT" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br>'
+                    f'<b>MPEs:</b><br>'
+                    f'{"<br>".join(f"<i>{k}:</i> {fmt(v)}" for k, v in s.items())}<br>'
+                    f'<b>Expectations:</b><br>'
+                    f'{"<br>".join(f"<i>{k}:</i> {fmt(v.expectation())}" for k, v in s.items())}<br>',
+                    1  # size
+                )
+                for i, s in enumerate(path) if not isinstance(s, Goal)
+            ]
 
-                self.radar_req = Radar(comp_profile, legendtext='', halign='fill', valign='fill')
+            return d
 
-                comp_query = Composite(comp)
-                comp_query.layout = ColumnLayout(halign='center', valign='fill', equalwidths=True)
-                btn_query = Button(comp_query, 'Query')
-                chk_qod = Checkbox(comp_query, text='Auto-Query')
-                chk_qod.checked = False
-                btn_query.enabled = True
+        def plot_search_results(
+                self
+        ) -> None:
+            # a succeeded search is visualized in terms of a) a plot of the found path, b) an (animated) plot of the
+            # position distribution and c) an (animated) plot of the direction distribution
 
-                # LISTENER FUNCTIONS
-                def setinterval(axis) -> None:
-                    answer = ask_input(self._shell, 'Enter Interval for axis "{}"'.format(axis), message='[-2,3]')
-                    if answer is not None:
-                        try:
-                            interval = ContinuousSet.fromstring(answer)
-                            self.radar_req.interval(axis, minval=interval.lower, maxval=interval.upper)
-                            if chk_qod.checked: query()
-                        except:
-                            msg_err(self._shell, 'Error', 'Unable to set Interval {}. Please use a valid notation (e.g. [-2,3])'.format(answer))
-
-                def remaxis(axis) -> None:
-                    self.radar_req.remaxisbyname(axis)
-                    lbl_status.text = 'Axis "{0}" was removed and will hence be ignored.'.format(axis)
-
-                def open_menu(axis) -> None:
-                    # show menu for right click on axis in requirement profile radar
-
-                    # AXIS MENU #
-                    menuentries = OrderedDict([
-                        ('Set interval', setinterval),
-                        ('Remove axis "{}"'.format(axis), remaxis)
-                    ])
-
-                    answer, callback = options_list(self._shell, menuentries)
-                    callback(axis)
-
-                comp_features = Composite(comp_profile)
-                comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-                feature_table = Table(comp_features, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
-                expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.examples, 'paperexample', 'exampledata.json'), 'r'))])
-                combo_experiments = Combo(comp_features, editable=False, items=expdata, minwidth=px(220), halign='fill', valign='fill')
-
-                def sort_by_feat(*_) -> None:
-                    feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[0], reverse=feature_table.sortedby[1] == 'down')
-
-                def sort_by_unit(*_) -> None:
-                    feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[1], reverse=feature_table.sortedby[1] == 'down')
-
-                col_feature = feature_table.addcol('Feature', sortable=True, width=250)
-                col_feature.on_select += sort_by_feat
-
-                col_unit = feature_table.addcol('Unit', sortable=True, width=50)
-                col_unit.on_select += sort_by_unit
-
-                col_min = feature_table.addcol('Min', sortable=False, width=50)
-                col_max = feature_table.addcol('Max', sortable=False, width=50)
-
-                m = Menu(feature_table, popup=True)
-                rem = MenuItem(m, 'Remove feature from requirement profile...')
-                insert = MenuItem(m, 'Add feature to requirement profile...')
-                item_update = MenuItem(m, 'Update feature values...')
-
-                def getitem(item) -> object:
-                    if type(item) is int:
-                        return feature_table.items[item]
-                    elif type(item) is str:
-                        for i in feature_table.items:
-                            if item in i.texts: return i
-                        return None
-
-                def updateitem(*_) -> None:
-                    featurename = feature_table.selection.texts[0]
-                    item = getitem(featurename)
-                    msg = MinMaxBox(self._shell,
-                                    title='Feature limits',
-                                    message='Please enter the min and max values of the axis for the feature {}'.format(featurename),
-                                    unit=item.texts[1],
-                                    min=item.texts[2],
-                                    max=item.texts[3],
-                                    multiline=False, password=False)
-                    msg.show(True)
-                    msg.on_close.wait()
-                    answer = msg.answer
-
-                    try:
-                        minval, maxval = [float(a) for a in answer[1:]]
-                    except ValueError:
-                        msg = MessageBox(self._shell, 'Error', 'Please enter valid min and max values for the axis to be created. You can enter integer or float numbers. {}'.format(answer), DLG.ERROR)
-                        msg.show(True)
-                        msg.on_close.wait()
-                        return
-
-                    # save inputs
-                    if featurename in self.descrs:
-                        self.descrs[featurename].update({'min': str(minval), 'max': str(maxval), 'unit': answer[0]})
-                    else:
-                        self.descrs[featurename] = {'name': featurename, 'id': featurename, 'min': str(minval), 'max': str(maxval), 'unit': answer[0]}
-
-                    fpath = os.path.join(locs.examples, 'paperexample', 'charvals.json')
-                    with open(fpath, 'w+') as fp:
-                        json.dump(self.descrs, fp)
-
-                    item.texts = [featurename] + answer
-
-                def insertitem(*_) -> None:
-                    featurename = feature_table.selection.texts[0]
-                    item = getitem(featurename)
-                    answer = item.texts[2:]
-
-                    try:
-                        minval, maxval = [float(a) for a in answer]
-                    except ValueError:
-                        msg = MessageBox(self._shell, 'Error', 'Please enter valid min and max values for the axis to be created. You can enter integer or float numbers.', DLG.ERROR)
-                        msg.show(True)
-                        msg.on_close.wait()
-                        return
-                    if minval >= maxval:
-                        msg = MessageBox(self._shell, 'Error', 'Min < Max!', DLG.ERROR)
-                        msg.show(True)
-                        msg.on_close.wait()
-                        return
-
-                    # inserts currently selected table item as property axis in requirement profile.
-                    # Values taken from previously loaded experimental data.
-                    if featurename not in [axis.name for axis in self.radar_req.axes]:
-                        self.radar_req.addaxis(featurename,
-                                               minval=minval,
-                                               maxval=maxval,
-                                               unit=item.texts[1],
-                                               intervalmin=0.4 * abs(maxval - minval) + minval,
-                                               intervalmax=0.6 * abs(maxval - minval) + minval
-                                               )
-
-                def remitem(*_) -> None:
-                    # removes currently selected table item (=property axis) from requirement profile
-                    featurename = feature_table.selection.texts[0]
-                    self.radar_req.remaxisbyname(featurename)
-
-                # TODO temporary preset loading and threshold entering, prettify or remove!
-                combo_presets = Combo(comp_features, items=[], halign='fill', valign='fill')
-
-                grp_strategy = Group(comp_features, text='Strategy')
-                grp_strategy.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
-
-                opt_bfs = Option(grp_strategy, text='BFS')
-                opt_dfs = Option(grp_strategy, text='DFS')
-                opt_bfs.checked = True
-
-                lbl_threshold = Edit(comp_features, text="1e-10", message='Threshold', editable=True, valign='center', halign='fill')
-
-                insert.on_select += insertitem
-                rem.on_select += remitem
-                item_update.on_select += updateitem
-                feature_table.menu = m
-
-                def sel(*kwargs) -> None:
-                    # listener function for interaction with requirement profile radar chart.
-                    # Handles feedback for user
-                    d = kwargs[0].args[0]
-                    stat = ''
-                    if d.get('type') == 'circle':
-                        stat = 'The {1[name]} value for the alloy {0} has been changed to {1[value]}!'.format( d['dataset'], d['data'])
-                    elif d.get('type') in ['mininterval', 'rs_miniv']:
-                        stat = 'The lower bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
-                        if chk_qod.checked: query()
-                    elif d.get('type') in ['maxinterval', 'rs_maxiv']:
-                        stat = 'The upper bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
-                        if chk_qod.checked: query()
-                    elif d.get('type') == 'axis':
-                        if kwargs[0].button == 'right':
-                            open_menu(d['axis'])
-                            return
-                    else:
-                        stat = 'invalid datatype {}'.format(d.get('type'))
-                    lbl_status.text = stat
-
-                @self.checkthread
-                def query(*_) -> None:
-                    self.bayrob.pushsession.start()
-
-                    try:
-                        threshold = float(lbl_threshold.text)
-                    except:
-                        threshold = 0.0
-
-                    q = dict([(a.name, ContinuousSet(a.intervalmin, a.intervalmax)) for a in self.radar_req.axes])
-
-                    lbl_status.text = 'Querying: strategy={}, threshold={}, params= {}'.format('BFS' if opt_bfs.checked else 'DFS', threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in self.radar_req.axes]))
-                    logger.info('Querying', {k: str(v) for k, v in q.items()}, 'BFS' if opt_bfs.checked else 'DFS', threshold)
-
-                    # table_candidates.visible = True
-                    for ti in [x for x in table_candidates.items]:
-                        table_candidates.rmitem(ti)
-
-                    # remove previous radar
-                    for c in list(comp_radar.children): c.dispose()
-
-                    # use bayrob reasoner to query system
-                    self.bayrob.query = q
-                    self.bayrob.threshold = threshold
-                    if combo_experiments.selection.get('trees', None) is not None:
-                        t = combo_experiments.selection.get('trees')
-                    else:
-                        t = self.bayrob.allmodels()
-                    self.bayrob.models = t
-                    self.bayrob.strategy = BayRoB.BFS if opt_bfs.checked else BayRoB.DFS
-                    self.bayrob.callback = update
-                    w = session.runtime.display.width.value
-                    h = session.runtime.display.height.value
-                    self.wnd_wait.bounds = w - wait_imgsize - wait_padding, h - wait_imgsize - wait_padding, wait_imgsize, wait_imgsize
-                    self.wnd_wait.visible = True
-                    # self.wnd_reqprof.visible = False
-                    self.bayrob.start()
-
-                def loadexperiment(*_) -> None:
-                    self.sel = list(combo_experiments.items)[combo_experiments.selidx]
-
-                    # deletes previously loaded items
-                    feature_table.items = []
-
-                    # delete possibly existing axes from previous experiment
-                    self.radar_req.clear()
-
-                    for feature in self.descrs:
-                        feature_table.additem([feature,
-                                               self.descrs.get(feature, {}).get('unit', ''),
-                                               self.descrs.get(feature, {}).get('min', ''),
-                                               self.descrs.get(feature, {}).get('max', '')])
-                    self._shell.dolayout()
-
-                    # update options for preset toggle button and load preset
-                    self.sel = list(combo_experiments.items)[combo_experiments.selidx]
-                    combo_presets.items = list(combo_experiments.selection.get('presets', {}).keys())
-
-
-                def loadpreset(*_) -> None:
-                    # delete possibly existing axes from previous experiment
-                    self.radar_req.clear()
-
-                    lbl_status.text = 'Currently loaded preset: {}'.format(combo_presets.selection)
-                    p = combo_experiments.selection['presets'].get(combo_presets.selection, None)
-                    logger.info('Currently loaded preset', combo_presets.selection, p)
-                    self.preset = {'presetname': list(combo_presets.items)[combo_presets.selidx], 'preset': p}
-
-                    if p is not None:
-                        for feat in p.keys():
-                            print(self.descrs.get(feat))
-                            datamin = float(self.descrs.get(feat, {}).get('min', 0))
-                            datamax = float(self.descrs.get(feat, {}).get('max', 1))
-
-                            self.radar_req.addaxis(
-                                feat,
-                                minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
-                                maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
-                                unit=self.descrs.get(feat, {}).get('unit', ''),
-                                intervalmin=datamin + abs(datamax - datamin) / 2 if p[feat] is None else p[feat][0],
-                                intervalmax=datamax - abs(datamax - datamin) / 2 if p[feat] is None else p[feat][1]
-                            )
-
-                    if chk_qod.checked: query()
-
-                def autoquery(*_) -> None:
-                    btn_query.enabled = not chk_qod.checked
-
-                self.radar_req.on_select += sel
-                btn_query.on_select += query
-                chk_qod.on_checked += autoquery
-                combo_experiments.on_select += loadexperiment
-                combo_presets.on_select += loadpreset
-
-                # TODO temporary preset loading and threshold entering, remove after debugging
-                print('self sel exists', hasattr(self, 'sel'))
-                if hasattr(self, 'sel') and self.sel is not None:
-                    print('setting preset', self.sel)
-                    combo_experiments.selection = self.sel
-                    loadexperiment()
-                print('self preset exists', hasattr(self, 'preset'))
-                if hasattr(self, 'preset') and self.preset is not None:
-                    print('setting preset', self.preset['presetname'])
-                    combo_presets.selection = self.preset['presetname']
-                    loadpreset()
-            else:
-                # make window visible again and put focus on it
-                self.wnd_reqprof.visible = True
-                self.wnd_reqprof.focus()
-
-            self.wnd_reqprof.show()
-
-        def update(self) -> None:
             self.wnd_wait.visible = False
+            btn_search.enabled=True
+            btn_query_model.enabled=True
 
-            # initialize radar chart containing candidate datasets
-            self.candidates = self.bayrob.hypotheses
-            radar_candidates = Radar(comp_radar, legendtext='Hypotheses', halign='fill', valign='fill')
+            result = self.bayrob.result
+            path = result.result
 
-            # create empty radar chart from requirement profile
-            for axis in self.radar_req.axes:
-                radar_candidates.addaxis(axis.name,
-                                         minval=axis.minval,
-                                         maxval=axis.maxval,
-                                         unit=axis.unit,
-                                         intervalmin=axis.intervalmin,
-                                         intervalmax=axis.intervalmax)
+            if not result.success:
+                logger.warning(f'There was a problem: Error: {result.error}. Message: {result.message}')
+                lbl_status.text = "Success!" if self.bayrob.result.success else f"Failed: {result.error}"
+                lbl_textresults.text = result.message
+                self.bayrob.result.clear()
+                self._shell.dolayout()
+                return
+            else:
+                logger.info(f'Search {self.bayrob.query} finished successfully.')
 
-            data = {}
-            for i, hyp in enumerate(self.candidates):
-                pathvals = hyp.result
-                values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
-                data.update({hyp.id: values})
-                table_candidates.additem([hyp.id, str(hyp.performance)])
+            # create containers for search path visualization
+            for c in comp_analysisviz.children:
+                c.dispose()
 
-            # sort results in table descending by probability
-            sort_by_sim(down=True)
+            comp_viz_search = Composite(comp_analysisviz)
+            comp_viz_search.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
 
-            # data maps example name (=material) to (sorted) list of values for the radar chart axes
-            radar_candidates.setdata(data)
-            lbl_status.text = '...done! Found {} candidates.'.format(len(self.candidates))
+            comp_viz_path = Composite(comp_viz_search)
+            comp_viz_path.layout = CellLayout(halign='fill', valign='fill')
+
+            # for dists plots
+            comp_viz_dists = Composite(comp_viz_search)
+            comp_viz_dists.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
+
+            # for dist pos
+            comp_viz_pos = Composite(comp_viz_dists)
+            comp_viz_pos.layout = CellLayout(halign='fill', valign='fill')
+
+            # for dist dir
+            comp_viz_dir = Composite(comp_viz_dists)
+            comp_viz_dir.layout = CellLayout(halign='fill', valign='fill')
+
+            d = gendata_path(
+                xvar='x_in',
+                yvar='y_in',
+                path=path
+            )
+
+            fig_path = plot_path(
+                xvar='x_in',
+                yvar='y_in',
+                p=path,
+                d=d,
+                obstacles=[obstacle_kitchen_boundaries] + obstacles
+            )
+
+            data_pos = [
+                gendata(
+                    'x_in',
+                    'y_in',
+                    s,
+                    {},
+                ) for i, s in enumerate(path) if not isinstance(s, Goal)
+            ]
+
+            fig_pos = plot_pos(
+                path=path,
+                d=data_pos,
+                limx=(0, 100),
+                limy=(0, 100)
+            )
+
+            data_dir = [
+                gendata(
+                    'xdir_in',
+                    'ydir_in',
+                    s,
+                    {},
+                ) for i, s in enumerate(path) if not isinstance(s, Goal)
+            ]
+
+            fig_dir = plot_dir(
+                path=path,
+                d=data_dir,
+                limx=(-3, 3),
+                limy=(-3, 3)
+            )
+
+            # save plot to html file
+            fname_path = os.path.join(self.uploaddir, f"search-path.html")
+            fname_pos = os.path.join(self.uploaddir, f"search-pos.html")
+            fname_dir = os.path.join(self.uploaddir, f"search-dir.html")
+
+            fig_to_file(fig_path, fname_path, ftypes=['.svg', '.html'])
+            fig_to_file(fig_pos, fname_pos, ftypes=['.svg', '.html'])
+            fig_to_file(fig_dir, fname_dir, ftypes=['.svg', '.html'])
+
+            # register file to make it available as resource
+            for fn, comp in zip([fname_path, fname_pos, fname_dir], [comp_viz_path, comp_viz_pos, comp_viz_dir]):
+                resname = f'resource/static/image/{Path(fn).stem}.html'
+                with open(fn, 'rb') as f:
+                    res = session.runtime.mngr.resources.registerf(resname, 'text/html', f, force=True)
+                    u_ = f'http://{session.host}{session.location}{res.location}'
+
+                    # display plot in visualization
+                    Browser(
+                        comp,
+                        url=u_,
+                        halign='fill',
+                        valign='fill'
+                    )
+
+            lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
+            lbl_textresults.text = str(self.bayrob.result)
+
+            self.bayrob.result.clear()
+            self._shell.dolayout()
+
+        def plot_query_results(
+                self
+        ) -> None:
+            # a succeeded query is visualized in terms of a) a plot of ground truth (scatter or normalized bar plot)
+            # and b) a plot of the distribution (heatmap or normalized bar plot) for each plot variable enterd in the
+            # query window and c) a tree plot of the conditional tree (without distribution images). A new window is
+            # opened for each ground truth/distribution plot pair. The conditional tree can be downloaded as PDF file
+            # (including distribution images)
+
+            self.wnd_wait.visible = False
+            btn_search.enabled = True
+            btn_query_model.enabled = True
+
+            result = self.bayrob.result
+            cond, post = result.result
+
+            if not result.success:
+                logger.warning(f'There was a problem: Error: {result.error}. Message: {result.message}')
+                lbl_status.text = "Success!" if self.bayrob.result.success else f"Failed: {result.error}"
+                lbl_textresults.text = result.message
+                self.bayrob.result.clear()
+                self._shell.dolayout()
+                return
+            else:
+                logger.info(f'Querying {self.bayrob.query} finished successfully.')
+
+            # plot conditional tree
+            fn_tree = os.path.join(self.uploaddir, f"conditional_tree.svg")
+            cond.plot(
+                plotvars=None,
+                filename=f'conditional_tree',
+                directory=self.uploaddir,
+                leaffill='#CCDAFF',
+                nodefill='#768ABE',
+                alphabet=True,
+                view=False
+            )
+
+            cond.plot(
+                plotvars=list(cond.variables),
+                filename=f'conditional_tree_dists',
+                directory=self.uploaddir,
+                leaffill='#CCDAFF',
+                nodefill='#768ABE',
+                alphabet=True,
+                view=False
+            )
+
+            # plot conditional tree and visualize it in main window (downloadable through download button in menu)
+            for c in comp_analysisviz.children:
+                c.dispose()
+
+            c = ScrolledComposite(comp_analysisviz, valign='fill', halign='fill', hscroll=True, vscroll=True)
+            s = SVG(c.content, svg=fn_tree, halign='fill', valign='fill')
+            s.maxheight(comp_analysisviz.bounds[3])
+            s.maxwidth(comp_analysisviz.bounds[2])
+
+            btn_download.enabled = True
+
+            # plot ground truth/distribution pairs (separate window for each variable)
+            df = pd.read_parquet(self.bayrob.datasets[self.qo.modelname])
+
+            for plot in self.qo.plotvars:
+                if isinstance(plot, list):
+                    if all([v.name.endswith('_in') for v in plot]):
+                        limx = (0, 100)
+                        limy = (0, 100)
+                    else:
+                        limx = (-2, 2)
+                        limy = (-2, 2)
+
+                    # data generation for distribution plot
+                    x = np.linspace(*limx, max(50, int((limx[1] - limx[0]) * 2)))
+                    y = np.linspace(*limy, max(50, int((limy[1] - limy[0]) * 2)))
+
+                    X, Y = np.meshgrid(x, y)
+                    Z = np.array([cond.pdf(cond.bind({plot[0]: x, plot[1]: y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+                    lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in self.qo.query.items()]))
+
+                    data = pd.DataFrame(
+                        data=[[x, y, Z, lbl]],
+                        columns=['x', 'y', 'z', 'lbl']
+                    )
+
+                    gt = plot_ground_truth(df, limx, limy, plot, 'scatter', {k.name: v for k, v in self.qo.query.items()})
+                    dist = plot_dist_heatmap(data, limx, limy)
+                else:
+                    gt = plot_ground_truth(df, None, (0, 1), plot, 'histogram', {k.name: v for k, v in self.qo.query.items()})
+                    dist = plot_dist_bar(post, plot)
+
+                # save plot to html file
+                pt = urlable('X'.join([p.name for p in plot]) if isinstance(plot, list) else plot.name)
+                fname_gt = os.path.join(self.uploaddir, f"gt-{pt}.html")
+                fname_dist = os.path.join(self.uploaddir, f"dist-{pt}.html")
+
+                fig_to_file(gt, fname_gt, ftypes=['.svg', '.html'])
+                fig_to_file(dist, fname_dist, ftypes=['.svg', '.html'])
+
+                # register file to make it available as resource
+                urls = []
+                for fn in [fname_gt, fname_dist]:
+                    resname = f'resource/static/image/{Path(fn).stem}.html'
+                    with open(fn, 'rb') as f:
+                        res = session.runtime.mngr.resources.registerf(resname, 'text/html', f, force=True)
+                        u_ = f'http://{session.host}{session.location}{res.location}'
+                        urls.append(u_)
+
+                # display plot in separate windows
+                open_plot_window(urls, pt)
+
+            self.bayrob.result.clear()
+            self._shell.dolayout()
+
+        def open_plot_window(
+                urls,
+                pvars
+        ):
+            # display ground truth/distribution plot pair in separate window (plotly html in Browser widget)
+            wnd_plot = Shell(parent=self._shell, title=pvars,
+                             border=True, btnclose=True, btnmin=True,
+                             resize=True, modal=False, titlebar=True)
+            wnd_plot.on_resize += wnd_plot.dolayout
+
+            w = min(2100., 0.8 * session.runtime.display.width.value)
+            h = min(1100., 0.8 * session.runtime.display.height.value)
+            wnd_plot.bounds = self._shell.width.value / 2 - w / 2, self._shell.height.value / 2 - h / 2, w, h
+
+            comp_main = Composite(wnd_plot.content, hscroll=True, vscroll=True)
+            comp_main.layout = RowLayout(halign='fill', valign='fill', flexrows=1)
+
+            comp_header = Composite(comp_main, hscroll=True, vscroll=True)
+            comp_header.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
+
+            Label(comp_header, text='<b>Ground Truth</b>', markup=True, halign='center', valign='center')
+            Label(comp_header, text='<b>Distribution</b>', markup=True, halign='center', valign='center')
+
+            comp = Composite(comp_main, hscroll=True, vscroll=True)
+            comp.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 1, 2: 1})
+
+            Browser(
+                comp,
+                url=urls[0],
+                halign='fill',
+                valign='fill'
+            )
+
+            Separator(comp, vertical=True, valign='fill')
+
+            Browser(
+                comp,
+                url=urls[1],
+                halign='fill',
+                valign='fill'
+            )
+
+            wnd_plot.show()
+
+            lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
+            lbl_textresults.text = str(self.bayrob.result)
 
             self._shell.dolayout()
 
-        def showproc(*_) -> None:
-            if self.bayrob.resulttree:
-                cnamefull = table_candidates.selection.texts[0]
+        @self.checkthread
+        def search(*_) -> None:
+            # trigger BayRoB search/plan refinement
 
-                w = min(800., 0.9 * session.runtime.display.width.value)
-                h = min(600., 0.7 * session.runtime.display.height.value)
+            # clear previous visualizations and messages and disable controls to prevent interferences, move menu
+            # out of view
+            clear()
+            self.wnd_search.close()
+            btn_search.enabled = False
+            btn_query_model.enabled = False
+            if da_sash_menu.visible:
+                da_sash_menu.togglemenu()
 
-                # setup window
-                wnd_candproc = Shell(parent=self._shell, title='Process chain for candidate {}'.format(cnamefull),
-                                     border=True, btnmax=True, btnmin=True,
-                                     resize=True, modal=False, titlebar=True,
-                                     minwidth=w, minheight=h)
-                wnd_candproc.on_resize += wnd_candproc.dolayout
-                comp_profile = Composite(wnd_candproc.content)
-                comp_profile.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+            self.bayrob.pushsession.start()
 
-                # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
-                # construct data for tree
-                generate_nodes()
-                data = nodedict(self.bayrob.resulttree.src, cnamefull)
+            lbl_status.text = f'Searching...'
+            lbl_textresults.text = f"Searching path: {str(self.asr)}"
+            logger.info(f'Searching path: {str(self.asr)}')
 
-                tree = RadialTree(comp_profile, css=[res('static/css/charval.css')], halign='fill', valign='fill')
-                tree.setdata(data)
+            # use bayrob reasoner to search path
+            self.bayrob.query = self.asr
+            self.bayrob.runfunction = 'astar'
 
-                wnd_candproc.show(pack=True)
+            self.bayrob.callback = plot_search_results
+            w = session.runtime.display.width.value
+            h = session.runtime.display.height.value
+            self.wnd_wait.bounds = w - wait_imgsize - wait_padding, h - wait_imgsize - wait_padding, wait_imgsize, wait_imgsize
+            self.wnd_wait.visible = True
+            self.bayrob.start()
 
-        def generate_nodes() -> None:
-            parentnode = ResTree.Node(None, nodetext='Start', printnode=False)
-            parentnode.isroot = True
-            parentnode.parameters = self.bayrob.query
-            self.bayrob.resulttree.src = parentnode
+            self._shell.dolayout()
 
-            hyps = self.bayrob.hypotheses.copy()
-            generate_nodes_rec(self.bayrob.resulttree.src, hyps, 0)
+        @self.checkthread
+        def query_jpt(*_) -> None:
+            # trigger BayRoB query for single model
 
-        def generate_nodes_rec(parent, hypotheses, d) -> None:
-            for h in hypotheses:
-                if d < len(h.steps):
-                    step = h.steps[d]
+            # clear previous visualizations and messages and disable controls to prevent interferences, move menu
+            # out of view
+            clear()
+            self.wnd_query_model.close()
+            btn_search.enabled = False
+            btn_query_model.enabled = False
+            if da_sash_menu.visible:
+                da_sash_menu.togglemenu()
 
-                    # create node if not exists yet
-                    n_ = ResTree.Node(parent, printnode=False)
-                    n_.nodetext = 'H_' + '.'.join([str(el) for el in h.identifiers[:d+1]])
-                    n_.edgetext = step.name
-                    n_.result = step.value.copy()
-                    n_.parameters = step.path.copy()
-                    n_.confs = h.performance
+            self.bayrob.pushsession.start()
 
-                    # leaf nodes show confs and overall result instead of step result
-                    if d == len(h.steps)-1:
-                        n_.nodetext = h.id
-                        n_.result = h.result.copy()
-                        n_.printnode = True
+            lbl_status.text = f'Querying...'
+            lbl_textresults.text = f"Querying: {str(self.qo)}"
+            logger.info(f'Querying: {str(self.qo)}')
 
-                    # add node
-                    if n_ not in parent.children:
-                        parent.children.append(n_)
+            # use bayrob reasoner to query single model
+            self.bayrob.query = self.qo
 
-            # recursive call
-            for n in parent.children:
-                generate_nodes_rec(n, [hyp for hyp in hypotheses if 'H_' + '.'.join([str(el) for el in hyp.identifiers[:d+1]]) == n.nodetext and d+1 < len(hyp.steps)], d+1)
+            self.bayrob.runfunction = 'queryjpt'
+            self.bayrob.callback = plot_query_results
+            w = session.runtime.display.width.value
+            h = session.runtime.display.height.value
+            self.wnd_wait.bounds = w - wait_imgsize - wait_padding, h - wait_imgsize - wait_padding, wait_imgsize, wait_imgsize
+            self.wnd_wait.visible = True
+            self.bayrob.start()
 
-        def nodedict(node, hypname) -> dict:
-            d = {
-                "edgetext": str(node.edgetext),
-                "edgetooltip": str(node.edgetttext),
-                "name": str(node.nodetext),
-                "tooltip": str(node.nodetttext),
-                "type": "highlight" if hypname.startswith(node.nodetext) else None,
-                "showname": node.printnode,
-                "showedge": True,
-                "children": []
-                }
-            if node.children:
-               d.update({'children': [nodedict(c, hypname) for c in node.children]})
-            return d
+            self._shell.dolayout()
 
-        def downloadviz(*_) -> None:
-            if not comp_radar.children:
-                lbl_status.text = 'No visualization to download.'
-                return
-            comp_radar.children[-1].download()
-
-        def downloadhypsjson(*_) -> None:
-            if not self.bayrob.hypotheses:
-                lbl_status.text = 'No results to download.'
-                return
-            lbl_status.text = 'Exporting Hypotheses...'
-
-            if self.preset:
-                exp = self.preset['presetname']
-                preset = ['{}: {}'.format(k, v) for k, v in self.preset['preset'].items()]
+        def search_dialog(*_) -> None:
+            # open search window which allows to define init and goal state (or load presets) and trigger
+            # search/plan refinement
+            if self.wnd_search is not None and not self.wnd_search.disposed:
+                # make window visible again and put focus on it
+                self.wnd_search.visible = True
+                self.wnd_search.focus()
             else:
-                exp = 'Unknown'
-                preset = 'Unknown'
+                self.wnd_search = Shell(parent=self._shell, title='BayRoB Search',
+                                             border=True, btnclose=True, btnmin=True,
+                                             resize=True, modal=False, titlebar=True)
+                self.wnd_search.on_resize += self.wnd_search.dolayout
 
-            jsondata = [{'based_on': exp, 'query': preset, 'hypotheses': h.tojson()} for h in self.bayrob.hypotheses]
+                w = min(800., 0.8 * session.runtime.display.width.value)
+                h = min(600., 0.7 * session.runtime.display.height.value)
+                self.wnd_search.bounds = self._shell.width.value/2 - w/2, self._shell.height.value/2 - h/2, w, h
+                comp = Composite(self.wnd_search.content, hscroll=True, vscroll=True)
+                comp.layout = RowLayout(halign='fill', valign='fill', flexrows={2: 1, 7: 1})
 
-            # write to JSON
-            jsonfile = os.path.join(self.uploaddir, 'results.json')
-            with open(jsonfile, 'w+') as fjson:
-                json.dump(jsondata, fjson)
+                # ==================================================================
 
-            session.runtime.download(jsonfile, mimetypes.guess_type(jsonfile)[0], force=True)
+                Label(comp, text='Specify goal', valign='center', halign='fill')
+                # multiple combos to select variables from tree
+                # contains rows of triples (-, combovariable, text value)
+                comp_goalsettings = Composite(comp)
+                comp_goalsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
 
-        def downloadhypscsv(*_) -> None:
+                # buttons to add new queryrow and remove entire query block
+                Label(comp, text='', valign='fill', halign='fill')
+                comp2 = Composite(comp)
+                comp2.layout = ColumnLayout(halign='left', valign='fill')
+                btn_add_queryvar = Button(comp2, '+')
+                btn_clear_vars = Button(comp2, 'clear query')
+                edit_query = Label(comp2, text="", valign='center', halign='fill')
+                Separator(comp, horizontal=True, halign='fill')
 
-            if not self.bayrob.hypotheses:
-                lbl_status.text = 'No results to download.'
-                return
-            lbl_status.text = 'Exporting Hypotheses...'
+                # ==================================================================
 
-            csvdata = []
-            for hyp in self.bayrob.hypotheses:
-                t = hyp.tojson()
-                csvdata.append([', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in self.radar_req.axes]),
-                                t['identifier'],
-                                '\n'.join(['{}: {}'.format(k, v) for k, v in t['result'].items()]),
-                                t['value']] + list(itertools.chain(*zip(['Process: {}\nParams:\n{}'.format(x['name'], '\n'.join(['{}: {}'.format(k1, str(v1)) for k1, v1 in x['params'].items()])) for x in t['steps']],
-                                                                        ['\n'.join(x['samples']) for x in t['steps']]))))
+                Label(comp, text='Specify init state', valign='center', halign='fill')
+                comp_initsettings = Composite(comp)
+                comp_initsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
 
-            # write to CSV
-            csvfile = os.path.join(self.uploaddir, 'results.xls')
-            # the maximum length of the csvdata items indicates, if there are multiple process steps in the respective
-            # hypothesis. Therefore we add one or more Process/Samples columns
-            toxls(csvfile, ['Query', 'Hypname', 'Result', 'Probability'] + ['Process', 'Samples']*int((max([len(d) for d in csvdata])-4.)/2.), csvdata)
+                # buttons to add new queryrow and remove entire query block
+                Label(comp, text='', valign='fill', halign='fill')
+                comp3 = Composite(comp)
+                comp3.layout = ColumnLayout(halign='left', valign='fill')
+                btn_add_initvar = Button(comp3, '+')
+                btn_clear_initvars = Button(comp3, 'clear init vars')
+                edit_init = Label(comp3, text="", valign='center', halign='fill')
 
-            session.runtime.download(csvfile, mimetypes.guess_type(csvfile)[0], force=True)
+                # ==================================================================
+
+                comp_preset = Composite(comp)
+                comp_preset.layout = ColumnLayout(valign='fill', halign='fill', flexcols=1)
+                Label(comp_preset, text='Load preset', valign='center', halign='fill')
+                combo_presets = Combo(comp_preset, editable=False, items=self.presets(qtype='search'), minwidth=px(200), halign='fill',valign='fill')
+
+                # ==================================================================
+
+                btn_execute_query = Button(comp, 'Search', valign='fill', halign='fill')
+
+                # ==================================================================
+
+                self.asr = Search()
+
+                allvars = self.bayrob.models['move.tree'].variables + self.bayrob.models['turn.tree'].variables + \
+                          self.bayrob.models['perception.tree'].variables + self.bayrob.models['pr2.tree'].variables
+                allvars_ = {v.name: v for v in allvars}
+
+                def add_goalvar_row(*_):
+                    # goal state specification:
+                    # add row containing dropdown box for variable selection (all variables from all models), value
+                    # specification, (tolerance specification for Numeric variables) and button to remove entire row
+
+                    comp_tmp = Composite(comp_goalsettings)
+                    comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0, 1])
+                    combo_vars = Combo(comp_tmp, editable=False, items=allvars, minwidth=px(200), halign='fill', valign='fill')
+                    lbl_vals = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_tol = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_tol.enabled = False
+                    btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
+
+                    def add_goalvar(*_) -> None:
+                        # add variable represented by row to goal state specification
+
+                        self.asr.goal[combo_vars.selection] = parseval(
+                            lbl_vals.text,
+                            var=combo_vars.selection,
+                            onlysets=True
+                        )
+                        self.asr.goal_tolerances[combo_vars.selection] = lbl_tol.text
+                        updatequery()
+
+                    def rem_goalvar(*_) -> None:
+                        # remove variable represented by row from goal state specification
+
+                        if combo_vars.selection in self.asr.goal and self.asr.goal[combo_vars.selection] == lbl_vals.text:
+                            del self.asr.goal[combo_vars.selection]
+                        if combo_vars.selection in self.asr.goal_tolerances and self.asr.goal_tolerances[combo_vars.selection] == lbl_tol.text:
+                            del self.asr.goal_tolerances[combo_vars.selection]
+                        comp_tmp.dispose()
+                        updatequery()
+
+                    def update_suggestions(*_) -> None:
+                        # add message with suggestions for possible values depending on selected variable
+
+                        lbl_vals.message = suggestions(combo_vars.selection)
+                        lbl_tol.enabled = combo_vars.selection.domain is Numeric
+                        self.wnd_search.dolayout()
+
+                    btn_rem_queryvar.on_select += rem_goalvar
+                    combo_vars.on_select += update_suggestions
+                    lbl_vals.on_modify += add_goalvar
+                    self.wnd_search.dolayout()
+
+                def add_initvar_row(*_):
+                    # init state specification:
+                    # add row containing dropdown box for variable selection (all variables from all models), value
+                    # specification, (tolerance specification for Numeric variables) and button to remove entire row
+
+                    comp_tmp = Composite(comp_initsettings)
+                    comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0, 1])
+                    combo_vars = Combo(comp_tmp, editable=False, items=allvars, minwidth=px(200), halign='fill', valign='fill')
+                    lbl_vals = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_tol = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_tol.enabled = False
+                    btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
+
+                    def add_initvar(*_) -> None:
+                        # add variable represented by row to init state specification
+
+                        self.asr.init[combo_vars.selection] = parseval(
+                            lbl_vals.text,
+                            var=combo_vars.selection,
+                            onlysets=True
+                        )
+                        self.asr.init_tolerances[combo_vars.selection] = lbl_tol.text
+                        updatequery()
+
+                    def rem_initvar(*_) -> None:
+                        # remove variable represented by row from init state specification
+
+                        if combo_vars.selection in self.asr.init and self.asr.init[combo_vars.selection] == lbl_vals.text:
+                            del self.asr.init[combo_vars.selection]
+                        if combo_vars.selection in self.asr.init_tolerances and self.asr.init_tolerances[combo_vars.selection] == lbl_tol.text:
+                            del self.asr.init[combo_vars.selection]
+                        comp_tmp.dispose()
+                        updatequery()
+
+                    def update_suggestions(*_) -> None:
+                        # add message with suggestions for possible values depending on selected variable
+
+                        lbl_vals.message = suggestions(combo_vars.selection)
+                        lbl_tol.enabled = combo_vars.selection.domain is Numeric
+                        self.wnd_search.dolayout()
+
+                    btn_rem_queryvar.on_select += rem_initvar
+                    combo_vars.on_select += update_suggestions
+                    lbl_vals.on_modify += add_initvar
+                    self.wnd_search.dolayout()
+
+                def updatequery(*_):
+                    # update the text summary of query so far
+
+                    edit_query.text = ', '.join([f'{k}: {v}' for k, v in self.asr.goal.items()])
+                    edit_init.text = ', '.join([f'{k}: {v}' for k, v in self.asr.init.items()])
+                    self.wnd_search.dolayout()
+
+                def loadpreset(*_):
+                    # update init and goal state according to predefined settings, update summary texts
+
+                    preset = combo_presets.selection
+                    clear_goal()
+                    clear_init()
+
+                    self.asr.init = {allvars_[k]: v for k, v in preset['init'].items()}
+                    self.asr.init_tolerances = {allvars_[k]: v for k, v in preset['init_tolerances'].items()}
+                    self.asr.goal = {allvars_[k]: v for k, v in preset['goal'].items()}
+                    self.asr.goal_tolerances = {allvars_[k]: v for k, v in preset['goal_tolerances'].items()}
+
+                    edit_query.text = ', '.join([f'{k}: {v}' for k, v in self.asr.goal.items()])
+                    edit_init.text = ', '.join([f'{k}: {v}' for k, v in self.asr.init.items()])
+                    self.wnd_search.dolayout()
+
+                def clear_goal(*_):
+                    # remove all goal state specifications
+
+                    children = [c for c in comp_goalsettings.children]
+                    for c in children:
+                        c.dispose()
+                    btn_add_queryvar.enabled = True
+                    btn_add_initvar.enabled = True
+                    self.wnd_search.dolayout()
+
+                def clear_init(*_):
+                    # remove all init state specifications
+
+                    children = [c for c in comp_initsettings.children]
+                    for c in children:
+                        c.dispose()
+                    btn_add_queryvar.enabled = True
+                    btn_add_initvar.enabled = True
+                    self.wnd_search.dolayout()
+
+                # ==================================================================
+
+                btn_add_queryvar.on_select += add_goalvar_row()
+                btn_add_initvar.on_select += add_initvar_row
+                btn_clear_vars.on_select += clear_goal
+                btn_clear_initvars.on_select += clear_init
+                btn_clear_vars.on_select += updatequery
+                combo_presets.on_select += loadpreset
+                btn_execute_query.on_select += search
+
+            self.wnd_search.show()
+
+        def query_model_dialog(*_) -> None:
+
+            # open query window which allows to select model to query, specify query variables and select variables
+            # to be plotted
+            if self.wnd_query_model is not None and not self.wnd_query_model.disposed:
+                # make window visible again and put focus on it
+                self.wnd_query_model.visible = True
+                self.wnd_query_model.focus()
+            else:
+                self.wnd_query_model = Shell(parent=self._shell, title='BayRoB Query',
+                                             border=True, btnclose=True, btnmin=True,
+                                             resize=True, modal=False, titlebar=True)
+                self.wnd_query_model.on_resize += self.wnd_query_model.dolayout
+
+                w = min(800., 0.8 * session.runtime.display.width.value)
+                h = min(600., 0.7 * session.runtime.display.height.value)
+                self.wnd_query_model.bounds = self._shell.width.value/2 - w/2, self._shell.height.value/2 - h/2, w, h
+                comp = Composite(self.wnd_query_model.content, hscroll=True, vscroll=True)
+                comp.layout = RowLayout(halign='fill', valign='fill', flexrows={5: 1, 10: 1})
+
+                # ==================================================================
+
+                # combo to select tree model
+                Label(comp, text='Select model', valign='fill', halign='fill')
+                combo_models = Combo(comp, editable=False, items=[], halign='fill')
+                Separator(comp, horizontal=True, halign='fill')
+
+                # ==================================================================
+
+                # multiple combos to select variables from trees
+                # contains rows of triples (-, combovariable, text value)
+                Label(comp, text='Select query variable(s)', valign='fill', halign='fill')
+                comp_varsettings = Composite(comp)
+                comp_varsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
+
+                # buttons to add new queryrow and remove entire query block
+                Label(comp, text='', valign='fill', halign='fill')
+                comp2 = Composite(comp)
+                comp2.layout = ColumnLayout(halign='left', valign='fill')
+                btn_add_queryvar = Button(comp2, '+')
+                btn_clear_vars = Button(comp2, 'clear query')
+                btn_add_queryvar.enabled = False
+                edit_query = Label(comp2, text="", valign='center', halign='fill')
+                Separator(comp, horizontal=True, halign='fill')
+
+                # ==================================================================
+
+                Label(comp, text='Plot settings', valign='fill', halign='fill')
+                comp_varplot = Composite(comp)
+                comp_varplot.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
+
+                # buttons to add new queryrow and remove entire query block
+                Label(comp, text='', valign='fill', halign='fill')
+                comp3 = Composite(comp)
+                comp3.layout = ColumnLayout(halign='left', valign='fill')
+                btn_add_plotvar = Button(comp3, '+')
+                btn_add_plotvar.enabled = False
+                btn_clear_plotvars = Button(comp3, 'clear plot vars')
+                edit_plotvars = Label(comp3, text="", valign='center', halign='fill')
+
+                # ==================================================================
+
+                btn_execute_query = Button(comp, 'Query', valign='fill', halign='fill')
+
+                # ==================================================================
+
+                self.qo = Query()
+
+                def add_queryvar_row(*_):
+                    # query specification:
+                    # add row containing dropdown box for variable selection (variables from selected model), value
+                    # specification and button to remove entire row
+
+                    btn_add_queryvar.enabled = True
+
+                    comp_tmp = Composite(comp_varsettings)
+                    comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0, 1])
+                    combo_vars = Combo(comp_tmp, editable=False, items=self.qo.model.variables, minwidth=px(200), halign='fill', valign='fill')
+                    lbl_vals = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
+
+                    def add_queryvar(*_) -> None:
+                        # add variable represented by row to query specification
+
+                        self.qo.query[combo_vars.selection] = parseval(
+                            lbl_vals.text,
+                            var=combo_vars.selection
+                        )
+                        updatequery()
+
+                    def rem_queryvar(*_) -> None:
+                        # remove variable represented by row from query specification
+
+                        if combo_vars.selection in self.qo.query and self.qo.query[combo_vars.selection] == lbl_vals.text:
+                            del self.qo.query[combo_vars.selection]
+                        comp_tmp.dispose()
+                        updatequery()
+
+                    def update_suggestions(*_) -> None:
+                        # add message with suggestions for possible values depending on selected variable
+
+                        lbl_vals.message = suggestions(combo_vars.selection)
+                        self.wnd_query_model.dolayout()
+
+                    btn_rem_queryvar.on_select += rem_queryvar
+                    combo_vars.on_select += update_suggestions
+                    lbl_vals.on_modify += add_queryvar
+                    self.wnd_query_model.dolayout()
+
+                def add_plotvar_row(*_) -> None:
+                    # plot specification:
+                    # add row containing dropdown box for variable selection (variables from selected model) and
+                    # button to remove row
+
+                    btn_add_plotvar.enabled = True
+
+                    comp_tmp = Composite(comp_varplot)
+                    comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0])
+                    combo_vars = Combo(comp_tmp, editable=False, items=self.presets('plotvars')[self.qo.modelname], minwidth=px(200), halign='fill', valign='fill')
+                    btn_rem_var = Button(comp_tmp, '-', valign='fill', halign='fill')
+
+                    def add_plotvar(*_) -> None:
+                        # add variable represented by row to list of plots
+
+                        self.qo.plotvars.append(combo_vars.selection)
+                        updateplot()
+
+                    def rem_plotvar(*_) -> None:
+                        # remove variable represented by row from list of plots
+
+                        if combo_vars.selection in self.qo.plotvars:
+                            self.qo.plotvars.remove(combo_vars.selection)
+                        comp_tmp.dispose()
+                        updateplot()
+                        self.wnd_query_model.dolayout()
+
+                    btn_rem_var.on_select += rem_plotvar
+                    combo_vars.on_select += add_plotvar
+                    self.wnd_query_model.dolayout()
+
+                def updatequery(*_):
+                    # update the text summary of query so far
+
+                    self.qo.querystr = build_constraints({k.name: v for k,v in self.qo.query.items()})
+                    edit_query.text = self.qo.querystr
+                    self.wnd_query_model.dolayout()
+
+                def updateplot(*_) -> None:
+                    # update the text summary variables to plot
+
+                    edit_plotvars.text = ', '.join([str(x) for x in self.qo.plotvars])
+                    self.wnd_query_model.dolayout()
+
+                def clear_query(*_):
+                    # remove all query specifications
+
+                    children = [c for c in comp_varsettings.children]
+                    for c in children:
+                        if c.children[0].selection in self.qo.query:
+                            del self.qo.query[c.children[0].selection]
+                        c.dispose()
+                    btn_add_queryvar.enabled = True
+                    btn_add_plotvar.enabled = True
+                    self.qo.model = combo_models.selection
+                    self.qo.modelname = list(combo_models.items.keys())[combo_models.selidx]
+                    self.wnd_query_model.dolayout()
+
+                def clear_plot(*_):
+                    # remove all variables from plot list
+
+                    self.qo.plotvars = []
+                    children = [c for c in comp_varplot.children]
+                    for c in children:
+                        c.dispose()
+                    btn_add_queryvar.enabled = True
+                    btn_add_plotvar.enabled = True
+                    self.qo.model = combo_models.selection
+                    self.qo.modelname = list(combo_models.items.keys())[combo_models.selidx]
+                    updateplot()
+                    self.wnd_query_model.dolayout()
+
+                # ==================================================================
+
+                combo_models.on_select += clear_query
+                combo_models.on_select += clear_plot
+                combo_models.items = self.bayrob.allmodels()
+                btn_add_queryvar.on_select += add_queryvar_row
+                btn_add_plotvar.on_select += add_plotvar_row
+                btn_clear_vars.on_select += clear_query
+                btn_clear_vars.on_select += updatequery
+                btn_clear_plotvars.on_select += clear_plot
+                btn_clear_plotvars.on_select += updatequery
+                btn_execute_query.on_select += query_jpt
+
+            self.wnd_query_model.show()
 
         #################
         # SET LISTENERS #
         #################
-        btn_defreq.on_select += definereqprofile
-        btn_plotly.on_select += plotly_plot
-        btn_dlviz.on_select += downloadviz
-        btn_dlhypsjson.on_select += downloadhypsjson
-        btn_dlhypscsv.on_select += downloadhypscsv
-        mitem_showproc.on_select += showproc
+        btn_query_model.on_select += query_model_dialog
+        btn_search.on_select += search_dialog
+        tabfldr_body.selected = 0
 
         self._shell.show()
 
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     # MOBILE VERSION
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-    def mobile(self, **kwargs) -> None:
-        self._shell = Shell(maximized=True, titlebar=False)
-        self._shell.bg = Color('transp')
-        self._shell.on_resize += self._shell.dolayout
-
-        comp_mainframe = Composite(self._shell.content)
-        comp_mainframe.layout = RowLayout(halign='fill', valign='fill', flexrows={1: 1}, vspace=0)
-
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # HEADER
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        comp_header = Composite(comp_mainframe)
-        comp_header.layout = ColumnLayout(halign='fill', flexcols={1: 0.2, 4: 0.2}, padding=Pixels(0))
-        comp_header.css = 'navbar'
-        comp_header.bgimg = Image(res('static/images/dark-metal-texture_rot.png'))
-
-        # LOGOS #
-        h = 35
-        _logo = Image(res('static/images/logo.png')).resize(height=px(int(h)))
-        h = _logo.height
-        logo = Label(comp_header, padding=Pixels(0), img=_logo, valign='top')
-        logo.bg = Color('transp')
-        Label(comp_header, padding=Pixels(0))
-        ailogo = Label(comp_header, img=Image(res('static/images/ai_logo_white.png')).resize(height=Pixels(.9 * h)), valign='center', halign='center')
-        ailogo.bg = Color('transp')
-        Label(comp_header, padding=Pixels(0))
-
-        # MENU #
-        menulabel = Label(comp_header, img=Image(res('static/images/menu.png')).resize(height=Pixels(.9 * h)), valign='center', halign='right', padding=Pixels(5))
-        menulabel.layout.minheight = Pixels(.6 * h)
-        menulabel.bg = 'transp'
-
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        # BODY
-        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-        comp_body = Composite(comp_mainframe, border=True)
-        comp_body.layout = StackLayout(halign='fill', valign='fill')
-        comp_body.bg = Color('white')
-
-        lbl_status = Label(comp_mainframe, text='', valign='fill', halign='fill')
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # HOME PAGE #
-        comp_home = Composite(comp_body)
-        comp_home.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
-        comp_home.bg = Color('white')
-        comp_home.visible = True
-
-        comp = Composite(comp_home, hscroll=True, vscroll=True)
-        comp.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-
-        comp_profile = Composite(comp)
-        comp_profile.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0)
-
-        comp_features = Composite(comp_profile)
-        comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-        feature_table = Table(comp_features, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
-        expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.examples, 'paperexample', 'exampledata.json'), 'r'))])
-        combo_experiments = Combo(comp_features, editable=False, items=expdata, minwidth=self._shell.width.value/2, halign='fill', valign='fill')
-
-        def sort_by_feat(*_):
-            feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[0],
-                                         reverse=feature_table.sortedby[1] == 'down')
-
-        def sort_by_unit(*_):
-            feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[1],
-                                         reverse=feature_table.sortedby[1] == 'down')
-
-        col_feature = feature_table.addcol('Feature', sortable=True, width=100)
-        col_feature.on_select += sort_by_feat
-        col_unit = feature_table.addcol('Unit', sortable=True, width=100)
-        col_unit.on_select += sort_by_unit
-        col_min = feature_table.addcol('Min', sortable=False, width=100)
-        col_max = feature_table.addcol('Max', sortable=False, width=100)
-
-        m = Menu(feature_table, popup=True)
-        rem = MenuItem(m, 'Remove feature from requirement profile...')
-        insert = MenuItem(m, 'Add feature to requirement profile...')
-
-        def insertitem(*_):
-            # inserts currently selected table item as propety axis in requirement profile.
-            # Values taken from previously loaded experimental data.
-            featurename = feature_table.selection.texts[0]
-            if featurename not in [axis.name for axis in radar_req.axes]:
-                datamin = float(self.descrs.get(featurename, {}).get('min', 0))
-                datamax = float(self.descrs.get(featurename, {}).get('max', 1))
-
-                radar_req.addaxis(
-                    featurename,
-                    minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
-                    maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
-                    unit=self.descrs.get(featurename, {}).get('unit', ''),
-                    intervalmin=datamin + abs(datamax - datamin) / 2,
-                    intervalmax=datamax - abs(datamax - datamin) / 2
-                )
-
-        def remitem(*_):
-            # removes currently selected table item (=property axis) from requirement profile
-            featurename = feature_table.selection.texts[0]
-            radar_req.remaxisbyname(featurename)
-
-        # TODO temporary preset loading and threshold entering, prettify or remove!
-        combo_presets = Combo(comp_features, items=[], halign='fill', valign='fill')
-
-        grp_strategy = Group(comp_features, text='Strategy')
-        grp_strategy.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
-
-        opt_bfs = Option(grp_strategy, text='BFS')
-        opt_dfs = Option(grp_strategy, text='DFS')
-        opt_bfs.checked = True
-
-        lbl_threshold = Edit(comp_features, text="0.2", message='Threshold', editable=True, valign='center', halign='fill')
-
-        insert.on_select += insertitem
-        rem.on_select += remitem
-        feature_table.menu = m
-
-        def loadexperiment(*_) -> None:
-
-            # deletes previously loaded items
-            feature_table.items = []
-
-            for feature in self.descrs:
-                feature_table.additem([feature,
-                                       self.descrs.get(feature, {}).get('unit', ''),
-                                       self.descrs.get(feature, {}).get('min', ''),
-                                       self.descrs.get(feature, {}).get('max', '')])
-            self._shell.dolayout()
-
-            # update options for preset toggle button and load preset
-            self._sel = list(combo_experiments.items)[combo_experiments.selidx]
-            combo_presets.items = list(combo_experiments.selection.get('presets', {}).keys())
-
-        def loadpreset(*_) -> None:
-            self._sel = list(combo_experiments.items)[combo_experiments.selidx]
-
-            # delete possibly existing axes from previous experiment
-            radar_req.clear()
-            radar_req.layout.minwidth = self._shell.bounds[2] - 8
-            radar_req.layout.minheight = self._shell.bounds[3]*0.7
-
-            p = combo_experiments.selection['presets'].get(combo_presets.selection, None)
-
-            lbl_status.text = 'Currently loaded preset: {}'.format(combo_presets.selection)
-            logger.info('Currently loaded preset', combo_presets.selection, p)
-
-            if p is not None:
-                for feat in p.keys():
-                    datamin = float(self.descrs.get(feat, {}).get('min', 0) or 0)
-                    datamax = float(self.descrs.get(feat, {}).get('max', 1) or 1)
-
-                    radar_req.addaxis(
-                        feat,
-                        minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
-                        maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
-                        unit=self.descrs.get(feat, {}).get('unit', ''),
-                        intervalmin=datamin + abs(datamax - datamin) / 2 if p[feat] is None else p[feat][0],
-                        intervalmax=datamax - abs(datamax - datamin) / 2 if p[feat] is None else p[feat][1]
-                    )
-            switchpage(None, comp_definereq)
-            self._shell.dolayout(pack=True)
-
-        combo_experiments.on_select += loadexperiment
-        combo_presets.on_select += loadpreset
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # DEFINE REQUIREMENT PROFILE PAGE #
-        comp_definereq = Composite(comp_body)
-        comp_definereq.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-        comp_definereq.visible = False
-
-        comp_radar = ScrolledComposite(comp_definereq, valign='fill', halign='fill', vscroll=True, hscroll=True)
-
-        radar_req = Radar(comp_radar.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
-
-        # LISTENER FUNCTIONS
-        def setinterval(axis) -> None:
-            answer = ask_input(self._shell, 'Enter Interval for axis "{}"'.format(axis), message='[-2,3]')
-            if answer is not None:
-                try:
-                    interval = ContinuousSet.fromstring(answer)
-                    radar_req.interval(axis, minval=interval.lower, maxval=interval.upper)
-                except:
-                    msg_err(self._shell, 'Error', 'Unable to set Interval {}. Please use a valid notation (e.g. [-2,3])'.format(answer))
-
-        def remaxis(axis) -> None:
-            radar_req.remaxisbyname(axis)
-            lbl_status.text = 'Axis "{0}" was removed and will hence be ignored.'.format(axis)
-
-        def open_menu(axis):
-            # show menu for right click on axis in requirement profile radar
-
-            # AXIS MENU #
-            menuentries = OrderedDict([
-                ('Set interval', setinterval),
-                ('Remove axis "{}"'.format(axis), remaxis)
-            ])
-
-            answer, callback = options_list(self._shell, menuentries)
-            callback(axis)
-
-        lbl_req_changes = Label(comp_definereq, text='<b>Requirement changes:</b>', markup=True, halign='fill', valign='fill')
-        lbl_req_changes.visible = False
-        btn_query = Button(comp_definereq, 'Query')
-
-        def sel(*kwargs) -> None:
-            # listener function for interaction with requirement profile radar chart.
-            # Handles feedback for user
-            d = kwargs[0].args[0]
-            stat = ''
-            if d.get('type') == 'circle':
-                stat = 'The {1[name]} value for the alloy {0} has been changed to {1[value]}!'.format(d['dataset'], d['data'])
-            elif d.get('type') in ['mininterval', 'rs_miniv']:
-                stat = 'The lower bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
-            elif d.get('type') in ['maxinterval', 'rs_maxiv']:
-                stat = 'The upper bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
-            elif d.get('type') == 'axis':
-                if kwargs[0].button == 'right':
-                    switchpage(d['axis'])
-                    return
-            else:
-                stat = 'invalid datatype {}'.format(d.get('type'))
-            lbl_status.text = stat
-
-        def update(self) -> None:
-            # initialize radar chart containing candidate datasets
-            self.candidates = self.bayrob.hypotheses
-            radar_candidates = Radar(comp_res.content, legendtext='Hypotheses', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
-
-            # create empty radar chart from requirement profile
-            for axis in radar_req.axes:
-                radar_candidates.addaxis(axis.name,
-                                         minval=axis.minval,
-                                         maxval=axis.maxval,
-                                         unit=axis.unit,
-                                         intervalmin=axis.intervalmin,
-                                         intervalmax=axis.intervalmax)
-
-            data = {}
-            for i, hyp in enumerate(self.candidates):
-                pathvals = hyp.result
-                values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
-                data.update({hyp.id: values})
-                table_candidates.additem([hyp.id, str(hyp.performance)])
-
-            # sort results in table descending by probability
-            sort_by_sim(down=True)
-
-            # data maps example name (=material) to (sorted) list of values for the radar chart axes
-            radar_candidates.setdata(data)
-            lbl_status.text = '...done! Found {} candidates.'.format(len(self.candidates))
-
-            switchpage(None, comp_candidates)
-
-            self._shell.dolayout()
-
-        def showproc(*_) -> None:
-            if self.bayrob.resulttree:
-                cnamefull = table_candidates.selection.texts[0]
-
-                # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
-                # construct data for tree
-                generate_nodes()
-                data = nodedict(self.bayrob.resulttree.src, cnamefull)
-
-                tree.setdata(data)
-
-                switchpage(None, comp_tree)
-
-        def generate_nodes() -> None:
-            parentnode = ResTree.Node(None, nodetext='Start', printnode=False)
-            parentnode.isroot = True
-            parentnode.parameters = self.bayrob.query
-            self.bayrob.resulttree.src = parentnode
-
-            hyps = self.bayrob.hypotheses.copy()
-            generate_nodes_rec(self.bayrob.resulttree.src, hyps, 0)
-
-        def generate_nodes_rec(parent, hypotheses, d) -> None:
-            for h in hypotheses:
-                if d < len(h.steps):
-                    step = h.steps[d]
-
-                    # create node if not exists yet
-                    n_ = ResTree.Node(parent, printnode=False)
-                    n_.nodetext = 'H_' + '.'.join([str(el) for el in h.identifiers[:d+1]])
-                    n_.edgetext = step.name
-                    n_.result = step.value.copy()
-                    n_.parameters = step.path.copy()
-                    n_.confs = h.performance
-
-                    # leaf nodes show confs and overall result instead of step result
-                    if d == len(h.steps)-1:
-                        n_.nodetext = h.id
-                        n_.result = h.result.copy()
-                        n_.printnode = True
-
-                    # add node
-                    if n_ not in parent.children:
-                        parent.children.append(n_)
-
-            # recursive call
-            for n in parent.children:
-                generate_nodes_rec(n, [hyp for hyp in hypotheses if 'H_' + '.'.join([str(el) for el in hyp.identifiers[:d+1]]) == n.nodetext and d+1 < len(hyp.steps)], d+1)
-
-        def nodedict(node, hypname) -> dict:
-            d = {
-                "edgetext": str(node.edgetext),
-                "edgetooltip": str(node.edgetttext),
-                "name": str(node.nodetext),
-                "tooltip": str(node.nodetttext),
-                "type": "highlight" if hypname.startswith(node.nodetext) else None,
-                "showname": node.printnode,
-                "showedge": True,
-                "children": []
-                }
-            if node.children:
-               d.update({'children': [nodedict(c, hypname) for c in node.children]})
-            return d
-
-        @self.checkthread
-        def query(*_) -> None:
-            self.bayrob.pushsession.start()
-
-            try:
-                threshold = float(lbl_threshold.text)
-            except:
-                threshold = 0.0
-
-            # query = dict([(a.name, Interval(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
-            query = dict([(a.name, ContinuousSet(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
-
-            lbl_status.text = 'Querying: strategy={}, threshold={}, params= {}'.format('BFS' if opt_bfs.checked else 'DFS', threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
-            logger.info('Querying', {k: str(v) for k, v in query.items()}, 'BFS' if opt_bfs.checked else 'DFS', threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
-
-            for ti in [x for x in table_candidates.items]:
-                table_candidates.rmitem(ti)
-
-            for c in comp_res.content.children:
-                c.dispose()
-
-            # use bayrob reasoner to query system
-            self.bayrob.query = query
-            self.bayrob.threshold = threshold
-            self.bayrob.models = combo_experiments.selection['trees']
-            self.bayrob.strategy = BayRoB.BFS if opt_bfs.checked else BayRoB.DFS
-            self.bayrob.callback = update
-            self.bayrob.start()
-
-        radar_req.on_select += sel
-        btn_query.on_select += query
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # CANDIDATES PAGE #
-        comp_candidates = Composite(comp_body)
-        comp_candidates.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
-        comp_candidates.bg = Color('white')
-        comp_candidates.visible = False
-
-        table_candidates = Table(comp_candidates, halign='fill', valign='fill', headervisible=True,
-                                 colsmoveable=True, check=False)
-
-        def sort_by_sim(down=None) -> None:
-            if isinstance(down, bool):
-                table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=down)
-            else:
-                table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=table_candidates.sortedby[1] == 'down')
-
-        def sort_by_cand(*_) -> None:
-            table_candidates.items = sorted(table_candidates.items, key=lambda item: str(item.texts[0]), reverse=table_candidates.sortedby[1] == 'down')
-
-        col_candidatename = table_candidates.addcol('Candidate', sortable=True, width=100)
-        col_candidatename.on_select += sort_by_cand
-
-        col_sim = table_candidates.addcol('Probability', sortable=True, width=200)
-        col_sim.on_select += sort_by_sim
-
-        tcm = Menu(table_candidates, popup=True)
-        mitem_showproc = MenuItem(tcm, 'Show process history of candidate')
-        table_candidates.menu = tcm
-
-        table_candidates.on_dblclick += showproc
-
-        mitem_showproc.on_select += showproc
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # RESULTS PAGE
-        comp_res = ScrolledComposite(comp_body, valign='fill', halign='fill', vscroll=True, hscroll=True)
-
-        radar_candidates = Radar(comp_res.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3] * 0.7)
-        comp_res.visible = False
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # TREE PAGE
-        comp_tree = Composite(comp_body)
-        comp_tree.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-
-        tree = RadialTree(comp_tree, css=[res('static/css/charval.css')], halign='fill', valign='fill')
-
-        comp_tree.visible = False
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # DOCUMENTATION PAGE #
-        comp_docs = Composite(comp_body)
-        comp_docs.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-
-        self.setupdoku()
-        Browser(comp_docs, url=config.get('upload', 'dokuloc', fallback=''.join(['http://', session.host, session.location, session.runtime.mngr.resources.get('users.html').location])), halign='fill', valign='fill')
-        comp_docs.visible = False
-
-        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        # MAIN MENU #
-        menuentries = OrderedDict([
-            ('Home', comp_home),
-            ('Define Requirement Profile', comp_definereq),
-            ('Candidates', comp_candidates),
-            ('Results', comp_res),
-            ('Tree', comp_tree),
-            ('Documentation', comp_docs)
-        ])
-
-        # LISTENER FUNCTIONS
-        def switchpage(_, widget=None) -> None:
-            if widget is None:
-                _, widget = options_list(self._shell, menuentries)
-
-            # make all widgets invisible and update the layers
-            for c in comp_body.children:
-                c.visible = False
-
-            # then get the one selected into the foreground
-            logger.debug('Moving widget to foreground', widget.id)
-            widget.visible = True
-
-        menulabel.on_mousedown += switchpage
-
-        # load initial preset
-        combo_experiments.selection = "PaperExample2"
-        # combo_presets.selection = 'preset3'
-        loadexperiment()
-
-        self._shell.show()
-
+    # def mobile(self, **kwargs) -> None:
+    #     self._shell = Shell(maximized=True, titlebar=False)
+    #     self._shell.bg = Color('transp')
+    #     self._shell.on_resize += self._shell.dolayout
+    #
+    #     comp_mainframe = Composite(self._shell.content)
+    #     comp_mainframe.layout = RowLayout(halign='fill', valign='fill', flexrows={1: 1}, vspace=0)
+    #
+    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+    #     # HEADER
+    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+    #     comp_header = Composite(comp_mainframe)
+    #     comp_header.layout = ColumnLayout(halign='fill', flexcols={1: 0.2, 4: 0.2}, padding=Pixels(0))
+    #     comp_header.css = 'navbar'
+    #     comp_header.bgimg = Image(res('static/images/dark-metal-texture_rot.png'))
+    #
+    #     # LOGOS #
+    #     h = 35
+    #     _logo = Image(res('static/images/logo.png')).resize(height=px(int(h)))
+    #     h = _logo.height
+    #     logo = Label(comp_header, padding=Pixels(0), img=_logo, valign='top')
+    #     logo.bg = Color('transp')
+    #     Label(comp_header, padding=Pixels(0))
+    #     ailogo = Label(comp_header, img=Image(res('static/images/ai_logo_white.png')).resize(height=Pixels(.9 * h)), valign='center', halign='center')
+    #     ailogo.bg = Color('transp')
+    #     Label(comp_header, padding=Pixels(0))
+    #
+    #     # MENU #
+    #     menulabel = Label(comp_header, img=Image(res('static/images/menu.png')).resize(height=Pixels(.9 * h)), valign='center', halign='right', padding=Pixels(5))
+    #     menulabel.layout.minheight = Pixels(.6 * h)
+    #     menulabel.bg = 'transp'
+    #
+    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+    #     # BODY
+    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+    #     comp_body = Composite(comp_mainframe, border=True)
+    #     comp_body.layout = StackLayout(halign='fill', valign='fill')
+    #     comp_body.bg = Color('white')
+    #
+    #     lbl_status = Label(comp_mainframe, text='', valign='fill', halign='fill')
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # HOME PAGE #
+    #     comp_home = Composite(comp_body)
+    #     comp_home.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
+    #     comp_home.bg = Color('white')
+    #     comp_home.visible = True
+    #
+    #     comp = Composite(comp_home, hscroll=True, vscroll=True)
+    #     comp.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+    #
+    #     comp_profile = Composite(comp)
+    #     comp_profile.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0)
+    #
+    #     comp_features = Composite(comp_profile)
+    #     comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+    #     feature_table = Table(comp_features, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
+    #     expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.examples, 'paperexample', 'exampledata.json'), 'r'))])
+    #     combo_experiments = Combo(comp_features, editable=False, items=expdata, minwidth=self._shell.width.value/2, halign='fill', valign='fill')
+    #
+    #     def sort_by_feat(*_):
+    #         feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[0],
+    #                                      reverse=feature_table.sortedby[1] == 'down')
+    #
+    #     def sort_by_unit(*_):
+    #         feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[1],
+    #                                      reverse=feature_table.sortedby[1] == 'down')
+    #
+    #     col_feature = feature_table.addcol('Feature', sortable=True, width=100)
+    #     col_feature.on_select += sort_by_feat
+    #     col_unit = feature_table.addcol('Unit', sortable=True, width=100)
+    #     col_unit.on_select += sort_by_unit
+    #     col_min = feature_table.addcol('Min', sortable=False, width=100)
+    #     col_max = feature_table.addcol('Max', sortable=False, width=100)
+    #
+    #     m = Menu(feature_table, popup=True)
+    #     rem = MenuItem(m, 'Remove feature from requirement profile...')
+    #     insert = MenuItem(m, 'Add feature to requirement profile...')
+    #
+    #     def insertitem(*_):
+    #         # inserts currently selected table item as propety axis in requirement profile.
+    #         # Values taken from previously loaded experimental data.
+    #         featurename = feature_table.selection.texts[0]
+    #         if featurename not in [axis.name for axis in radar_req.axes]:
+    #             datamin = float(self.descrs.get(featurename, {}).get('min', 0))
+    #             datamax = float(self.descrs.get(featurename, {}).get('max', 1))
+    #
+    #             radar_req.addaxis(
+    #                 featurename,
+    #                 minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
+    #                 maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
+    #                 unit=self.descrs.get(featurename, {}).get('unit', ''),
+    #                 intervalmin=datamin + abs(datamax - datamin) / 2,
+    #                 intervalmax=datamax - abs(datamax - datamin) / 2
+    #             )
+    #
+    #     def remitem(*_):
+    #         # removes currently selected table item (=property axis) from requirement profile
+    #         featurename = feature_table.selection.texts[0]
+    #         radar_req.remaxisbyname(featurename)
+    #
+    #     # TODO temporary preset loading and threshold entering, prettify or remove!
+    #     combo_presets = Combo(comp_features, items=[], halign='fill', valign='fill')
+    #
+    #     # grp_strategy = Group(comp_features, text='Strategy')
+    #     # grp_strategy.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
+    #     #
+    #     # opt_bfs = Option(grp_strategy, text='BFS')
+    #     # opt_dfs = Option(grp_strategy, text='DFS')
+    #     # opt_bfs.checked = True
+    #
+    #     lbl_threshold = Edit(comp_features, text="0.2", message='Threshold', editable=True, valign='center', halign='fill')
+    #
+    #     insert.on_select += insertitem
+    #     rem.on_select += remitem
+    #     feature_table.menu = m
+    #
+    #     def loadexperiment(*_) -> None:
+    #
+    #         # deletes previously loaded items
+    #         feature_table.items = []
+    #
+    #         for feature in self.descrs:
+    #             feature_table.additem([feature,
+    #                                    self.descrs.get(feature, {}).get('unit', ''),
+    #                                    self.descrs.get(feature, {}).get('min', ''),
+    #                                    self.descrs.get(feature, {}).get('max', '')])
+    #         self._shell.dolayout()
+    #
+    #         # update options for preset toggle button and load preset
+    #         self._sel = list(combo_experiments.items)[combo_experiments.selidx]
+    #         combo_presets.items = list(combo_experiments.selection.get('presets', {}).keys())
+    #
+    #     def loadpreset(*_) -> None:
+    #         self._sel = list(combo_experiments.items)[combo_experiments.selidx]
+    #
+    #         # delete possibly existing axes from previous experiment
+    #         radar_req.clear()
+    #         radar_req.layout.minwidth = self._shell.bounds[2] - 8
+    #         radar_req.layout.minheight = self._shell.bounds[3]*0.7
+    #
+    #         p = combo_experiments.selection['presets'].get(combo_presets.selection, None)
+    #
+    #         lbl_status.text = 'Currently loaded preset: {}'.format(combo_presets.selection)
+    #         logger.info('Currently loaded preset', combo_presets.selection, p)
+    #
+    #         if p is not None:
+    #             for feat in p.keys():
+    #                 datamin = float(self.descrs.get(feat, {}).get('min', 0) or 0)
+    #                 datamax = float(self.descrs.get(feat, {}).get('max', 1) or 1)
+    #
+    #                 radar_req.addaxis(
+    #                     feat,
+    #                     minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
+    #                     maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
+    #                     unit=self.descrs.get(feat, {}).get('unit', ''),
+    #                     intervalmin=datamin + abs(datamax - datamin) / 2 if p[feat] is None else p[feat][0],
+    #                     intervalmax=datamax - abs(datamax - datamin) / 2 if p[feat] is None else p[feat][1]
+    #                 )
+    #         switchpage(None, comp_definereq)
+    #         self._shell.dolayout(pack=True)
+    #
+    #     combo_experiments.on_select += loadexperiment
+    #     combo_presets.on_select += loadpreset
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # DEFINE REQUIREMENT PROFILE PAGE #
+    #     comp_definereq = Composite(comp_body)
+    #     comp_definereq.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+    #     comp_definereq.visible = False
+    #
+    #     comp_radar = ScrolledComposite(comp_definereq, valign='fill', halign='fill', vscroll=True, hscroll=True)
+    #
+    #     radar_req = Radar(comp_radar.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
+    #
+    #     # LISTENER FUNCTIONS
+    #     def setinterval(axis) -> None:
+    #         answer = ask_input(self._shell, 'Enter Interval for axis "{}"'.format(axis), message='[-2,3]')
+    #         if answer is not None:
+    #             try:
+    #                 interval = ContinuousSet.fromstring(answer)
+    #                 radar_req.interval(axis, minval=interval.lower, maxval=interval.upper)
+    #             except:
+    #                 msg_err(self._shell, 'Error', 'Unable to set Interval {}. Please use a valid notation (e.g. [-2,3])'.format(answer))
+    #
+    #     def remaxis(axis) -> None:
+    #         radar_req.remaxisbyname(axis)
+    #         lbl_status.text = 'Axis "{0}" was removed and will hence be ignored.'.format(axis)
+    #
+    #     def open_menu(axis):
+    #         # show menu for right click on axis in requirement profile radar
+    #
+    #         # AXIS MENU #
+    #         menuentries = OrderedDict([
+    #             ('Set interval', setinterval),
+    #             ('Remove axis "{}"'.format(axis), remaxis)
+    #         ])
+    #
+    #         answer, callback = options_list(self._shell, menuentries)
+    #         callback(axis)
+    #
+    #     lbl_req_changes = Label(comp_definereq, text='<b>Requirement changes:</b>', markup=True, halign='fill', valign='fill')
+    #     lbl_req_changes.visible = False
+    #     btn_query = Button(comp_definereq, 'Query')
+    #
+    #     def sel(*kwargs) -> None:
+    #         # listener function for interaction with requirement profile radar chart.
+    #         # Handles feedback for user
+    #         d = kwargs[0].args[0]
+    #         stat = ''
+    #         if d.get('type') == 'circle':
+    #             stat = 'The {1[name]} value for the alloy {0} has been changed to {1[value]}!'.format(d['dataset'], d['data'])
+    #         elif d.get('type') in ['mininterval', 'rs_miniv']:
+    #             stat = 'The lower bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
+    #         elif d.get('type') in ['maxinterval', 'rs_maxiv']:
+    #             stat = 'The upper bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
+    #         elif d.get('type') == 'axis':
+    #             if kwargs[0].button == 'right':
+    #                 switchpage(d['axis'])
+    #                 return
+    #         else:
+    #             stat = 'invalid datatype {}'.format(d.get('type'))
+    #         lbl_status.text = stat
+    #
+    #     def update(self) -> None:
+    #         # initialize radar chart containing candidate datasets
+    #         self.candidates = self.bayrob.hypotheses
+    #         radar_candidates = Radar(comp_res.content, legendtext='Hypotheses', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
+    #
+    #         # create empty radar chart from requirement profile
+    #         for axis in radar_req.axes:
+    #             radar_candidates.addaxis(axis.name,
+    #                                      minval=axis.minval,
+    #                                      maxval=axis.maxval,
+    #                                      unit=axis.unit,
+    #                                      intervalmin=axis.intervalmin,
+    #                                      intervalmax=axis.intervalmax)
+    #
+    #         data = {}
+    #         for i, hyp in enumerate(self.candidates):
+    #             pathvals = hyp.result
+    #             values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
+    #             data.update({hyp.id: values})
+    #             table_candidates.additem([hyp.id, str(hyp.performance)])
+    #
+    #         # sort results in table descending by probability
+    #         sort_by_sim(down=True)
+    #
+    #         # data maps example name (=material) to (sorted) list of values for the radar chart axes
+    #         radar_candidates.setdata(data)
+    #         lbl_status.text = '...done! Found {} candidates.'.format(len(self.candidates))
+    #
+    #         switchpage(None, comp_candidates)
+    #
+    #         self._shell.dolayout()
+    #
+    #     def showproc(*_) -> None:
+    #         if self.bayrob.resulttree:
+    #             cnamefull = table_candidates.selection.texts[0]
+    #
+    #             # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
+    #             # construct data for tree
+    #             generate_nodes()
+    #             data = nodedict(self.bayrob.resulttree.src, cnamefull)
+    #
+    #             tree.setdata(data)
+    #
+    #             switchpage(None, comp_tree)
+    #
+    #     def generate_nodes() -> None:
+    #         parentnode = ResTree.Node(None, nodetext='Start', printnode=False)
+    #         parentnode.isroot = True
+    #         parentnode.parameters = self.bayrob.query
+    #         self.bayrob.resulttree.src = parentnode
+    #
+    #         hyps = self.bayrob.hypotheses.copy()
+    #         generate_nodes_rec(self.bayrob.resulttree.src, hyps, 0)
+    #
+    #     def generate_nodes_rec(parent, hypotheses, d) -> None:
+    #         for h in hypotheses:
+    #             if d < len(h.steps):
+    #                 step = h.steps[d]
+    #
+    #                 # create node if not exists yet
+    #                 n_ = ResTree.Node(parent, printnode=False)
+    #                 n_.nodetext = 'H_' + '.'.join([str(el) for el in h.identifiers[:d+1]])
+    #                 n_.edgetext = step.name
+    #                 n_.result = step.value.copy()
+    #                 n_.parameters = step.path.copy()
+    #                 n_.confs = h.performance
+    #
+    #                 # leaf nodes show confs and overall result instead of step result
+    #                 if d == len(h.steps)-1:
+    #                     n_.nodetext = h.id
+    #                     n_.result = h.result.copy()
+    #                     n_.printnode = True
+    #
+    #                 # add node
+    #                 if n_ not in parent.children:
+    #                     parent.children.append(n_)
+    #
+    #         # recursive call
+    #         for n in parent.children:
+    #             generate_nodes_rec(n, [hyp for hyp in hypotheses if 'H_' + '.'.join([str(el) for el in hyp.identifiers[:d+1]]) == n.nodetext and d+1 < len(hyp.steps)], d+1)
+    #
+    #     def nodedict(node, hypname) -> dict:
+    #         d = {
+    #             "edgetext": str(node.edgetext),
+    #             "edgetooltip": str(node.edgetttext),
+    #             "name": str(node.nodetext),
+    #             "tooltip": str(node.nodetttext),
+    #             "type": "highlight" if hypname.startswith(node.nodetext) else None,
+    #             "showname": node.printnode,
+    #             "showedge": True,
+    #             "children": []
+    #             }
+    #         if node.children:
+    #            d.update({'children': [nodedict(c, hypname) for c in node.children]})
+    #         return d
+    #
+    #     @self.checkthread
+    #     def query(*_) -> None:
+    #         self.bayrob.pushsession.start()
+    #
+    #         try:
+    #             threshold = float(lbl_threshold.text)
+    #         except:
+    #             threshold = 0.0
+    #
+    #         # query = dict([(a.name, Interval(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
+    #         query = dict([(a.name, ContinuousSet(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
+    #
+    #         lbl_status.text = 'Querying: threshold={}, params= {}'.format(threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
+    #         logger.info('Querying', {k: str(v) for k, v in query.items()}, threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
+    #
+    #         for ti in [x for x in table_candidates.items]:
+    #             table_candidates.rmitem(ti)
+    #
+    #         for c in comp_res.content.children:
+    #             c.dispose()
+    #
+    #         # use bayrob reasoner to query system
+    #         self.bayrob.query = query
+    #         self.bayrob.threshold = threshold
+    #         self.bayrob.models = combo_experiments.selection['trees']
+    #         self.bayrob.callback = update
+    #         self.bayrob.start()
+    #
+    #     radar_req.on_select += sel
+    #     btn_query.on_select += query
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # CANDIDATES PAGE #
+    #     comp_candidates = Composite(comp_body)
+    #     comp_candidates.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
+    #     comp_candidates.bg = Color('white')
+    #     comp_candidates.visible = False
+    #
+    #     table_candidates = Table(comp_candidates, halign='fill', valign='fill', headervisible=True,
+    #                              colsmoveable=True, check=False)
+    #
+    #     def sort_by_sim(down=None) -> None:
+    #         if isinstance(down, bool):
+    #             table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=down)
+    #         else:
+    #             table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=table_candidates.sortedby[1] == 'down')
+    #
+    #     def sort_by_cand(*_) -> None:
+    #         table_candidates.items = sorted(table_candidates.items, key=lambda item: str(item.texts[0]), reverse=table_candidates.sortedby[1] == 'down')
+    #
+    #     col_candidatename = table_candidates.addcol('Candidate', sortable=True, width=100)
+    #     col_candidatename.on_select += sort_by_cand
+    #
+    #     col_sim = table_candidates.addcol('Probability', sortable=True, width=200)
+    #     col_sim.on_select += sort_by_sim
+    #
+    #     tcm = Menu(table_candidates, popup=True)
+    #     mitem_showproc = MenuItem(tcm, 'Show process history of candidate')
+    #     table_candidates.menu = tcm
+    #
+    #     table_candidates.on_dblclick += showproc
+    #
+    #     mitem_showproc.on_select += showproc
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # RESULTS PAGE
+    #     comp_res = ScrolledComposite(comp_body, valign='fill', halign='fill', vscroll=True, hscroll=True)
+    #
+    #     radar_candidates = Radar(comp_res.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3] * 0.7)
+    #     comp_res.visible = False
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # TREE PAGE
+    #     comp_tree = Composite(comp_body)
+    #     comp_tree.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+    #
+    #     tree = RadialTree(comp_tree, css=[res('static/css/charval.css')], halign='fill', valign='fill')
+    #
+    #     comp_tree.visible = False
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # DOCUMENTATION PAGE #
+    #     comp_docs = Composite(comp_body)
+    #     comp_docs.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+    #
+    #     self.setupdoku()
+    #     Browser(comp_docs, url=config.get('upload', 'dokuloc', fallback=''.join(['http://', session.host, session.location, session.runtime.mngr.resources.get('users.html').location])), halign='fill', valign='fill')
+    #     comp_docs.visible = False
+    #
+    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #
+    #     # MAIN MENU #
+    #     menuentries = OrderedDict([
+    #         ('Home', comp_home),
+    #         ('Define Requirement Profile', comp_definereq),
+    #         ('Candidates', comp_candidates),
+    #         ('Results', comp_res),
+    #         ('Tree', comp_tree),
+    #         ('Documentation', comp_docs)
+    #     ])
+    #
+    #     # LISTENER FUNCTIONS
+    #     def switchpage(_, widget=None) -> None:
+    #         if widget is None:
+    #             _, widget = options_list(self._shell, menuentries)
+    #
+    #         # make all widgets invisible and update the layers
+    #         for c in comp_body.children:
+    #             c.visible = False
+    #
+    #         # then get the one selected into the foreground
+    #         logger.debug('Moving widget to foreground', widget.id)
+    #         widget.visible = True
+    #
+    #     menulabel.on_mousedown += switchpage
+    #
+    #     # load initial preset
+    #     combo_experiments.selection = "PaperExample2"
+    #     # combo_presets.selection = 'preset3'
+    #     loadexperiment()
+    #
+    #     self._shell.show()
+    #
     def empty(self, **kwargs) -> None:
         self._shell = Shell(maximized=True, titlebar=False)
         self._shell.bg = Color('transp')
@@ -1997,13 +1710,13 @@ def main(ip='127.0.0.1', port=5008) -> None:
                        path='bayrob',
                        name='BayRoB',
                        entrypoints={'desktop': BayRoBWeb.desktop,
-                                    'mobile': BayRoBWeb.mobile,
+                                    # 'mobile': BayRoBWeb.mobile,
                                     'empty': BayRoBWeb.empty,
                                     },
                        setup=BayRoBWeb.setup,
                        theme=res('static/css/default.css'),
                        default=lambda: 'mobile' if 'mobile' in pyrap.session.client.useragent.lower() else 'desktop',
-                       icon=res('static/images/ic_launcher/web_hi_res_512.png')
+                       icon=res('static/images/ic_launcher/play_store_512.png')
                        )
     pyrap.run(bindip=ip, port=port)
 
@@ -2012,7 +1725,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='BayRoBWeb.')
     parser.add_argument('-p', '--port', type=int, default=5005, help='specify port to run the app on', required=False)
     parser.add_argument('-i', '--ip', type=str, default='127.0.0.1', help='specify port to run the app on', required=False)
-    parser.add_argument("-v", "--verbose", dest="verbose", default='info', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
+    parser.add_argument("-v", "--verbose", dest="verbose", default='debug', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
     args = parser.parse_args()
 
     init_loggers(level=args.verbose)

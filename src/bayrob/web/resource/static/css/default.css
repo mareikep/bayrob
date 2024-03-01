@@ -20,8 +20,8 @@
     color-stop( 52%, #c0c0c0 ),
     to( #f0f0f0 )
   );
-  /*font: 14px Verdana, "Lucida Sans", Arial, Helvetica, sans-serif;*/
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  /*font: 18px Verdana, "Lucida Sans", Arial, Helvetica, sans-serif;*/
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
 }
 
 Composite.navbar {
@@ -34,11 +34,11 @@ Composite.navbar {
     color-stop( 51%, #D7DEE3 ),
     to( #F5F7F9 )
   );
-    box-shadow: 0px 0px 20px #000000;
+    box-shadow: 0px 0px 18px #000000;
 }
 
 Shell-Titlebar {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-color: #2F2F2F;
   background-gradient-color: #2F2F2F;
   color: #ffffff;
@@ -72,7 +72,7 @@ Widget-Badge {
   background-color: #dd0000;
   border: none;
   border-radius: 10px;
-  font: 10px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #ffffff;
 }
 
@@ -82,7 +82,7 @@ Widget-ToolTip {
   background-image: none;
   border: none;
   border-radius: 1px;
-  font: 12px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 16px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #e0e0e0;
   opacity: 0.9;
   animation: fadeIn 150ms ease-in, fadeOut 150ms ease-in;
@@ -107,7 +107,7 @@ Display {
   rwt-fontlist: 14px 'Segoe UI', Corbel, Calibri, Tahoma, 'Lucida Sans Unicode';
 
   background-image: none;
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
 }
 
 /* Default theme for all controls */
@@ -144,7 +144,7 @@ Composite[BORDER] {
 
 Button,
 FileUpload {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-image: none;
   background-repeat: repeat;
   background-position: left top;
@@ -326,7 +326,7 @@ FileUpload-FocusIndicator[RADIO]{
 
 Combo,
 Combo[BORDER] {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: #ffffff;
   border: 1px solid #aaaaaa;
@@ -469,7 +469,7 @@ CTabFolder {
 }
 
 CTabItem {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: transparent;
   background-image: none;
@@ -493,7 +493,7 @@ CTabItem:disabled {
 /* Group default theme */
 
 Group {
-  font: 10px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: #ffffff;
   border: none;
@@ -516,14 +516,14 @@ Group-Label {
   border: 1px solid #bdbdbd;
   border-radius: 10px;
   color: inherit;
-  margin: 5px 10px 10px 20px;
+  margin: 5px 10px 10px 18px;
   text-shadow: none;
 }
 
 /* Label default theme */
 
 Label {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: transparent;
   background-image: none;
@@ -553,7 +553,7 @@ Label-SeparatorLine {
 /* Link default theme */
 
 Link {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: #ffffff;
   background-image: none;
@@ -819,7 +819,7 @@ Shell-DisplayOverlay {
 /* Spinner default theme */
 
 Spinner {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   border: none;
   border-radius: 0 2px 2px 0;
   color: #4a4a4a;
@@ -917,7 +917,7 @@ TabItem {
   );
   background-repeat: repeat;
   background-position: left top;
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   border-top-color: #5882b5;
   border-bottom-color: #5882b5;
   text-shadow: 0 1px 0 #ffffff;
@@ -965,7 +965,7 @@ TabItem:bottom:selected:first {
 /* Table default theme */
 
 Table {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-color: #ffffff;
   background-image: none;
   color: #4a4a4a;
@@ -977,7 +977,7 @@ Table[BORDER] {
 }
 
 TableColumn {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-color: #f0f0f0;
   padding: 8px 8px 8px 8px;
   background-image: gradient(
@@ -1104,7 +1104,7 @@ Table-GridLine:horizontal:rowtemplate {
 /* Text default theme */
 
 Text {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   border: none;
   border-radius: 0;
   padding: 5px 10px 5px 10px;
@@ -1146,6 +1146,7 @@ Text[MULTI][BORDER]:read-only {
 }
 
 Text-Message {
+  font: 15px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #a7a6aa;
   text-shadow: none;
 }
@@ -1154,7 +1155,7 @@ Text-Message {
 /* ToolBar default theme */
 
 ToolBar {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   padding: 0;
   spacing: 0;
@@ -1379,7 +1380,7 @@ ToolItem-Separator {
 /* Tree default theme */
 
 Tree {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-color: #ffffff;
   border: none;
   color: #4a4a4a;
@@ -1472,7 +1473,7 @@ Tree-RowOverlay:linesvisible:even:selected:unfocused {
 }
 
 TreeColumn {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: inherit;
   background-color: #f0f0f0;
    background-image: gradient(
@@ -1566,7 +1567,7 @@ Scale-Thumb:focused {
 /* DateTime default theme */
 
 DateTime {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   border: none;
   border-radius: 0 2px 2px 0;
   color: #464a4e;
@@ -1642,7 +1643,7 @@ DateTime-Calendar-Navbar {
     from( #416693 ), to( #5882b5 )
   );
   color: white;
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   text-shadow: none;
 }
 
@@ -1737,7 +1738,7 @@ ExpandItem-Header:disabled {
 /* Sash default theme */
 
 Sash {
-  width: 5px;
+  width: 18px;
   border: none;
   background-image: none;
   background-color: transparent;
@@ -1822,7 +1823,7 @@ ToolTip {
     from( #f8f9ff ),
     to( #f4f4f4 )
   );
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-color: #fcfcfc;
   animation: fadeIn 200ms linear, fadeOut 600ms ease-out;
   box-shadow: 0 0 4px #adadad;
@@ -1836,14 +1837,14 @@ ToolTip-Text {
 
 ToolTip-Message {
   color: #4a4a4a;
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   text-shadow: none;
 }
 
 /* CCombo default theme */
 
 CCombo {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: #ffffff;
   background-image: none;
@@ -1937,7 +1938,7 @@ CCombo-FocusIndicator {
 /* CLabel default theme */
 
 CLabel {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: #ffffff;
   background-image: none;
@@ -1986,7 +1987,7 @@ ScrollBar-Thumb {
   border: 1px solid #bdbdbd;
   border-radius: 15px;
   background-image: none;
-  min-height: 20px;
+  min-height: 18px;
 }
 
 ScrollBar-UpButton,
@@ -2001,7 +2002,7 @@ ScrollBar-DownButton {
 /* FileUpload default theme */
 
 FileUpload {
-  font: 14px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   background-image: gradient(
     linear, left top, left bottom,
     from( #ffffff ),
@@ -2071,5 +2072,6 @@ Shell.jface_contentProposalPopup, Shell.jface_infoPopupDialog {
 
 
 Sash-Handle:vertical {
-  background-image: url('img/menu.png');;
+  background-image: url('img/menu.png');
+  width: 18px;
 }
