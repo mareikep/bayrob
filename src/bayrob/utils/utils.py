@@ -4,26 +4,25 @@ import math
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import List, Union, Tuple, Dict
 
-from pathlib import Path
-
 import dnutils
-from _plotly_utils.colors import sample_colorscale
-import plotly.express as px
-
-import jpt
 import numpy as np
 import pandas as pd
+import plotly.express as px
+from _plotly_utils.colors import sample_colorscale
+from jpt.base.intervals import ContinuousSet, EXC, INC
+from matplotlib import pyplot as plt
+
+import jpt
 from bayrob.utils import locs
 from bayrob.utils.constants import bayroblogger, FILESTRFMT
 from bayrob.utils.constants import xlsHEADER, xlsNUM, xlsDATE
-from jpt.base.intervals import ContinuousSet
-
+from jpt.base.functions import PiecewiseFunction, ConstantFunction
 from jpt.distributions import Multinomial, Numeric, Integer, Bool
-from jpt.plotting.helpers import color_to_rgb
+from jpt.distributions.quantile.quantiles import QuantileDistribution
 from jpt.variables import VariableMap
-from matplotlib import pyplot as plt
 
 logger = dnutils.getlogger(bayroblogger)
 
@@ -622,6 +621,27 @@ def discr_colors(
     )
 
     return colors_discr[:min(size + 1, len(colors_discr))]
+
+def uniform_numeric(a: float, b: float) -> Numeric:
+    if b <= a:
+        raise ValueError('Illegal interval: a = %s >= %s = b' % (a, b))
+    return Numeric().set(
+        QuantileDistribution.from_pdf(
+            PiecewiseFunction.zero().overwrite_at(
+                ContinuousSet(a, b, INC, EXC),
+                ConstantFunction(1 / (b - a))
+            )
+        )
+    )
+
+
+def urlable(text):
+    t_ = text
+    for ch in ['\\', '`', '*', '{', '}', '[', ']', '(', ')', '>', '#', '+', '-', '.', '!', '$',
+               '\'']:
+        if ch in t_:
+            t_ = t_.replace(ch, "_")
+    return t_
 
 
 if __name__ == '__main__':
