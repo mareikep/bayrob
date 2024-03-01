@@ -1,9 +1,5 @@
 import math
 import os
-import re
-import traceback
-import unittest
-
 import unittest
 from functools import reduce
 from pathlib import Path
@@ -12,24 +8,23 @@ import dnutils
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from jpt.base.functions import PiecewiseFunction
+from jpt.base.intervals import ContinuousSet, RealSet
+from jpt.distributions.quantile.quantiles import QuantileDistribution
 from matplotlib import pyplot as plt
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 
 from bayrob.core.astar_jpt import State
 from bayrob.utils import locs
+from bayrob.utils.constants import obstacles as obstacles_, obstacle_kitchen_boundaries
 from bayrob.utils.plotlib import plot_heatmap, plot_data_subset, plot_tree_dist, plot_pos, plot_path, defaultconfig, \
-    plotly_animation, plot_scatter_quiver, plot_dir, filter_dataframe, plot_multiple_dists, fig_to_file, plotly_sq, \
+    plotly_animation, plot_scatter_quiver, plot_dir, plot_multiple_dists, fig_to_file, plotly_sq, \
     plot_tree_leaves, plot_typst_jpt, plot_typst_tree_json
-from bayrob.utils.utils import recent_example, fmt, _actions_to_treedata, actions_to_treedata
-from examples.examples import do_prune, distributions, manager
-from jpt import SymbolicType, NumericVariable, JPT, infer_from_dataframe
-from jpt.base.intervals import ContinuousSet, RealSet
-
-from jpt.base.functions import PiecewiseFunction
+from bayrob.utils.utils import recent_example, fmt, actions_to_treedata
+from examples.examples import do_prune, distributions
+from jpt import SymbolicType, JPT, infer_from_dataframe
 from jpt.distributions import Gaussian, Numeric
-from jpt.distributions.quantile.quantiles import QuantileDistribution
-
 
 logger = dnutils.getlogger("thesis_tests", level=dnutils.DEBUG)
 
@@ -75,22 +70,14 @@ class ThesisPlotsTests(unittest.TestCase):
            ]
        )
 
-       cls.obstacle_chair1 = [15, 10, 25, 20]  # chair1"
-       cls.obstacle_chair2 = [35, 10, 45, 20]  # "chair2"
-       cls.obstacle_kitchen_island = [10, 30, 50, 50]  # "kitchen_island"
-       cls.obstacle_stove = [80, 30, 100, 70]  # "stove"
-       cls.obstacle_kitchen_unit = [10, 80, 50, 100]  # "kitchen_unit"
-       cls.obstacle_fridge = [60, 80, 80, 100]  # "fridge"
-
-       cls.obstacles = [
-           ((0, 0, 100, 100), "kitchen_boundaries"),
-           (cls.obstacle_chair1, "chair1"),
-           (cls.obstacle_chair2, "chair2"),
-           (cls.obstacle_kitchen_island, "kitchen_island"),
-           (cls.obstacle_stove, "stove"),
-           (cls.obstacle_kitchen_unit, "kitchen_unit"),
-           (cls.obstacle_fridge, "fridge"),
-       ]
+       cls.obstacle_kitchen_boundaries = obstacle_kitchen_boundaries
+       (cls.obstacle_chair1,
+        cls.obstacle_chair2,
+        cls.obstacle_kitchen_island,
+        cls.obstacle_stove,
+        cls.obstacle_kitchen_unit,
+        cls.obstacle_fridge) = obstacles_
+       cls.allobstacles = [cls.obstacle_kitchen_boundaries] + obstacles_
 
     def pathexecution(self, initstate, cmds, shift=False):
         s = initstate
@@ -182,15 +169,6 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def plot_cram_path(self, p, plotpath=True, plotpos=False, plotcollision=False, plotdir=False):
         # plot annotated rectangles representing the obstacles and world boundaries
-        obstacles = [
-            ((0, 0, 100, 100), "kitchen_boundaries"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
 
         if plotpath:
             # plot path as scatter points with direction arrows in kitchen world
@@ -199,7 +177,7 @@ class ThesisPlotsTests(unittest.TestCase):
                 'y_in',
                 p,
                 save=os.path.join(locs.logs, f'test_astar_cram_path.svg'),
-                obstacles=obstacles,
+                obstacles=self.allobstacles,
                 show=False
             )
 
@@ -1267,8 +1245,8 @@ class ThesisPlotsTests(unittest.TestCase):
                 if addobstacles:
 
                     # plot obstacles in background
-                    if self.obstacles is not None and postype == 'in':
-                        for (o, on) in self.obstacles:
+                    if self.allobstacles is not None and postype == 'in':
+                        for (o, on) in self.allobstacles:
                             gt.add_trace(
                                 plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
 
@@ -1295,8 +1273,8 @@ class ThesisPlotsTests(unittest.TestCase):
                 if addobstacles:
 
                     # plot obstacles in background
-                    if self.obstacles is not None and postype == 'in':
-                        for (o, on) in self.obstacles:
+                    if self.allobstacles is not None and postype == 'in':
+                        for (o, on) in self.allobstacles:
                             dist.add_trace(plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
 
                 # plot heatmap
@@ -1619,8 +1597,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         if addobstacles:
 
                             # plot obstacles in background
-                            if self.obstacles is not None:
-                                for (o, on) in self.obstacles:
+                            if self.allobstacles is not None:
+                                for (o, on) in self.allobstacles:
                                     gt.add_trace(
                                         plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
 
@@ -1659,8 +1637,8 @@ class ThesisPlotsTests(unittest.TestCase):
                         if addobstacles:
 
                             # plot obstacles in background
-                            if self.obstacles is not None:
-                                for (o, on) in self.obstacles:
+                            if self.allobstacles is not None:
+                                for (o, on) in self.allobstacles:
                                     hm.add_trace(
                                         plotly_sq(o, lbl=on, color='rgb(59, 41, 106)', legend=False))
 
@@ -1711,7 +1689,6 @@ class ThesisPlotsTests(unittest.TestCase):
     def test_reproduce_data_pr2(self) -> None:
         # MULTIPLE sets of constraints:
         # for any constrained PR2 variables, plot all remaining dists
-        import plotly.express as px
 
         # load data and JPT that has been learnt from this data
         logger.info(f"Using tree from {self.recent_pr2}")
@@ -2091,19 +2068,10 @@ class ThesisPlotsTests(unittest.TestCase):
 
     def test_drop_innerpoints(self):
         df_ = pd.read_parquet(os.path.join(self.recent_move, 'data', f'000-move.parquet'))
-        # obstacles = [
-        #     # ((5, 5, 20, 10), "kitchen_island"),
-        #     ((15, 10, 25, 20), "chair1"),
-        #     ((35, 10, 45, 20), "chair2"),
-        #     ((10, 30, 50, 50), "kitchen_island"),
-        #     ((80, 30, 100, 70), "stove"),
-        #     ((10, 80, 50, 100), "kitchen_unit"),
-        #     ((60, 80, 80, 100), "fridge"),
-        # ]
         #
         # pattern = 'not ((`x_in` >= {}) & (`x_in` <= {}) & (`y_in` >= {}) & (`y_in` <= {}))'
         # q = []
-        # for o, _ in obstacles:
+        # for o, _ in self.allobstacles:
         #     q.append(pattern.format(o[0], o[2], o[1], o[3]))
         #
         # df = df_.query(" & ".join(q))
@@ -2135,10 +2103,8 @@ class ThesisPlotsTests(unittest.TestCase):
             filename=name,
             directory=os.path.join(locs.logs, 'typst_test'),
             plotvars=list(j.variables),
-            leaffill='#CCDAFF',
-            nodefill='#768ABE',
             alphabet=True,
-            view=False
+            svg=True
         )
 
     def test_astar_cram_path(self) -> None:
@@ -2350,22 +2316,12 @@ class ThesisPlotsTests(unittest.TestCase):
             s.update({k: v for k, v in s_.items()})
 
         # plot annotated rectangles representing the obstacles and world boundaries
-        obstacles = [
-            ((0, 0, 100, 100), "kitchen_boundaries"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
-
         fig = plot_path(
             'x_in',
             'y_in',
             p,
             save=os.path.join(locs.logs, f'test_move_till_collision.svg'),
-            obstacles=obstacles,
+            obstacles=self.allobstacles,
             show=False
         )
 

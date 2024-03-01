@@ -9,6 +9,7 @@ from bayrob.application.astar_jpt_app import SubAStar_, SubAStarBW_
 from bayrob.core.astar import BiDirAStar, Node
 from bayrob.core.astar_jpt import Goal, State
 from bayrob.utils import locs
+from bayrob.utils.constants import obstacles as obstacles_, obstacle_kitchen_boundaries
 from bayrob.utils.plotlib import gendata, plot_heatmap, plot_path, defaultconfig, plot_pos, plotly_animation, plot_dir
 from bayrob.utils.utils import recent_example
 from jpt import JPT, SymbolicVariable, SymbolicType
@@ -33,6 +34,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         cls.recent_turn = recent_example(os.path.join(locs.examples, 'turn'))
         cls.recent_perc = recent_example(os.path.join(locs.examples, 'perception'))
         print("loading examples from", cls.recent_move, cls.recent_turn, cls.recent_perc)
+
+        cls.allobstacles = [obstacle_kitchen_boundaries] + obstacles_
 
         cls.models = dict(
             [
@@ -163,15 +166,6 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
     def plot_cram_path(self, p, plotpath=True, plotpos=False, plotcollision=False, plotdir=False):
         # plot annotated rectangles representing the obstacles and world boundaries
-        obstacles = [
-            ((0, 0, 100, 100), "kitchen_boundaries"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
 
         if plotpath:
             # plot path as scatter points with direction arrows in kitchen world
@@ -180,7 +174,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                 'y_in',
                 p,
                 save=os.path.join(locs.logs, f'test_astar_cram_path.svg'),
-                obstacles=obstacles,
+                obstacles=self.allobstacles,
                 show=False
             )
 
@@ -467,9 +461,8 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
         goal_ = {True}
-        milk_ = self.models['perception'].priors['detected(milk)']
-        dmilk_ = SymbolicVariable(milk_.__class__.__name__, type(milk_))
-        dmilk = dmilk_.distribution().set([(1 if x in goal_ else 0) / len(goal_) for x in list(dmilk_.domain.values)])
+        milk_ = self.models['perception'].varnames['detected(milk)'].distribution()
+        dmilk = milk_.set([(1/len(goal_) if x in goal_ else 0) for x in list(milk_.values)])
         goal = Goal(
             {
                 'detected(milk)': dmilk,
