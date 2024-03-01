@@ -4,97 +4,17 @@ from typing import Tuple, Dict, List
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dnutils import ifnone, first
+from dnutils import first
 from jpt.base.intervals import ContinuousSet
-from matplotlib import pyplot as plt
 from plotly.graph_objs import Figure
 
 from bayrob.core.astar_jpt import State, SubAStar, Goal, SubAStarBW
 from bayrob.utils import locs
+from bayrob.utils.constants import obstacles
 from bayrob.utils.plotlib import plot_heatmap, plot_scatter_quiver, defaultconfig, plotly_pt, plotly_sq, \
     plot_dists_layered, fig_to_file
 from bayrob.utils.utils import fmt
 from jpt.trees import Node
-
-#
-# class State_(State):
-#
-#     def __init__(self, d: dict=None):
-#         super().__init__(d=d)
-#
-#     def plot(
-#             self,
-#             title: str = None,
-#             conf: float = None,
-#             limx: Tuple = None,
-#             limy: Tuple = None,
-#             limz: Tuple = None,
-#             save: str = None,
-#             show: bool = True
-#     ) -> None:
-#         """Plots a heatmap representing the belief state for the agents' position, i.e. the joint
-#         probability of the x and y variables: P(x, y).
-#
-#         :param title: The plot title
-#         :param conf:  A confidence value. Values below this threshold are set to 0. (= equal color for lowest value in plot)
-#         :param limx: The limits for the x-variable; determined from boundaries if not given
-#         :param limy: The limits for the y-variable; determined from boundaries if not given
-#         :param limz: The limits for the z-variable; determined from data if not given
-#         :param save: The location where the plot is saved (if given)
-#         :param show: Whether the plot is shown
-#         :return: None
-#         """
-#         # generate datapoints
-#         x = self['x_in'].pdf.boundaries()
-#         y = self['y_in'].pdf.boundaries()
-#
-#         # determine limits
-#         xmin = ifnone(limx, min(x) - 15, lambda l: l[0])
-#         xmax = ifnone(limx, max(x) + 15, lambda l: l[1])
-#         ymin = ifnone(limy, min(y) - 15, lambda l: l[0])
-#         ymax = ifnone(limy, max(y) + 15, lambda l: l[1])
-#
-#         X, Y = np.meshgrid(x, y)
-#         Z = np.array(
-#             [
-#                 self['x_in'].pdf(x) * self['y_in'].pdf(y)
-#                 for x, y, in zip(X.ravel(), Y.ravel())
-#             ]).reshape(X.shape)
-#
-#         # show only values above a certain threshold, consider lower values as high-uncertainty areas
-#         if conf is not None:
-#             Z[Z < conf] = 0.
-#
-#         # remove or replace by eliminating values > median
-#         Z[Z > np.median(Z)] = np.median(Z)
-#
-#         zmin = ifnone(limz, Z.min(), lambda l: l[0])
-#         zmax = ifnone(limz, Z.max(), lambda l: l[1])
-#
-#         # init plot
-#         fig, ax = plt.subplots(num=1, clear=True)
-#         fig.patch.set_facecolor('#D6E7F8')  # set bg color around the plot area (royal purple)
-#         ax.set_facecolor('white')  # set bg color of plot area (dark purple)
-#         cmap = 'BuPu'  # viridis, Blues, PuBu, 0rRd, BuPu
-#
-#         # generate heatmap
-#         c = ax.pcolormesh(X, Y, Z, cmap=cmap, vmin=zmin, vmax=zmax)
-#         ax.set_title(f'P(x,y)')
-#
-#         # setting the limits of the plot to the limits of the data
-#         ax.axis([xmin, xmax, ymin, ymax])
-#         # ax.axis([-100, 100, -100, 100])
-#         ax.set_xlabel(r'$x$')
-#         ax.set_ylabel(r'$y$')
-#         fig.colorbar(c, ax=ax)
-#         fig.suptitle(title)
-#         fig.canvas.manager.set_window_title(f'Belief State: P(x/y)')
-#
-#         if save:
-#             plt.savefig(save)
-#
-#         if show:
-#             plt.show()
 
 
 class SubAStar_(SubAStar):
@@ -286,7 +206,7 @@ class SubAStar_(SubAStar):
         if obstacles is not None:
             for (o, on) in obstacles:
                 mainfig.add_trace(
-                    plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
+                    plotly_sq(o, lbl=on, color='rgb(59,41,106)', legend=False))
 
         fig_initstate = go.Figure()
 
@@ -431,16 +351,6 @@ class SubAStar_(SubAStar):
         p = self.retrace_path(node)
 
         # plot annotated rectangles representing the obstacles and world boundaries
-        obstacles = [
-            ((0, 0, 100, 100), "kitchen_boundaries"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
-
         fig=self.plot_path(
             xvar='x_in',
             yvar='y_in',
@@ -621,7 +531,6 @@ class SubAStarBW_(SubAStarBW):
                 f'{"<br>".join(f"<i>{k}:</i> {fmt(v)}" for k, v in s.items())}<br>'
                 f'<b>Expectations:</b><br>'
                 f'{"<br>".join(f"<i>{k}:</i> {fmt(v.expectation())}" for k, v in s.items())}<br>',
-                # f'<b>Step {i}: {"root" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br><b>MPEs:</b><br>{"<br>".join(f"{k}: {fmt(v)}" for k, v in s.items())}',  # lbl
                 1                               # size
             )
             for i, s in enumerate(p) if not isinstance(s, Goal)
@@ -676,7 +585,7 @@ class SubAStarBW_(SubAStarBW):
         if obstacles is not None:
             for (o, on) in obstacles:
                 mainfig.add_trace(
-                    plotly_sq(o, lbl=on, color='rgb(15,21,110)', legend=False))
+                    plotly_sq(o, lbl=on, color='rgb(59,41,106)', legend=False))
 
         fig_initstate = go.Figure()
 
@@ -822,17 +731,7 @@ class SubAStarBW_(SubAStarBW):
 
         p = self.retrace_path(node)
 
-        obstacles = [
-            ((0, 0, 100, 100), "kitchen_boundaries"),
-            ((15, 10, 25, 20), "chair1"),
-            ((35, 10, 45, 20), "chair2"),
-            ((10, 30, 50, 50), "kitchen_island"),
-            ((80, 30, 100, 70), "stove"),
-            ((10, 80, 50, 100), "kitchen_unit"),
-            ((60, 80, 80, 100), "fridge"),
-        ]
-
-        fig=self.plot_path(
+        fig1 = self.plot_path(
             xvar='x_in',
             yvar='y_in',
             p=p,
@@ -868,4 +767,4 @@ class SubAStarBW_(SubAStarBW):
                 show=False#kwargs.get('show', True)
             )
 
-        return fig
+        return fig1
