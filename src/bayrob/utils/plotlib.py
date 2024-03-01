@@ -58,7 +58,7 @@ def fig_from_json_file(fname) -> Figure:
         return pio.from_json(json.dumps(json.load(f)))
 
 
-def fig_to_file(fig, fname, ftypes=None) -> None:
+def fig_to_file(fig, fname, configname=None, ftypes=None) -> None:
     '''Writes figure to file with name `fname`. If multiple extensions are given in ftypes, the same figure is saved
     to multiple file formats.
     '''
@@ -80,7 +80,7 @@ def fig_to_file(fig, fname, ftypes=None) -> None:
             fig.write_json(fpath.with_suffix(".json"))
             fig.write_html(
                 fpath.with_suffix(ft),
-                config=defaultconfig(fname),
+                config=defaultconfig(configname if configname is not None else fname),
                 include_plotlyjs="cdn"
             )
         elif ft == '.json':
@@ -124,6 +124,7 @@ def plot_pos(
         limx: Tuple = None,
         limy: Tuple = None,
         limz: Tuple = None,
+        d: List = None,
         save: str = None,
         show: bool = True,
         fun: str = "heatmap"
@@ -145,16 +146,19 @@ def plot_pos(
     '''
 
     # generate datapoints
+    if d is None:
+        d = [
+            gendata(
+                'x_in',
+                'y_in',
+                s,
+                p,
+                conf=conf
+            ) for i, (s, p) in enumerate(path)
+        ]
+
     data = pd.DataFrame(
-            data=[
-                gendata(
-                    'x_in',
-                    'y_in',
-                    s,
-                    p,
-                    conf=conf
-                ) for i, (s, p) in enumerate(path)
-            ],
+            data=d,
             columns=['x', 'y', 'z', 'lbl']
         )
 
@@ -178,22 +182,26 @@ def plot_dir(
         conf: float = None,
         limx: Tuple = None,
         limy: Tuple = None,
+        d: List = None,
         save: str = None,
         show: bool = True,
         fun: str = "heatmap"
 ) -> Figure:
 
     # generate datapoints
+    if d is None:
+        d = [
+            gendata(
+                'xdir_in',
+                'ydir_in',
+                s,
+                p,
+                conf=conf
+            ) for i, (s, p) in enumerate(path)
+        ]
+
     data = pd.DataFrame(
-            data=[
-                gendata(
-                    'xdir_in',
-                    'ydir_in',
-                    s,
-                    p,
-                    conf=conf
-                ) for i, (s, p) in enumerate(path)
-            ],
+            data=d,
             columns=['xdir_in', 'ydir_in', 'z', 'lbl']
         )
 
@@ -273,8 +281,10 @@ def gendata(
     # remove or replace by eliminating values > median
     # Z[Z > np.median(Z)] = np.median(Z)
 
-    lbl = f'<b>Leaf#{state.leaf if hasattr(state, "leaf") and state.leaf is not None else "ROOT"}</b> ' \
-          f'{"<br>".join([f"<b>{k}:</b> {v}" for k,v in params.items()])}'
+    lbl = (f'<b>{"root" if state.leaf is None or state.tree is None else f"{state.tree}-Leaf#{state.leaf}"}</b><br>'
+           f'<b>MPEs:</b><br>{"<br>".join(f"{k}: {v.mpe()[0]}" for k, v in state.items())}<br>'
+           f'<b>Expectations:</b><br>{"<br>".join(f"{k}: {v.expectation()}" for k, v in state.items())}<br>'
+           f'{"<br>".join([f"<b>{k}:</b> {v}" for k,v in params.items()])}')
 
     return x, y, Z, lbl
 
@@ -759,10 +769,12 @@ def pathdata(
         ) for i, (s, param) in enumerate(p) if {'x_in', 'y_in'}.issubset(set(s.keys()))
     ]
 
+
 def plot_path(
         xvar,
         yvar,
         p: List,
+        d: List = None,
         obstacles: List = None,
         title: str = None,
         save: str = None,
@@ -770,7 +782,8 @@ def plot_path(
 ) -> Figure:
 
     # generate data points
-    d = pathdata(xvar, yvar, p, exp=False)
+    if d is None:
+        d = pathdata(xvar, yvar, p, exp=False)
 
     # draw scatter points and quivers
     data = pd.DataFrame(
@@ -859,8 +872,8 @@ def plotly_sq(
         legend: bool = True
 ) -> Any:
     gxl, gyl, gxu, gyu = area
-    rgb, rgba = to_rgb(color, opacity=1)
-    _, rgba1 = to_rgb(color, opacity=0.1)
+    rgb, rgba = to_rgb(color, opacity=.4)
+    _, rgba1 = to_rgb(color, opacity=.1)
 
     return go.Scatter(
             x=[gxl, gxl, gxu, gxu, gxl],
@@ -870,9 +883,9 @@ def plotly_sq(
             textfont=dict(color=rgb),
             marker=dict(
                 symbol='circle',
-                color=rgb,
+                color=rgba,
                 line=dict(
-                    color=rgb,
+                    color=rgba,
                     width=5
                 )
             ),
@@ -1053,13 +1066,7 @@ def plot_scatter_quiver(
 
     return mainfig
 
-
-def filter_dataframe(
-        df: pd.DataFrame,
-        constraints
-) -> pd.DataFrame:
-
-    # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+def build_constraints(constraints):
     constraints_ = []
     for var, val in constraints.items():
         if isinstance(val, ContinuousSet):
@@ -1074,13 +1081,22 @@ def filter_dataframe(
 
     s = ' & '.join(constraints_)
     logger.debug('Extracting dataset using query: ', s)
+    return s
+
+def filter_dataframe(
+        df: pd.DataFrame,
+        constraints
+) -> pd.DataFrame:
+
+    # constraints is a list of 3-tuples: ('<column name>', 'operator', value)
+    s = build_constraints(constraints)
 
     if s == "":
         df_ = df
     else:
         df_ = df.query(s)
 
-    logger.debug('Returned subset of shape:', df_.shape)
+    logger.debug(f'Returned subset of shape: {df_.shape} (before: {df.shape})')
     return df_
 
 
@@ -1165,14 +1181,18 @@ def plot_data_subset(
         return
 
     fig_s.update_layout(
+        xaxis=dict(
+            title=xvar
+        ),
+        yaxis=dict(
+            title=yvar,
+            range=(0, 1) if normalize else limy
+        ),
         xaxis_title=xvar,
         yaxis_title=yvar if plot_type == "scatter" else f"count({xvar})",
         showlegend=False,
         width=1000,
         height=1000,
-        yaxis=dict(
-            range=(0, 1)
-        ) if normalize else {}
     )
 
     if save:
@@ -1406,12 +1426,10 @@ def plot_typst_jpt(
         filename: str or None = None,
         directory: str = None,
         plotvars: Iterable[Any] = None,
-        view: bool = True,
         max_symb_values: int = 10,
-        nodefill=None,
-        leaffill=None,
         imgtype="svg",
-        alphabet=False
+        alphabet=False,
+        svg=False
 ) -> str:
     """
     Generates an SVG representation of the generated regression tree.
@@ -1519,7 +1537,10 @@ def plot_typst_jpt(
         yaml.dump(l, file)
 
     # generate and save tree plot
-    filepath = f"{os.path.join(directory, ifnone(filename, title))}.svg"
+    if svg:
+        filepath = f"{os.path.join(directory, ifnone(filename, title))}.svg"
+    else:
+        filepath = f"{os.path.join(directory, ifnone(filename, title))}.pdf"
     shutil.copyfile(os.path.join(locs.src, 'bayrob', 'utils', 'treeplot.typ'), os.path.join(directory, "treeplot.typ"))
     cmd = f"/data/apps/typst compile {os.path.join(directory, 'treeplot.typ')} --root {directory} {filepath}"
     JPT.logger.warning(f"Trying to execute {cmd}...")
