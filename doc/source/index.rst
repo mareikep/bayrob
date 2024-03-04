@@ -1,14 +1,6 @@
 About
 =====
 
-.. figure:: _static/img/matcaloprocess.png
-    :width: 1000px
-    :align: center
-
-    ..
-
-    The |project| reasoning pipeline.
-
 |project| is an intelligent, cognitive assistant system that supports materials scientists in developing novel
 materials. |project| combines modern machine learning techniques with machine-interpretable semantic knowledge in order
 to model representations of relationships between materials, processes and properties and allow reasoning about them.
@@ -61,13 +53,10 @@ Contents:
 ---------
  
 .. toctree::
-   :maxdepth: 2
+    :glob:
+    :titlesonly:
 
-   setup
-   developers
-   users
-   matcalotools
-   apidoc
+    *
 
 ****
 
@@ -98,10 +87,6 @@ This work is supported in part by the DFG CRC 1232 `Farbige Zustaende <http://ww
 .. image:: _static/img/logo_orig.png
     :height: 70px
     :target: http://www.uni-bremen.de/farbige-zustaende.html
-
-.. image:: _static/img/DE_BRAND_03_4C.JPG
-    :height: 70px
-    :target: https://www.dew-stahl.com/home/
 
 ****
 

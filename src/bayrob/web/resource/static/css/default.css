@@ -493,7 +493,7 @@ CTabItem:disabled {
 /* Group default theme */
 
 Group {
-  font: 18px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
+  font: 16px Avantgarde, TexGyreAdventor, URW Gothic L, sans-serif;
   color: #4a4a4a;
   background-color: #ffffff;
   border: none;
@@ -501,7 +501,7 @@ Group {
 }
 
 Group-Frame {
-  margin: 10px 5px 10px 5px;
+  margin: 10px 5px 20px 5px;
   padding: 15px 8px 10px 8px;
   border: 1px solid #bdbdbd;
   border-radius: 2px;

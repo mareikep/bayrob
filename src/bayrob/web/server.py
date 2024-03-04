@@ -12,7 +12,6 @@ import dnutils
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dnutils import out
 from jpt.base.intervals import ContinuousSet
 
 import pyrap
@@ -31,9 +30,9 @@ from jpt.distributions.univariate import Bool, Numeric
 from pyrap import session
 from pyrap.layout import RowLayout, ColumnLayout, CellLayout, StackLayout
 from pyrap.ptypes import Color, Image, Pixels, px
+from pyrap.pwt.svg.svg import SVG
 from pyrap.widgets import Shell, Composite, Label, Button, Separator, TabFolder, Browser, Combo, Edit, Group, Link, \
     SashMenuComposite, ScrolledComposite
-from pyrap.pwt.svg.svg import SVG
 
 if config.getboolean('bayrob', 'smoothed', fallback=False):
     pass
@@ -73,8 +72,8 @@ class BayRoBWeb:
         :return:
         '''
         if config.get('bayrob', 'mode', fallback='release') != 'debug':
-            # os.system("make -s html -C {} SPHINXOPTS=-Q".format(locs.doc))
-            os.system("make clean -C {0} && make html -C {0}".format(locs.doc))
+            os.system("make -s html -C {} SPHINXOPTS=-Q".format(locs.doc))
+            # os.system("make clean -C {0} && make html -C {0}".format(locs.doc))
 
     @staticmethod
     def setupdoku() -> None:
@@ -277,13 +276,13 @@ class BayRoBWeb:
         # BAYROB
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
         comp_analysis = Composite(da_sash_menu.content)
-        comp_analysis.layout = RowLayout(flexrows={0: 5, 2: 1}, halign='fill', valign='fill')
+        comp_analysis.layout = RowLayout(flexrows={0: 5, 2: 1}, halign='fill', valign='fill', padding_left=15)
 
         grp_analysisviz = Group(comp_analysis, 'Visualization')
         grp_analysisviz.layout = RowLayout(halign='fill', valign='fill', flexrows=0, padding_left=12)
         comp_analysisviz = Composite(grp_analysisviz)
-        comp_analysisviz.layout = CellLayout(halign='fill', valign='fill')
-        bglogo = Label(comp_analysisviz, img=Image(res('static/images/logo.png')).resize(height=Pixels(200)), valign='center', halign='center')
+        comp_analysisviz.layout = CellLayout(halign='fill', valign='fill', padding_top=10)
+        bglogo = Label(comp_analysisviz, img=Image(res('static/images/logo.png')).resize(height=Pixels(150)), valign='center', halign='center')
         bglogo.bg = Color(html='#3b296a99', alpha=.4)
 
         Separator(comp_analysis, horizontal=True, halign='fill')
@@ -297,7 +296,7 @@ class BayRoBWeb:
             for c in comp_analysisviz.children:
                 c.dispose()
 
-            bglogo = Label(comp_analysisviz, img=Image(res('static/images/logo.png')).resize(height=Pixels(200)), valign='center', halign='center')
+            bglogo = Label(comp_analysisviz, img=Image(res('static/images/logo.png')).resize(height=Pixels(150)), valign='center', halign='center')
             bglogo.bg = Color(html='#3b296a99', alpha=.4)
 
             # clear text results
@@ -372,7 +371,7 @@ class BayRoBWeb:
         comp_.layout = CellLayout(halign='fill', valign='fill')
 
         self.setupdoku()
-        Browser(comp_, url=config.get('upload', 'dokuloc', fallback=''.join(['http://', session.host, session.location, session.runtime.mngr.resources.get('users.html').location])), halign='fill', valign='fill')
+        Browser(comp_, url=config.get('upload', 'dokuloc', fallback=''.join(['http://', session.host, session.location, session.runtime.mngr.resources.get('index.html').location])), halign='fill', valign='fill')
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

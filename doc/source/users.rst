@@ -53,7 +53,7 @@ respective polygons can be highlighted by clicking on their name in the legend.
 
 .. _webif-hyps:
 
-.. figure:: _static/img/webinterface_hypotheses.png
+.. figure:: _static/img/webinterface_search.png
     :align: center
 
     Hypotheses: Radar Chart

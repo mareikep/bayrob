@@ -25,22 +25,27 @@ filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f6f8f9', end
 }
 
 .navbar-default {
-    background-color: #D7DEE3;
+    background-color: #82769F; /*#D7DEE3;*/
     background-image: none;
     /*background: rgb(0,0,0);*/
     /*background-image: url('../img/dark-metal-texture_rot.png')*/
 }
 
 .navbar-default .navbar-text {
-    color: dimgrey;
+    color: white;
 }
 
 .navbar-default .navbar-nav > li > a {
-    color: dimgrey;
+    color: white;
 }
 
 .navbar-default .navbar-brand {
-    color: dimgrey;
+    font-family:"Montserrat Alternates";
+    font-style:normal;
+    font-weight:lighter;
+    src:local("MontserratAlternates-Light"),
+    url(../fonts/MontserratAlternates-Light.ttf) format("truetype");
+    color: white;
 }
 
 .navbar-brand {
@@ -90,17 +95,15 @@ filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f6f8f9', end
 }
 
 h1.teaser-headline {
+    font-family:"Montserrat Alternates";font-style:normal;font-weight:lighter;src:local("MontserratAlternates-Light"),url(../fonts/MontserratAlternates-Light.ttf) format("truetype");
     font-size: 350%;
     color: white;
-    text-shadow: 2px 2px 2px black;
 }
 
 div.teaser-background {
-/* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#f6f8f9+0,e5ebee+50,d7dee3+51,f5f7f9+100;White+Gloss */
 background: rgb(246,248,249); /* Old browsers */
-background: -moz-linear-gradient(-45deg, rgba(246,248,249,1) 0%, rgba(229,235,238,1) 50%, rgba(215,222,227,1) 51%, rgba(245,247,249,1) 100%); /* FF3.6-15 */
-background: -webkit-linear-gradient(-45deg, rgba(246,248,249,1) 0%,rgba(229,235,238,1) 50%,rgba(215,222,227,1) 51%,rgba(245,247,249,1) 100%); /* Chrome10-25,Safari5.1-6 */
-background: linear-gradient(135deg, rgba(246,248,249,1) 0%,rgba(229,235,238,1) 50%,rgba(215,222,227,1) 51%,rgba(245,247,249,1) 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+/* Permalink - use to edit and share this gradient: https://colorzilla.com/gradient-editor/#82769f+0,c2bae2+50,cdc7e7+51,ece5ff+100 */
+background: linear-gradient(135deg, #82769f 0%,#c2bae2 50%,#cdc7e7 51%,#ece5ff 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
 filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f6f8f9', endColorstr='#f5f7f9',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
 }
 
@@ -184,4 +187,51 @@ background: -moz-linear-gradient(-45deg, rgba(215,222,227,1) 0%, rgba(245,247,24
 background: -webkit-linear-gradient(-45deg, rgba(215,222,227,1) 0%,rgba(245,247,249,1) 100%); /* Chrome10-25,Safari5.1-6 */
 background: linear-gradient(135deg, rgba(215,222,227,1) 0%,rgba(245,247,249,1) 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
 filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#d7dee3', endColorstr='#f5f7f9',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+}
+
+.dropdown-submenu {
+    position:relative;
+}
+.dropdown-submenu>.dropdown-menu {
+    top:0;
+    left:100%;
+    margin-top:-6px;
+    margin-left:-1px;
+    -webkit-border-radius:0 6px 6px 6px;
+    -moz-border-radius:0 6px 6px 6px;
+    border-radius:0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+    display:block;
+}
+.dropdown-submenu>a:after {
+    display:block;
+    content:" ";
+    float:right;
+    width:0;
+    height:0;
+    border-color:transparent;
+    border-style:solid;
+    border-width:5px 0 5px 5px;
+    border-left-color:#cccccc;
+    margin-top:5px;
+    margin-right:-10px;
+}
+.dropdown-submenu:hover>a:after {
+    border-left-color:#ffffff;
+}
+.dropdown-submenu.pull-left {
+    float:none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+    left:-100%;
+    margin-left:10px;
+    -webkit-border-radius:6px 0 6px 6px;
+    -moz-border-radius:6px 0 6px 6px;
+    border-radius:6px 0 6px 6px;
+}
+
+a {
+    color: dimgrey;
+    text-decoration: none
 }
