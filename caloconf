@@ -1,27 +1,3 @@
-[mongo]
-available = False
-host = 127.0.0.1
-port = 27017
-user = matcalo
-password = mamRslZn
-auth = SCRAM-SHA-1
-timeout = 500
-
-[onto]
-path = ontologies/matcalo.owl
-
-[upload]
-allowedext = .csv,.txt,.data,.mcp
-maxfilesize = 1e+7
-maxdirsize = 4e+6
-maxfilecnt = 300
-uploadfldr = /tmp
-
-[calo]
+[bayrob]
 public = False
 mode = debug
-datapath = 'data'
-
-[plotly]
-username=mareikep
-apikey=e8JpsxUyJtRFT5J8JtzE

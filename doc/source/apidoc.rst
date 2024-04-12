@@ -11,7 +11,21 @@ own inference task conveniently in your own applications.
 *********
 
 .. automodule:: bayrob.core.base
-    :members: BayRoB
+    :members:
+    :exclude-members: BayRoB, Search, Query
+
+    .. autoclass:: Query
+        :members:
+
+    .. autoclass:: Search
+        :members:
+
+    .. autoclass:: BayRoB
+        :members:
+        :exclude-members: Result
+
+        .. autoclass:: bayrob.core.base.BayRoB::Result
+            :members:
 
 .. automodule:: bayrob.core.astar
     :members: AStar, BiDirAStar, Node
@@ -39,15 +53,3 @@ Utils
 .. automodule:: jpt.variables
     :members: Variable, NumericVariable, SymbolicVariable, VariableMap
 
-****
-
-.. ..
-
-
-****
-
-Configuration
-*************
-
-.. class:: bayrob.config.Config
-.. automodule:: bayrob.config

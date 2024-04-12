@@ -53,7 +53,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.todo',
               'sphinx.ext.ifconfig',
               'sphinx.ext.intersphinx',
-              'sphinx.ext.viewcode'
+              'sphinx.ext.viewcode',
+              'sphinx_copybutton'
               ]
 
 # BibTeX settings according to https://sphinxcontrib-bibtex.readthedocs.io/en/latest/usage.html
@@ -116,7 +117,7 @@ html_context = {
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['build', '_md_tests.rst']
+exclude_patterns = ['build', '_md_tests.rst', 'cmdtools.rst']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 #default_role = None
@@ -158,9 +159,6 @@ html_theme_options = {
     # Tab name for entire site. (Default: "Site")
     'navbar_site_name': "Site",
 
-    # Tab name for the current pages TOC. (Default: "Page")
-    'navbar_pagenav_name': "Page",
-
     # A list of tuples containing pages or urls to link to.
     # Valid tuples should be in the following forms:
     #    (name, page)                 # a link to a page
@@ -172,6 +170,15 @@ html_theme_options = {
     #     ("Examples", "examples"),
     #     ("Link", "http://example.com", True),
     # ],
+
+    # Render the next and previous page links in navbar. (Default: true)
+    'navbar_sidebarrel': True,
+
+    # Render the current pages TOC in the navbar. (Default: true)
+    'navbar_pagenav': True,
+
+    # Tab name for the current pages TOC. (Default: "Page")
+    'navbar_pagenav_name': "Page",
 
     # Global TOC depth for "site" navbar tab. (Default: 1)
     # Switching to -1 shows all levels.
@@ -207,12 +214,12 @@ html_theme_options = {
     # * flatly
     # * sandstone (v3 only)
     # * united
-    # * yeti (v3 only)
-    'bootswatch_theme': "slate",
+    # * yeti (v3 only) slate
+    'bootswatch_theme': "united",
 
     # Choose Bootstrap version.
     # Values: "3" (default) or "2" (in quotes)
-    'bootstrap_version': "3",
+    'bootstrap_version': "2",
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -227,12 +234,12 @@ html_theme_options = {
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = os.path.join('_static', 'img', 'logo_orig.png')
+html_logo = os.path.join('_static', 'img', 'logo_bayrob_orig.png')
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-html_favicon = '_static/favicon.ico'
+html_favicon = '_static/favicon.png'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -358,6 +365,13 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
 
+# -- Options for copybutton- ---------------------------------------------------
+
+copybutton_exclude = '.linenos'
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+copybutton_only_copy_prompt_lines = True
+copybutton_line_continuation_character = "\\"
 
 # -- Options for Epub output ---------------------------------------------------
 

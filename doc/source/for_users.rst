@@ -7,9 +7,10 @@ For Users
  - interpret the results using representative visualizations
  - use basic analysis tools on their own data (Tab `Data Analysis`)
 
+.. _Usage:
 
-Reasoning
----------
+Usage
+-----
 
 The |project| reasoning pipeline can be executed by graphically defining a requirement profile for the desired
 material to find. Clicking on the button named `Define Requirement Profile` opens a new window
