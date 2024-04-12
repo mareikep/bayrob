@@ -38,7 +38,7 @@ run of the `<model-namme>` and `args`, an argument object allowing to access the
 
 Calling
 
-    $ ./run.sh
+    $ make compose
 
 will pull the docker container for the `BayRoB` web application and start it. 
 The application can be accessed in a web browser under [http://127.0.0.1:5005/bayrob/](http://127.0.0.1:5005/bayrob/).
