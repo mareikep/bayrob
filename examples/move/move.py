@@ -1,28 +1,24 @@
-import re
-import signal
-from collections import defaultdict
-from multiprocessing import Pool, cpu_count
-from pathlib import Path
-
-from tqdm import tqdm
-
-from jpt import JPT
-from jpt.distributions import Gaussian
 import datetime
 import os
+import re
+import signal
+from multiprocessing import Pool, cpu_count
+from pathlib import Path
 
 import dnutils
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from tqdm import tqdm
 
 from bayrob.models.action import Move
 from bayrob.models.world import GridAgent, Grid
 from bayrob.utils import locs
 from bayrob.utils.constants import FILESTRFMT, bayroblogger
-from bayrob.utils.dynamic_array import DynamicArray
 from bayrob.utils.plotlib import defaultconfig, plotly_sq, plot_data_subset, fig_to_file, plot_heatmap
 from bayrob.utils.utils import recent_example
+from jpt import JPT
+from jpt.distributions import Gaussian
 
 logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
@@ -70,7 +66,7 @@ def _gendata(data_range):
             a.dir = initdir
     return dm_
 
-def generate_data(fp, args):
+def generate_data_(fp, args):
 
     lrturns = args.lrturns if 'lrturns' in args else 360
     numpositions = args.numpositions if 'numpositions' in args else None

@@ -14,7 +14,7 @@ logger = dnutils.getlogger(bayroblogger)
 
 
 class Config(ConfigParser):
-    f"""Global configuration data structure singleton for {projectnameUP.__doc__}. 
+    """Global configuration data structure singleton for BayRoB.
     Wraps around a :class:`configparser.ConfigParser`.
     The config file may look like this::
 
@@ -35,7 +35,7 @@ class Config(ConfigParser):
             maxfilecnt = 10
             uploadfldr = /tmp
 
-        [{projectnameLOW.__doc__}]
+        [bayrob]
             smoothed = True
             public = False
     """

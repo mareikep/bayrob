@@ -8,7 +8,7 @@ import pandas as pd
 from dnutils import ifnone
 from jpt.distributions import Gaussian
 from matplotlib import pyplot as plt
-from numpy.random import randint, choice
+from numpy.random import choice
 
 datalogger = dnutils.getlogger('datalogger')
 

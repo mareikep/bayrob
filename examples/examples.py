@@ -539,7 +539,7 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", dest="verbose", default='debug', type=str, action="store", help="Set verbosity level {debug,info,warning,error,critical}. Default is info.")
     parser.add_argument('--recent', action='store_true', help='use most recent folder created', required=False)
     parser.add_argument('--learn', action='store_true', help='learn model', required=False)
-    parser.add_argument('--modulelearn', action='store_true', help='use default learning function. otherwise use learning function of module', required=False)
+    parser.add_argument('--modulelearn', action='store_true', help='use learning function of module. if not given, use default learning function', required=False)
     parser.add_argument('--plot', action='store_true', help='plot model', required=False)
     parser.add_argument('--showplots', action='store_true', help='show plots', required=False)
     parser.add_argument('--targets', nargs='+')
@@ -552,7 +552,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--args', action='append', nargs=2, metavar=('arg', 'value'), help='other, example-specific argument of type (arg, value)')
     parser.add_argument('-e', '--example', type=str, default='perception', help='name of the data set', required=False)
     parser.add_argument('--min-samples-leaf', type=float, default=1, help='min_samples_leaf parameter', required=False)
-    parser.add_argument('--min-impurity_improvement', type=float, default=None, help='impurity_improvement parameter', required=False)
+    parser.add_argument('--min-impurity-improvement', type=float, default=None, help='impurity_improvement parameter', required=False)
     args = parser.parse_args()
 
     init_loggers(level=args.verbose)

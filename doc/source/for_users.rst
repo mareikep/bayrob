@@ -3,40 +3,22 @@ For Users
 
 |project| provides a web interface that allows to
 
- - execute the |project| inference with an easy-to-use graphical interface (Tab |project|) and
- - interpret the results using representative visualizations
- - use basic analysis tools on their own data (Tab `Data Analysis`)
+ - do things
+ - and even do more things
 
 .. _Usage:
 
 Usage
 -----
 
-The |project| reasoning pipeline can be executed by graphically defining a requirement profile for the desired
-material to find. Clicking on the button named `Define Requirement Profile` opens a new window
+The |project| reasoning can be executed by graphically defining a requirement profile for the desired
+material to find. Clicking on the button named `Query Model` opens a new window
 (:num:`Fig. #webif-query`: :ref:`webif-query`) that allows to select
-predefined reqirement profiles or create an entirely new one, select a reasoning strategy and set a threshold to limit
-the results. In the upper right corner, all possible features that can be subject to search are listed along with their
-respective units and possible min/max values.
+a model to be queried and specify observations that are passed as evidence to the reasoning system.
 
-The first drop-down menu allows to select an item from a predefined set of domains. For each domain, there are multiple
-presets defined, which can be selected from the second drop-down menu below. Selecting a preset will update the
-radar-chart visualization on the left, i.e. an axis for each feature in the preset will be created. The green bar represents the
-interval of values that are defined to be acceptable for this feature. The end points of the bar can be dragged to the
-desired positions to change the accepted values for the respective feature.
+...
 
-The `Strategy`-box allows to select an inference strategy for the reasoning pipeline. Available are breadth-first search
-(BFS) and depth-first search (DFS). The results will be the same, but depending on the problem, one or the other may
-be faster.
-
-The text field below allows to define a threshold, i.e. only hypotheses with a probability higher or equal to this
-value will be shown in the results.
-
-A right-click on a feature in the table opens a context-menu that allows to update its values or add/remove this
-feature to/from the requirement profile on the left. Adding a feature will create a new axis with the axis limits
-being the min/max values of this particular feature.
-
-Clicking the `Query`-button will trigger the reasoning pipeline.
+Clicking the `Query`-button will trigger the reasoning process.
 
 .. _webif-query:
 
@@ -47,19 +29,17 @@ Clicking the `Query`-button will trigger the reasoning pipeline.
 
     The |project| Query window.
 
-The results of the reasoning process will be shown in two ways. The first one is a visualization that adds a colored
-area for each candidate result in the previously defined radar chart (see :num:`Fig. #webif-hyps`: :ref:`webif-hyps`).
-This allows to visually compare the candidates with respect to their proximity to the requirement profile. The
-respective polygons can be highlighted by clicking on their name in the legend.
+The results of the reasoning process will be shown in two ways. The first one is a visualization ...
+(see :num:`Fig. #webif-hyps`: :ref:`webif-hyps`). The distributions plots can be downloaded as ``.svg`` files.
 
 .. _webif-hyps:
 
 .. figure:: _static/img/webinterface_search.png
     :align: center
 
-    Hypotheses: Radar Chart
+    Query Results: Probability distributions
 
-    The visualization of the generated candidates to allow a comparison between the query (green bars) and the results (colored polygons).
+    The visualization of the query results allows to compare the ground truth with the computed (posterior) distributions.
 
 The second way to investigate the results is to check the generated candidates in the table on the right
 (see :num:`Fig. #webif-table`: :ref:`webif-table`). Here, each candidate is listed along with its respective probability.
@@ -71,18 +51,12 @@ candidate was executed with the respective parameters.
 .. figure:: _static/img/webinterface_hyptable.png
     :align: center
 
-    Hypotheses: Table
+    Query Results: Additional information
 
-    The table listing the hypotheses for the query.
+    The text provides additional information about the reasoning process.
 
-This process pipeline and the parameters can be visualized by right-clicking on the candidate and selecting `Show process
-history of the candidate`. A new window pops up showing a tree visualization
-(see :num:`Fig. #webif-tree`: :ref:`webif-tree`). The selected candidate will be highlighted in green. Each path from
-the start node to a leaf represents one process pipeline. Each edge represents one process step.
-Hovering over the process name will show a tooltip with the respective parameters for this process. Each node thus
-represents the state the material is in after executing the processes on the path from the start node to this node.
-The tooltip of the start node shows the requirement profile, the one of the leaf node shows the probability and the
-overall result of the process chain.
+...
+(see :num:`Fig. #webif-tree`: :ref:`webif-tree`). ...
 
 .. _webif-tree:
 

@@ -18,7 +18,6 @@ from matplotlib import pyplot as plt
 import jpt
 from bayrob.utils import locs
 from bayrob.utils.constants import bayroblogger, FILESTRFMT
-from bayrob.utils.constants import xlsHEADER, xlsNUM, xlsDATE
 from jpt.base.functions import PiecewiseFunction, ConstantFunction
 from jpt.distributions import Multinomial, Numeric, Integer, Bool
 from jpt.distributions.quantile.quantiles import QuantileDistribution
@@ -146,50 +145,6 @@ def scatterplot(*args, **kwargs):
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(*args, **kwargs)
     return ax
-
-
-def toxls(
-        filename,
-        header,
-        data,
-        sheet='Sheet1'
-) -> bool:
-    """
-    Generates an .xls file from the given ``data``.
-
-    :param filename: the destination file name
-    :param header: the header names
-    :param data: the data to write to the .xls file
-    :param sheet: the name of the sheet to be created
-    :type filename: str
-    :type header: list of str
-    :type data: 2-dim array of int/str/float
-    :type sheet: str
-    :returns: True, if successful, False otherwise
-    :rtype: bool
-
-    General Usage:
-
-        >>> write(rownum, colnum, label, style= < xlwt.Style.XFStyle object >)
-
-    :Example:
-
-        >>> ws.write(1, 0, datetime.now(), xlsDATE)
-        >>> ws.write(2, 2, xlwt.Formula("A3+B3"))
-    """
-    import xlwt
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet(sheet)
-
-    for i, h in enumerate(header):
-        ws.write(0, i, label=h, style=xlsHEADER)
-
-    for r, row in enumerate(data):
-        for c, col in enumerate(row):
-            ws.write(r+1, c, label=col, style=xlsNUM)
-
-    wb.save(filename)
-    return True
 
 
 def cov(x) -> np.ndarray:

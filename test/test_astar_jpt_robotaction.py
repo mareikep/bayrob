@@ -9,7 +9,7 @@ from bayrob.application.astar_jpt_app import SubAStar_, SubAStarBW_
 from bayrob.core.astar import BiDirAStar, Node
 from bayrob.core.astar_jpt import Goal, State
 from bayrob.utils import locs
-from bayrob.utils.constants import obstacles as obstacles_, obstacle_kitchen_boundaries
+from bayrob.utils.constants import obstacles as obstacles_, obstacle_kitchen_boundaries, searchpresets
 from bayrob.utils.plotlib import gendata, plot_heatmap, plot_path, defaultconfig, plot_pos, plotly_animation, plot_dir
 from bayrob.utils.utils import recent_example
 from jpt import JPT, SymbolicVariable, SymbolicType
@@ -44,61 +44,62 @@ class AStarRobotActionJPTTests(unittest.TestCase):
                     JPT.load(str(treefile))
                 )
                 for p in [cls.recent_move, cls.recent_turn, cls.recent_perc]
-                for treefile in Path(p).rglob('*.tree')
+                for treefile in Path(p).glob('*.tree')
             ]
         )
 
-        # plot initial distributions over x/y positions
-        t = cls.models['move']
-        # plot_tree_dist(
-        #     tree=t,
-        #     qvarx=t.varnames['x_in'],
-        #     qvary=t.varnames['y_in'],
-        #     title='Initial distribution P(x,y)',
-        #     limx=(0, 100),
-        #     limy=(0, 100),
-        #     save=os.path.join(os.path.join(recent, 'plots', '000-init-dist.html')),
-        #     show=True
+        print('Loaded models', cls.models)
+        # # plot initial distributions over x/y positions
+        # t = cls.models['move']
+        # # plot_tree_dist(
+        # #     tree=t,
+        # #     qvarx=t.varnames['x_in'],
+        # #     qvary=t.varnames['y_in'],
+        # #     title='Initial distribution P(x,y)',
+        # #     limx=(0, 100),
+        # #     limy=(0, 100),
+        # #     save=os.path.join(os.path.join(recent, 'plots', '000-init-dist.html')),
+        # #     show=True
+        # # )
+        #
+        # initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75] #  [3, 60, 1, 0]
+        # goalx, goaly = [6, 60]
+        # tolerance_pos = 0.05
+        # tolerance_dir = .01
+        #
+        # dx = Gaussian(initx, tolerance_pos).sample(500)
+        # distx = Numeric()
+        # distx.fit(dx.reshape(-1, 1), col=0)
+        #
+        # dy = Gaussian(inity, tolerance_pos).sample(500)
+        # disty = Numeric()
+        # disty.fit(dy.reshape(-1, 1), col=0)
+        #
+        # ddx = Gaussian(initdirx, tolerance_dir).sample(500)
+        # distdx = Numeric()
+        # distdx.fit(ddx.reshape(-1, 1), col=0)
+        #
+        # ddy = Gaussian(initdiry, tolerance_dir).sample(500)
+        # distdy = Numeric()
+        # distdy.fit(ddy.reshape(-1, 1), col=0)
+        #
+        # cls.init = State(
+        #     {
+        #         'x_in': distx,
+        #         'y_in': disty,
+        #         'xdir_in': distdx,
+        #         'ydir_in': distdy
+        #     }
         # )
-
-        initx, inity, initdirx, initdiry = [3.5, 58.5, .75, .75] #  [3, 60, 1, 0]
-        goalx, goaly = [6, 60]
-        tolerance_pos = 0.05
-        tolerance_dir = .01
-
-        dx = Gaussian(initx, tolerance_pos).sample(500)
-        distx = Numeric()
-        distx.fit(dx.reshape(-1, 1), col=0)
-
-        dy = Gaussian(inity, tolerance_pos).sample(500)
-        disty = Numeric()
-        disty.fit(dy.reshape(-1, 1), col=0)
-
-        ddx = Gaussian(initdirx, tolerance_dir).sample(500)
-        distdx = Numeric()
-        distdx.fit(ddx.reshape(-1, 1), col=0)
-
-        ddy = Gaussian(initdiry, tolerance_dir).sample(500)
-        distdy = Numeric()
-        distdy.fit(ddy.reshape(-1, 1), col=0)
-
-        cls.init = State(
-            {
-                'x_in': distx,
-                'y_in': disty,
-                'xdir_in': distdx,
-                'ydir_in': distdy
-            }
-        )
-        # cls.initstate.plot(show=True)
-
-        tol = .5
-        cls.goal = Goal(
-            {
-                'x_in': ContinuousSet(goalx - tol, goalx + tol),
-                'y_in': ContinuousSet(goaly - tol, goaly + tol)
-            }
-        )
+        # # cls.initstate.plot(show=True)
+        #
+        # tol = .5
+        # cls.goal = Goal(
+        #     {
+        #         'x_in': ContinuousSet(goalx - tol, goalx + tol),
+        #         'y_in': ContinuousSet(goaly - tol, goaly + tol)
+        #     }
+        # )
 
     def pathexecution(self, initstate, cmds, shift=False):
         s = initstate
@@ -316,10 +317,17 @@ class AStarRobotActionJPTTests(unittest.TestCase):
         distdy.fit(ddy.reshape(-1, 1), col=0)
 
         tol = .5
+        dgx = Gaussian(goalx, tol).sample(500)
+        distgx = Numeric()
+        distgx.fit(dgx.reshape(-1, 1), col=0)
+
+        dgy = Gaussian(goaly, tol).sample(500)
+        distgy = Numeric()
+        distgy.fit(dgy.reshape(-1, 1), col=0)
         goal = Goal(
             {
-                'x_in': ContinuousSet(goalx - tol, goalx + tol),
-                'y_in': ContinuousSet(goaly - tol, goaly + tol)
+                'x_in': distgx,
+                'y_in': distgy
             }
         )
 
@@ -440,7 +448,7 @@ class AStarRobotActionJPTTests(unittest.TestCase):
 
     def test_astar_bw_path_multinomialgoal(self) -> None:
         initx, inity, initdirx, initdiry = [62, 74, .3, .9]  # <--- WORKS! DO NOT TOUCH
-        initx, inity, initdirx, initdiry = [62, 74, 1, 0]
+        # initx, inity, initdirx, initdiry = [62, 74, 1, 0]
         tolerance_pos = .1
         tolerance_dir = .01
 
@@ -478,16 +486,84 @@ class AStarRobotActionJPTTests(unittest.TestCase):
             }
         )
 
+        models = dict(
+            [
+                (
+                    Path(p).name,
+                    JPT.load(str(treefile))
+                )
+                for p in [
+                os.path.join(locs.examples, 'demo', 'move'),
+                os.path.join(locs.examples, 'demo', 'turn'),
+                os.path.join(locs.examples, 'demo', 'perception'),
+                ]
+                for treefile in Path(p).rglob('*.tree')
+            ]
+        )
+        print(models)
+        print(self.models)
+
         self.a_star = SubAStarBW_(
             init,
             goal,
-            models=self.models
+            models=models
         )
+        print(f"Running {self.a_star.__class__.__name__} with {repr(init)} and {goal}")
         self.path = list(self.a_star.search())
         self.path.reverse()
 
         # TEST: execution of found path, check if goal is met.
 
+    def test_query_preset_example_session(self) -> None:
+        from bayrob.core.base import BayRoB
+        from bayrob.core.base import Query
+        preset = {
+            "evidence": {
+                'detected(milk)': False,
+                'x_in': ContinuousSet(58, 68),
+                'y_in': ContinuousSet(70, 80),
+                'nearest_furniture': 'fridge'
+            },
+            "queryvars": ['daytime', 'open(fridge_door)']
+        }
+
+        self.bayrob = BayRoB()
+        self.bayrob.adddatapath([os.path.join(locs.examples, 'demo', "perception")])
+        allvars_ = {v.name: v for v in self.bayrob.models['perception'].variables}
+
+        qo = Query()
+        qo.model = self.bayrob.models['perception']
+        qo.evidence = {allvars_[k]: v for k, v in preset['evidence'].items()}
+        qo.queryvars = [self.bayrob.models['perception'].varnames[k] for k in preset['queryvars']]
+
+        self.bayrob.query = qo
+        self.bayrob.query_jpts()
+        print(self.bayrob.result.result)
+
+
+    def test_astar_bw_path_multinomialgoal_session(self) -> None:
+        from bayrob.core.base import BayRoB
+        from bayrob.core.base import Search
+        preset = searchpresets['multinomial']
+
+        self.bayrob = BayRoB()
+        self.bayrob.adddatapath([os.path.join(locs.examples, 'demo', d) for d in os.listdir(os.path.join(locs.examples, 'demo'))])
+        allvars = self.bayrob.models['move'].variables + self.bayrob.models['turn'].variables + \
+                  self.bayrob.models['perception'].variables
+        allvars_ = {v.name: v for v in allvars}
+
+        self.asr = Search()
+        self.asr.bwd = preset['bwd']
+        self.asr.init = {allvars_[k]: v for k, v in preset['init'].items()}
+        self.asr.init_tolerances = {allvars_[k]: v for k, v in preset['init_tolerances'].items()}
+        self.asr.goal = {allvars_[k]: v for k, v in preset['goal'].items()}
+        self.asr.goal_tolerances = {allvars_[k]: v for k, v in preset['goal_tolerances'].items()}
+        self.asr.bwd = preset['bwd']
+
+        self.bayrob.query = self.asr
+        self.bayrob.search_astar()
+        print(self.bayrob.result)
+        print(self.bayrob.result.result)
 
     def test_astar_bw_path_single_step_from_beliefstate(self) -> None:
         tp = self.models['perception']

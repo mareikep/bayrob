@@ -5,7 +5,7 @@ from typing import List, Any
 
 import dnutils
 
-from bayrob.utils.constants import bayroblogger, cs
+from bayrob.utils.constants import bayroblogger
 from bayrob.utils.utils import dhms
 
 logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)

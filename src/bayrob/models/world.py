@@ -1,7 +1,7 @@
 from random import uniform
 
 import numpy as np
-from typing import List, Any, Dict, Tuple
+from typing import List, Tuple
 
 
 class World:

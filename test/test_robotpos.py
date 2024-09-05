@@ -40,7 +40,7 @@ class JointProbabilityTreesMPE(unittest.TestCase):
         plt.legend()
         plt.show()
 
-        # t1.plot(title=f'Single Action', plotvars=v1)
+        # t1.plot(title=f'Single Action', queryvars=v1)
 
     def test_robot_multiple_actions_single_sample(self) -> None:
         a1 = TrajectorySimulation(1000, 1000, probx=[.39, .01, .6], proby=[.59, .01, .4])
@@ -105,11 +105,11 @@ class JointProbabilityTreesMPE(unittest.TestCase):
         plt.legend()
         plt.show()
 
-        # t1.plot(title=f'Tree 1', plotvars=v1)
-        # t2.plot(title=f'Tree 2', plotvars=v2)
-        # t3.plot(title=f'Tree 3', plotvars=v3)
-        # t4.plot(title=f'Tree 4', plotvars=v4)
-        # t5.plot(title=f'Tree 5', plotvars=v5)
+        # t1.plot(title=f'Tree 1', queryvars=v1)
+        # t2.plot(title=f'Tree 2', queryvars=v2)
+        # t3.plot(title=f'Tree 3', queryvars=v3)
+        # t4.plot(title=f'Tree 4', queryvars=v4)
+        # t5.plot(title=f'Tree 5', queryvars=v5)
 
     def test_robot_multi_action_multi_sample(self) -> None:
         a1 = TrajectorySimulation(1000, 1000, probx=[.39, .01, .6], proby=[.59, .01, .4])
@@ -298,7 +298,7 @@ class JointProbabilityTreesMPE(unittest.TestCase):
     def test_calo(self):
         calo = BayRoB()
         calo.adddatapath(locs.logs)
-        calo.reloadmodels()
+        calo._reloadmodels()
 
         # jpt = JPT.load(os.path.join(locs.logs, '2022-08-04_09:59-ALL-MOVEFORWARD.tree'))
         JointProbabilityTreesMPE.dt = '2022-08-19_12:15'

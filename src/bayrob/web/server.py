@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import traceback
+from collections import OrderedDict
 from functools import wraps
 from pathlib import Path
 from typing import Callable, List
@@ -28,11 +29,12 @@ from bayrob.utils.utils import res, urlable, fmt
 from bayrob.web.thread import BayRoBSessionThread
 from jpt.distributions.univariate import Bool, Numeric
 from pyrap import session
+from pyrap.dialogs import options_list
 from pyrap.layout import RowLayout, ColumnLayout, CellLayout, StackLayout
 from pyrap.ptypes import Color, Image, Pixels, px
 from pyrap.pwt.svg.svg import SVG
 from pyrap.widgets import Shell, Composite, Label, Button, Separator, TabFolder, Browser, Combo, Edit, Group, Link, \
-    SashMenuComposite, ScrolledComposite
+    SashMenuComposite, ScrolledComposite, Option
 
 if config.getboolean('bayrob', 'smoothed', fallback=False):
     pass
@@ -54,6 +56,9 @@ class BayRoBWeb:
         self.uploaddir = None
         self.menu_width = 250
         self.wnd_wait = None
+        self.wait_imgsize = 85
+        self.wait_padding = 30
+        self.lbl_status = None
 
     @staticmethod
     def setup(application) -> None:
@@ -123,57 +128,223 @@ class BayRoBWeb:
 
     def presets(
             self,
-            qtype
+            qtype,
+            model: str = None
     ):
         if qtype == 'queryjpt':
             return querypresets
         elif qtype == 'search':
             return searchpresets
-        elif qtype == "plotvars":
+        elif qtype == "queryvars":
             return {
-                'perception.tree': {
-                    f'x_in x y_in': [self.bayrob.models["perception.tree"].varnames["x_in"],
-                                     self.bayrob.models["perception.tree"].varnames["y_in"]],
-                    f'xdir_in x ydir_in': [self.bayrob.models["perception.tree"].varnames["xdir_in"],
-                                           self.bayrob.models["perception.tree"].varnames["ydir_in"]],
+                'perception': {
+                    f'x_in x y_in': [self.bayrob.models["perception"].varnames["x_in"],
+                                     self.bayrob.models["perception"].varnames["y_in"]],
+                    f'xdir_in x ydir_in': [self.bayrob.models["perception"].varnames["xdir_in"],
+                                           self.bayrob.models["perception"].varnames["ydir_in"]],
                     **{
-                        k: v for k, v in self.bayrob.models['perception.tree'].varnames.items() if
+                        k: v for k, v in self.bayrob.models['perception'].varnames.items() if
                         k not in ['x_in', 'y_in', 'xdir_in', 'ydir_in']
                     }
                 },
-                'move.tree': {
-                    f'x_in x y_in': [self.bayrob.models["move.tree"].varnames["x_in"],
-                                     self.bayrob.models["move.tree"].varnames["y_in"]],
-                    f'xdir_in x ydir_in': [self.bayrob.models["move.tree"].varnames["xdir_in"],
-                                           self.bayrob.models["move.tree"].varnames["ydir_in"]],
-                    f'x_out x y_out': [self.bayrob.models["move.tree"].varnames["x_in"],
-                                       self.bayrob.models["move.tree"].varnames["y_in"]],
+                'move': {
+                    f'x_in x y_in': [self.bayrob.models["move"].varnames["x_in"],
+                                     self.bayrob.models["move"].varnames["y_in"]],
+                    f'xdir_in x ydir_in': [self.bayrob.models["move"].varnames["xdir_in"],
+                                           self.bayrob.models["move"].varnames["ydir_in"]],
+                    f'x_out x y_out': [self.bayrob.models["move"].varnames["x_in"],
+                                       self.bayrob.models["move"].varnames["y_in"]],
                     **{
-                        k: v for k, v in self.bayrob.models['move.tree'].varnames.items() if
+                        k: v for k, v in self.bayrob.models['move'].varnames.items() if
                         k not in ['x_in', 'y_in', 'xdir_in', 'ydir_in', 'x_out', 'y_out']
                     }
                 },
-                'turn.tree': {
-                    f'xdir_in x ydir_in': [self.bayrob.models["turn.tree"].varnames["xdir_in"],
-                                           self.bayrob.models["turn.tree"].varnames["ydir_in"]],
-                    f'xdir_out x ydir_out': [self.bayrob.models["turn.tree"].varnames["xdir_out"],
-                                             self.bayrob.models["turn.tree"].varnames["ydir_out"]],
+                'turn': {
+                    f'xdir_in x ydir_in': [self.bayrob.models["turn"].varnames["xdir_in"],
+                                           self.bayrob.models["turn"].varnames["ydir_in"]],
+                    f'xdir_out x ydir_out': [self.bayrob.models["turn"].varnames["xdir_out"],
+                                             self.bayrob.models["turn"].varnames["ydir_out"]],
                     **{
-                        k: v for k, v in self.bayrob.models['turn.tree'].varnames.items() if
+                        k: v for k, v in self.bayrob.models['turn'].varnames.items() if
                         k not in ['xdir_in', 'ydir_in', 'xdir_out', 'ydir_out']
                     }
                 },
-                'pr2.tree': {
-                    f't_x x t_y': [self.bayrob.models["pr2.tree"].varnames["t_x"],
-                                   self.bayrob.models["pr2.tree"].varnames["t_y"]],
+                'pr2': {
+                    f't_x x t_y': [self.bayrob.models["pr2"].varnames["t_x"],
+                                   self.bayrob.models["pr2"].varnames["t_y"]],
                     **{
-                        k: v for k, v in self.bayrob.models['pr2.tree'].varnames.items() if
+                        k: v for k, v in self.bayrob.models['pr2'].varnames.items() if
                         k not in ['t_x', 't_y', 't_z', 'duration', 'angle_z']
                     }
+                },
+                'alarm': {
+                    k: v for k, v in self.bayrob.models['alarm'].varnames.items()
                 }
             }
         else:
             return {}
+
+    def suggestions(
+            self,
+            var,
+            mean=False,
+            tolerance=False
+    ):
+        # return string of value suggestions for variable selection in query model window
+        if var.domain is Numeric:
+            if mean:
+                return "mean value, e.g. 3"
+            elif tolerance:
+                return "variance, e.g. 0.01"
+            else:
+                return "range/interval, e.g. [3, 50] or [10, 20["
+        if var.domain is Bool:
+            return "anything Boolean-like, e.g. True, true, y, yes, 1, ..."
+        else:
+            return f"comma-separated, e.g. {', '.join(list(var.domain.values)[:5])}"
+
+    def parseval(
+            self,
+            val,
+            var=None,
+            onlysets=False
+    ):
+        # transform entered values into valid query values for that type of variable (both query model and search)
+        try:
+            logger.error(f"parsing val {var.domain}, {val}")
+            if var.domain is Numeric:
+                try:
+                    val_ = ContinuousSet.fromstring(val)
+                except:
+                    val_ = float(val)
+                return val_
+            elif var.domain is Bool:
+                if onlysets:
+                    return set(map(lambda x: x.strip().lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly', 'uh-huh'], val.split(',')))
+                return val.strip().lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly', 'uh-huh']
+            else:
+                return set(map(lambda x: x.strip(), val.split(',')))
+        except:
+            return val
+
+    def plot_ground_truth(
+            self,
+            df,
+            limx,
+            limy,
+            plot,
+            plottype,
+            pdfvars
+    ):
+        # return plot of ground truth (bar chart or scatter plot)
+        gt = go.Figure()
+
+        gt_ = plot_data_subset(
+            df,
+            xvar=plot[0].name if isinstance(plot, list) and len(plot) > 1 else plot.name,
+            yvar=plot[1].name if isinstance(plot, list) and len(plot) > 1 else None,
+            constraints=pdfvars,
+            limx=limx,
+            limy=limy,
+            save=None,
+            show=False,
+            color='rgb(0,104,180)',
+            plot_type=plottype
+        )
+        if gt_ is not None:
+            gt.layout = gt_.layout
+            gt.add_traces(gt_.data)
+
+        return gt
+
+    def plot_dist_heatmap(
+            self,
+            data,
+            limx,
+            limy
+    ):
+        # return plot of distribution (heatmap)
+        dist = go.Figure()
+
+        # plot heatmap
+        dist_ = plot_heatmap(
+            xvar='x',
+            yvar='y',
+            data=data,
+            limx=limx,
+            limy=limy,
+            # limz=(0, 1),
+            show=False,
+            save=None,
+            fun="heatmap"
+        )
+
+        if dist_ is not None:
+            dist.layout = dist_.layout
+            dist.add_traces(dist_.data)
+
+        return dist
+
+    def plot_dist_bar(
+            self,
+            posterior,
+            plot
+    ):
+        # return plot of distribution (bar chart)
+        plot_ = posterior[plot].plot(
+            view=False,
+            title=False,  # f'Dist: {plot}<br>(Query): {querystring}',
+            alphabet=True,
+            color='rgb(59, 41, 106)',
+            xvar=plot.name
+        )
+        return plot_
+
+    def gendata_path(
+            self,
+            xvar: str,
+            yvar: str,
+            path: List
+    ):
+        # generate data for path plot (result of search)
+        d = [
+            (
+                np.mean([s[xvar].mpe()[0].lower, s[xvar].mpe()[0].upper]),  # x
+                np.mean([s[yvar].mpe()[0].lower, s[yvar].mpe()[0].upper]),  # y
+                np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),  # dx
+                np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),  # dy
+                f'Step {i}',  # step
+                f'<b>Step {i}</b><br>'
+                f'<b>{"ROOT" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br>'
+                f'<b>MPEs:</b><br>'
+                f'{"<br>".join(f"<i>{k}:</i> {fmt(v)}" for k, v in s.items())}<br>'
+                f'<b>Expectations:</b><br>'
+                f'{"<br>".join(f"<i>{k}:</i> {fmt(v.expectation())}" for k, v in s.items())}<br>',
+                1  # size
+            )
+            for i, s in enumerate(path) if not isinstance(s, Goal)
+        ]
+
+        return d
+
+    def wait_bounds(self, w, h):
+        return w - self.wait_imgsize - self.wait_padding, h - self.wait_imgsize - self.wait_padding, self.wait_imgsize, self.wait_imgsize
+
+    def cancel_bayrob(self):
+        self.bayrob.kill()
+
+    def run_bayrob(self, query, callback, runf) -> None:
+        # use bayrob reasoner to query single model
+        self.bayrob.pushsession.start()
+        self.bayrob.query = query
+
+        self.bayrob.runfunction = runf
+        self.bayrob.callback = callback
+        w = session.runtime.display.width.value
+        h = session.runtime.display.height.value
+        self.wnd_wait.bounds = self.wait_bounds(w, h)
+        self.wnd_wait.visible = True
+        self.bayrob.start()
 
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     # DESKTOP VERSION
@@ -217,11 +388,10 @@ class BayRoBWeb:
         self.wnd_wait.create_content()
         self.wnd_wait.bg = Color('transp')
         self.wnd_wait.content.bg = Color('transp')
-        wait_imgsize = 85
-        wait_padding = 30
+
         w = session.runtime.display.width.value
         h = session.runtime.display.height.value
-        self.wnd_wait.bounds = w-wait_imgsize-wait_padding, h-wait_imgsize-wait_padding, wait_imgsize, wait_imgsize
+        self.wnd_wait.bounds = self.wait_bounds(w, h)
 
         lbl_wnd = Label(self.wnd_wait.content, img=Image(res('static/images/wait_steelblue.gif')), valign='fill', halign='fill')
         lbl_wnd.bg = Color('transp')
@@ -229,7 +399,7 @@ class BayRoBWeb:
         def movewait() -> None:
             w = session.runtime.display.width.value
             h = session.runtime.display.height.value
-            self.wnd_wait.bounds = w - wait_imgsize - wait_padding, h - wait_imgsize - wait_padding, wait_imgsize, wait_imgsize
+            self.wnd_wait.bounds = self.wait_bounds(w, h)
 
         self.wnd_wait.on_resize += self.wnd_wait.dolayout
         self._shell.on_resize += movewait
@@ -248,7 +418,7 @@ class BayRoBWeb:
         comp_status.layout = ColumnLayout(halign='fill', valign='fill', flexcols=1)
 
         Label(comp_status, text='Status:', halign='fill', valign='fill')
-        lbl_status = Edit(comp_status, text='OK', multiline=True, halign='fill', valign='fill', border=False, minheight=20)
+        self.lbl_status = Edit(comp_status, text='OK', multiline=True, halign='fill', valign='fill', border=False, minheight=20)
         Link(comp_status, text="<a href='http://ai.uni-bremen.de/doku.php?id=impressum' target='_blank'>Disclaimer</a>", markup=True, padding=5, halign='fill', valign='fill')
 
         # BAYROB TAB #
@@ -276,7 +446,7 @@ class BayRoBWeb:
         # BAYROB
         # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
         comp_analysis = Composite(da_sash_menu.content)
-        comp_analysis.layout = RowLayout(flexrows={0: 5, 2: 1}, halign='fill', valign='fill', padding_left=15)
+        comp_analysis.layout = ColumnLayout(flexcols={0: 2, 2: 1}, halign='fill', valign='fill', padding_left=15)
 
         grp_analysisviz = Group(comp_analysis, 'Visualization')
         grp_analysisviz.layout = RowLayout(halign='fill', valign='fill', flexrows=0, padding_left=12)
@@ -319,46 +489,10 @@ class BayRoBWeb:
                     logger.debug('Downloading existing file', fn_tree_dists)
                     session.runtime.download(fn_tree_dists, 'application/pdf')
                 else:
-                    lbl_status.text = 'No visualization available for download.'
+                    self.lbl_status.text = 'No visualization available for download.'
             except:
                 traceback.print_exc()
                 session.runtime.download(fn_tree_dists, 'application/pdf', force=True)
-
-        def suggestions(
-                var,
-                mean=False,
-                tolerance=False
-        ):
-            # return string of value suggestions for variable selection in query model window
-            if var.domain is Numeric:
-                if mean:
-                    return "mean value, e.g. 3"
-                elif tolerance:
-                    return "variance, e.g. 0.01"
-                else:
-                    return "range/interval, e.g. [3, 50] or [10, 20["
-            if var.domain is Bool:
-                return "anything Boolean-like, e.g. True, true, y, yes, 1, ..."
-            else:
-                return f"comma-separated, e.g. {', '.join(list(var.domain.values)[:5])}"
-
-        def parseval(
-                val,
-                var=None,
-                onlysets=False
-        ):
-            # transform entered values into valid query values for that type of variable (both query model and search)
-            try:
-                if var.domain is Numeric:
-                    return ContinuousSet.fromstring(val)
-                elif var.domain is Bool:
-                    if onlysets:
-                        return set(map(lambda x: x.strip(), val.split(',')))
-                    return val.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly', 'uh-huh']
-                else:
-                    return set(map(lambda x: x.strip(), val.split(',')))
-            except:
-                return val
 
         btn_clearviz.on_select += clear
         btn_download.on_select += download_visualization
@@ -375,118 +509,20 @@ class BayRoBWeb:
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-        def plot_ground_truth(
-                df,
-                limx,
-                limy,
-                plot,
-                plottype,
-                pdfvars
-        ):
-            # return plot of ground truth (bar chart or scatter plot)
-            gt = go.Figure()
-
-            gt_ = plot_data_subset(
-                df,
-                xvar=plot[0].name if isinstance(plot, list) and len(plot) > 1 else plot.name,
-                yvar=plot[1].name if isinstance(plot, list) and len(plot) > 1 else None,
-                constraints=pdfvars,
-                limx=limx,
-                limy=limy,
-                save=None,
-                show=False,
-                color='rgb(0,104,180)',
-                plot_type=plottype
-            )
-            if gt_ is not None:
-                gt.layout = gt_.layout
-                gt.add_traces(gt_.data)
-
-            return gt
-
-        def plot_dist_heatmap(
-                data,
-                limx,
-                limy
-        ):
-            # return plot of distribution (heatmap)
-            dist = go.Figure()
-
-            # plot heatmap
-            dist_ = plot_heatmap(
-                xvar='x',
-                yvar='y',
-                data=data,
-                limx=limx,
-                limy=limy,
-                # limz=(0, 1),
-                show=False,
-                save=None,
-                fun="heatmap"
-            )
-
-            if dist_ is not None:
-                dist.layout = dist_.layout
-                dist.add_traces(dist_.data)
-
-            return dist
-
-        def plot_dist_bar(
-                posterior,
-                plot
-        ):
-            # return plot of distribution (bar chart)
-            plot_ = posterior[plot].plot(
-                    view=False,
-                    title=False,  # f'Dist: {plot}<br>(Query): {querystring}',
-                    alphabet=True,
-                    color='rgb(59, 41, 106)',
-                    xvar=plot.name
-            )
-            return plot_
-
-        def gendata_path(
-                xvar: str,
-                yvar: str,
-                path: List
-        ):
-            # generate data for path plot (result of search)
-            d = [
-                (
-                    np.mean([s[xvar].mpe()[0].lower, s[xvar].mpe()[0].upper]),  # x
-                    np.mean([s[yvar].mpe()[0].lower, s[yvar].mpe()[0].upper]),  # y
-                    np.mean([s['xdir_in'].mpe()[0].lower, s['xdir_in'].mpe()[0].upper]),  # dx
-                    np.mean([s['ydir_in'].mpe()[0].lower, s['ydir_in'].mpe()[0].upper]),  # dy
-                    f'Step {i}',  # step
-                    f'<b>Step {i}</b><br>'
-                    f'<b>{"ROOT" if s.leaf is None or s.tree is None else f"{s.tree}-Leaf#{s.leaf}"}</b><br>'
-                    f'<b>MPEs:</b><br>'
-                    f'{"<br>".join(f"<i>{k}:</i> {fmt(v)}" for k, v in s.items())}<br>'
-                    f'<b>Expectations:</b><br>'
-                    f'{"<br>".join(f"<i>{k}:</i> {fmt(v.expectation())}" for k, v in s.items())}<br>',
-                    1  # size
-                )
-                for i, s in enumerate(path) if not isinstance(s, Goal)
-            ]
-
-            return d
-
-        def plot_search_results(
-                self
-        ) -> None:
+        def plot_search_results(*_) -> None:
             # a succeeded search is visualized in terms of a) a plot of the found path, b) an (animated) plot of the
             # position distribution and c) an (animated) plot of the direction distribution
 
             self.wnd_wait.visible = False
-            btn_search.enabled=True
-            btn_query_model.enabled=True
+            btn_search.enabled = True
+            btn_query_model.enabled = True
 
             result = self.bayrob.result
             path = result.result
 
             if not result.success:
                 logger.warning(f'There was a problem: Error: {result.error}. Message: {result.message}')
-                lbl_status.text = "Success!" if self.bayrob.result.success else f"Failed: {result.error}"
+                self.lbl_status.text = "Success!" if self.bayrob.result.success else f"Failed: {result.error}"
                 lbl_textresults.text = result.message
                 self.bayrob.result.clear()
                 self._shell.dolayout()
@@ -499,24 +535,12 @@ class BayRoBWeb:
                 c.dispose()
 
             comp_viz_search = Composite(comp_analysisviz)
-            comp_viz_search.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
+            comp_viz_search.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0)
 
             comp_viz_path = Composite(comp_viz_search)
             comp_viz_path.layout = CellLayout(halign='fill', valign='fill')
 
-            # for dists plots
-            comp_viz_dists = Composite(comp_viz_search)
-            comp_viz_dists.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
-
-            # for dist pos
-            comp_viz_pos = Composite(comp_viz_dists)
-            comp_viz_pos.layout = CellLayout(halign='fill', valign='fill')
-
-            # for dist dir
-            comp_viz_dir = Composite(comp_viz_dists)
-            comp_viz_dir.layout = CellLayout(halign='fill', valign='fill')
-
-            d = gendata_path(
+            d = self.gendata_path(
                 xvar='x_in',
                 yvar='y_in',
                 path=path
@@ -571,30 +595,36 @@ class BayRoBWeb:
             fig_to_file(fig_pos, fname_pos, ftypes=['.svg', '.html'])
             fig_to_file(fig_dir, fname_dir, ftypes=['.svg', '.html'])
 
+            # display plot in visualization
+            resname = f'resource/static/image/{Path(fname_path).stem}.html'
+            with open(fname_path, 'rb') as f:
+                res = session.runtime.mngr.resources.registerf(resname, 'text/html', f, force=True)
+                u_ = f'http://{session.host}{session.location}{res.location}'
+
+                Browser(
+                    comp_viz_path,
+                    url=u_,
+                    halign='fill',
+                    valign='fill'
+                )
+
             # register file to make it available as resource
-            for fn, comp in zip([fname_path, fname_pos, fname_dir], [comp_viz_path, comp_viz_pos, comp_viz_dir]):
+            for fn, t in zip([fname_pos, fname_dir], ["Position", "Direction"]):
                 resname = f'resource/static/image/{Path(fn).stem}.html'
                 with open(fn, 'rb') as f:
                     res = session.runtime.mngr.resources.registerf(resname, 'text/html', f, force=True)
                     u_ = f'http://{session.host}{session.location}{res.location}'
 
-                    # display plot in visualization
-                    Browser(
-                        comp,
-                        url=u_,
-                        halign='fill',
-                        valign='fill'
-                    )
+                    # display plot in separate windows
+                    open_plot_window_single(u_, t)
 
-            lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
+            self.lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
             lbl_textresults.text = str(self.bayrob.result)
 
             self.bayrob.result.clear()
             self._shell.dolayout()
 
-        def plot_query_results(
-                self
-        ) -> None:
+        def plot_query_results(*_) -> None:
             # a succeeded query is visualized in terms of a) a plot of ground truth (scatter or normalized bar plot)
             # and b) a plot of the distribution (heatmap or normalized bar plot) for each plot variable enterd in the
             # query window and c) a tree plot of the conditional tree (without distribution images). A new window is
@@ -610,58 +640,67 @@ class BayRoBWeb:
 
             if not result.success:
                 logger.warning(f'There was a problem: Error: {result.error}. Message: {result.message}')
-                lbl_status.text = "Success!" if self.bayrob.result.success else f"Failed: {result.error}"
+                self.lbl_status.text = f"Failed: {result.error}"
                 lbl_textresults.text = result.message
                 self.bayrob.result.clear()
                 self._shell.dolayout()
                 return
             else:
+                self.lbl_status.text = f"Success! Plotting... {result.message}"
+                lbl_textresults.text = result.message if result.message is not None else ""
                 logger.info(f'Querying {self.bayrob.query} finished successfully.')
+                self._shell.dolayout()
 
-            # plot conditional tree
-            fn_tree = os.path.join(self.uploaddir, f"conditional_tree.svg")
-            cond.plot(
-                plotvars=None,
-                filename=f'conditional_tree',
-                directory=self.uploaddir,
-                leaffill='#CCDAFF',
-                nodefill='#768ABE',
-                alphabet=True,
-                view=False
-            )
+            if self.bayrob.query.plot_tree:
+                # plot conditional tree
+                fn_tree = os.path.join(self.uploaddir, f"conditional_tree.svg")
+                cond.plot(
+                    plotvars=None,
+                    filename=f'conditional_tree',
+                    directory=self.uploaddir,
+                    leaffill='#CCDAFF',
+                    nodefill='#768ABE',
+                    alphabet=True,
+                    view=False
+                )
 
-            cond.plot(
-                plotvars=list(cond.variables),
-                filename=f'conditional_tree_dists',
-                directory=self.uploaddir,
-                leaffill='#CCDAFF',
-                nodefill='#768ABE',
-                alphabet=True,
-                view=False
-            )
+                cond.plot(
+                    plotvars=list(cond.variables),
+                    filename=f'conditional_tree_dists',
+                    directory=self.uploaddir,
+                    leaffill='#CCDAFF',
+                    nodefill='#768ABE',
+                    alphabet=True,
+                    view=False
+                )
 
-            # plot conditional tree and visualize it in main window (downloadable through download button in menu)
-            for c in comp_analysisviz.children:
-                c.dispose()
+                # plot conditional tree and visualize it in main window (downloadable through download button in menu)
+                for c in comp_analysisviz.children:
+                    c.dispose()
 
-            c = ScrolledComposite(comp_analysisviz, valign='fill', halign='fill', hscroll=True, vscroll=True)
-            s = SVG(c.content, svg=fn_tree, halign='fill', valign='fill')
-            s.maxheight(comp_analysisviz.bounds[3])
-            s.maxwidth(comp_analysisviz.bounds[2])
+                c = ScrolledComposite(comp_analysisviz, valign='fill', halign='fill', hscroll=True, vscroll=True)
+                s = SVG(c.content, svg=fn_tree, halign='fill', valign='fill')
+                s.maxheight(comp_analysisviz.bounds[3])
+                s.maxwidth(comp_analysisviz.bounds[2])
 
-            btn_download.enabled = True
+                btn_download.enabled = True
 
             # plot ground truth/distribution pairs (separate window for each variable)
             df = pd.read_parquet(self.bayrob.datasets[self.qo.modelname])
 
-            for plot in self.qo.plotvars:
+            for plot in self.qo.queryvars:
                 if isinstance(plot, list):
+                    logger.debug(f"Generating numeric/scatter plot")
                     if all([v.name.endswith('_in') for v in plot]):
                         limx = (0, 100)
                         limy = (0, 100)
                     else:
-                        limx = (-2, 2)
-                        limy = (-2, 2)
+                        if self.bayrob.query.modelname == 'pr2':
+                            limx = (-3, 1)
+                            limy = (-1.5, .5)
+                        else:
+                            limx = (-2, 2)
+                            limy = (-2, 2)
 
                     # data generation for distribution plot
                     x = np.linspace(*limx, max(50, int((limx[1] - limx[0]) * 2)))
@@ -669,18 +708,19 @@ class BayRoBWeb:
 
                     X, Y = np.meshgrid(x, y)
                     Z = np.array([cond.pdf(cond.bind({plot[0]: x, plot[1]: y})) for x, y, in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
-                    lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in self.qo.query.items()]))
+                    lbl = np.full(Z.shape, '<br>'.join([f'{vname}: {val}' for vname, val in self.qo.evidence.items()]))
 
                     data = pd.DataFrame(
                         data=[[x, y, Z, lbl]],
                         columns=['x', 'y', 'z', 'lbl']
                     )
 
-                    gt = plot_ground_truth(df, limx, limy, plot, 'scatter', {k.name: v for k, v in self.qo.query.items()})
-                    dist = plot_dist_heatmap(data, limx, limy)
+                    gt = self.plot_ground_truth(df, limx, limy, plot, 'scatter', {k.name: v for k, v in self.qo.evidence.items()})
+                    dist = self.plot_dist_heatmap(data, limx, limy)
                 else:
-                    gt = plot_ground_truth(df, None, (0, 1), plot, 'histogram', {k.name: v for k, v in self.qo.query.items()})
-                    dist = plot_dist_bar(post, plot)
+                    logger.debug(f"Generating multinomial/histogram plot")
+                    gt = self.plot_ground_truth(df, None, (0, 1), plot, 'histogram', {k.name: v for k, v in self.qo.evidence.items()})
+                    dist = self.plot_dist_bar(post, plot)
 
                 # save plot to html file
                 pt = urlable('X'.join([p.name for p in plot]) if isinstance(plot, list) else plot.name)
@@ -700,12 +740,13 @@ class BayRoBWeb:
                         urls.append(u_)
 
                 # display plot in separate windows
-                open_plot_window(urls, pt)
+                open_plot_window_double(urls, pt)
 
             self.bayrob.result.clear()
+            self.lbl_status.text = "OK"
             self._shell.dolayout()
 
-        def open_plot_window(
+        def open_plot_window_double(
                 urls,
                 pvars
         ):
@@ -749,7 +790,41 @@ class BayRoBWeb:
 
             wnd_plot.show()
 
-            lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
+            self.lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
+            lbl_textresults.text = str(self.bayrob.result)
+
+            self._shell.dolayout()
+
+        def open_plot_window_single(
+            url,
+            title
+        ):
+            # display the animated position/direction plot in separate window (plotly html in Browser widget)
+            wnd_plot = Shell(parent=self._shell, title=title,
+                             border=True, btnclose=True, btnmin=True,
+                             resize=True, modal=False, titlebar=True)
+            wnd_plot.on_resize += wnd_plot.dolayout
+
+            w = min(1100., 0.8 * session.runtime.display.width.value)
+            h = min(1200., 0.8 * session.runtime.display.height.value)
+            wnd_plot.bounds = self._shell.width.value / 2 - w / 2, self._shell.height.value / 2 - h / 2, w, h
+
+            comp_main = Composite(wnd_plot.content, hscroll=True, vscroll=True)
+            comp_main.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+
+            comp = Composite(comp_main, hscroll=True, vscroll=True)
+            comp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0)
+
+            Browser(
+                comp,
+                url=url,
+                halign='fill',
+                valign='fill'
+            )
+
+            wnd_plot.show()
+
+            self.lbl_status.text = "Success!" if self.bayrob.result.success else "Failed!"
             lbl_textresults.text = str(self.bayrob.result)
 
             self._shell.dolayout()
@@ -767,22 +842,11 @@ class BayRoBWeb:
             if da_sash_menu.visible:
                 da_sash_menu.togglemenu()
 
-            self.bayrob.pushsession.start()
-
-            lbl_status.text = f'Searching...'
+            self.lbl_status.text = f'Searching...'
             lbl_textresults.text = f"Searching path: {str(self.asr)}"
             logger.info(f'Searching path: {str(self.asr)}')
 
-            # use bayrob reasoner to search path
-            self.bayrob.query = self.asr
-            self.bayrob.runfunction = 'astar'
-
-            self.bayrob.callback = plot_search_results
-            w = session.runtime.display.width.value
-            h = session.runtime.display.height.value
-            self.wnd_wait.bounds = w - wait_imgsize - wait_padding, h - wait_imgsize - wait_padding, wait_imgsize, wait_imgsize
-            self.wnd_wait.visible = True
-            self.bayrob.start()
+            self.run_bayrob(query=self.asr, callback=plot_search_results, runf='astar')
 
             self._shell.dolayout()
 
@@ -799,22 +863,11 @@ class BayRoBWeb:
             if da_sash_menu.visible:
                 da_sash_menu.togglemenu()
 
-            self.bayrob.pushsession.start()
-
-            lbl_status.text = f'Querying...'
+            self.lbl_status.text = f'Querying...'
             lbl_textresults.text = f"Querying: {str(self.qo)}"
             logger.info(f'Querying: {str(self.qo)}')
 
-            # use bayrob reasoner to query single model
-            self.bayrob.query = self.qo
-
-            self.bayrob.runfunction = 'queryjpt'
-            self.bayrob.callback = plot_query_results
-            w = session.runtime.display.width.value
-            h = session.runtime.display.height.value
-            self.wnd_wait.bounds = w - wait_imgsize - wait_padding, h - wait_imgsize - wait_padding, wait_imgsize, wait_imgsize
-            self.wnd_wait.visible = True
-            self.bayrob.start()
+            self.run_bayrob(query=self.qo, callback=plot_query_results, runf='queryjpt')
 
             self._shell.dolayout()
 
@@ -829,63 +882,102 @@ class BayRoBWeb:
                 self.wnd_search = Shell(parent=self._shell, title='BayRoB Search',
                                              border=True, btnclose=True, btnmin=True,
                                              resize=True, modal=False, titlebar=True)
-                self.wnd_search.on_resize += self.wnd_search.dolayout
+                # self.wnd_search.on_resize += self.wnd_search.dolayout
 
-                w = min(800., 0.8 * session.runtime.display.width.value)
-                h = min(600., 0.7 * session.runtime.display.height.value)
+                w = 700  # min(700., 0.8 * session.runtime.display.width.value)
+                h = 950  # min(800., 0.7 * session.runtime.display.height.value)
                 self.wnd_search.bounds = self._shell.width.value/2 - w/2, self._shell.height.value/2 - h/2, w, h
-                comp = Composite(self.wnd_search.content, hscroll=True, vscroll=True)
+                # scrolled = ScrolledComposite(self.wnd_search.content, valign='fill', halign='fill', vscroll=True, hscroll=True, minwidth=px(w), minheight=px(400))
+                comp = Composite(self.wnd_search.content)
                 comp.layout = RowLayout(halign='fill', valign='fill', flexrows={2: 1, 7: 1})
 
                 # ==================================================================
 
-                Label(comp, text='Specify goal', valign='center', halign='fill')
+                Label(comp, text='Specify goal', valign='center', halign='fill')  # 0
                 # multiple combos to select variables from tree
                 # contains rows of triples (-, combovariable, text value)
-                comp_goalsettings = Composite(comp)
+                scrolled_goal = ScrolledComposite(comp,
+                                                  valign='fill',
+                                                  halign='fill',
+                                                  vscroll=True,
+                                                  hscroll=True,
+                                                  minwidth=px(w-10),
+                                                  minheight=px(h/4)
+                                                  )  # 1
+                comp_goalsettings = Composite(scrolled_goal.content)
                 comp_goalsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
 
                 # buttons to add new queryrow and remove entire query block
-                Label(comp, text='', valign='fill', halign='fill')
-                comp2 = Composite(comp)
+                Label(comp, text='', valign='fill', halign='fill')  # 2
+                comp2 = Composite(comp)  # 3
                 comp2.layout = ColumnLayout(halign='left', valign='fill')
                 btn_add_queryvar = Button(comp2, '+')
                 btn_clear_vars = Button(comp2, 'clear query')
-                edit_query = Label(comp2, text="", valign='center', halign='fill')
-                Separator(comp, horizontal=True, halign='fill')
+                Separator(comp, horizontal=True, halign='fill')  # 4
 
                 # ==================================================================
 
-                Label(comp, text='Specify init state', valign='center', halign='fill')
-                comp_initsettings = Composite(comp)
+                Label(comp, text='Specify init state', valign='center', halign='fill')  # 5
+                scrolled_init = ScrolledComposite(comp,
+                                                  valign='fill',
+                                                  halign='fill',
+                                                  vscroll=True,
+                                                  hscroll=True,
+                                                  minwidth=px(w-10),
+                                                  minheight=px(h/4)
+                                                  )  # 6
+
+                comp_initsettings = Composite(scrolled_init.content)
                 comp_initsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
 
                 # buttons to add new queryrow and remove entire query block
-                Label(comp, text='', valign='fill', halign='fill')
-                comp3 = Composite(comp)
+                Label(comp, text='', valign='fill', halign='fill')  # 7
+                comp3 = Composite(comp)  # 8
                 comp3.layout = ColumnLayout(halign='left', valign='fill')
                 btn_add_initvar = Button(comp3, '+')
                 btn_clear_initvars = Button(comp3, 'clear init vars')
-                edit_init = Label(comp3, text="", valign='center', halign='fill')
 
                 # ==================================================================
 
-                comp_preset = Composite(comp)
+                grp_strategy = Group(comp, text='Specify search direction')  # 9
+                grp_strategy.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
+
+                opt_fwd = Option(grp_strategy, text='forward')
+                opt_bwd = Option(grp_strategy, text='backward')
+
+                # ==================================================================
+
+                comp_preset = Composite(comp)  # 10
                 comp_preset.layout = ColumnLayout(valign='fill', halign='fill', flexcols=1)
                 Label(comp_preset, text='Load preset', valign='center', halign='fill')
-                combo_presets = Combo(comp_preset, editable=False, items=self.presets(qtype='search'), minwidth=px(200), halign='fill',valign='fill')
+                combo_presets = Combo(comp_preset, editable=False, items=self.presets(qtype='search'), minwidth=px(200), halign='fill', valign='fill')
 
                 # ==================================================================
 
-                btn_execute_query = Button(comp, 'Search', valign='fill', halign='fill')
+                btn_execute_query = Button(comp, 'Search', valign='fill', halign='fill')  # 11
 
                 # ==================================================================
 
                 self.asr = Search()
 
-                allvars = self.bayrob.models['move.tree'].variables + self.bayrob.models['turn.tree'].variables + \
-                          self.bayrob.models['perception.tree'].variables + self.bayrob.models['pr2.tree'].variables
+                allvars = self.bayrob.models['move'].variables + self.bayrob.models['turn'].variables + \
+                          self.bayrob.models['perception'].variables
                 allvars_ = {v.name: v for v in allvars}
+
+                def resize_scrolled(*_):
+                    _, _, w, h = self.wnd_search.bounds
+                    w = min(700., w)
+                    h = min(950., h)
+                    # scrolled.layout.minwidth = px(w)
+                    # scrolled.layout.minheight = px(min(400, h))
+                    scrolled_goal.layout.minwidth = px(w-10)
+                    scrolled_goal.layout.minheight = px(h/4)
+                    scrolled_init.layout.minwidth = px(w-10)
+                    scrolled_init.layout.minheight = px(h/4)
+                    self.wnd_search.dolayout()
+
+                def updatesearchdir(*_):
+                    self.asr.bwd = opt_bwd.checked
 
                 def add_goalvar_row(*_):
                     # goal state specification:
@@ -895,21 +987,26 @@ class BayRoBWeb:
                     comp_tmp = Composite(comp_goalsettings)
                     comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0, 1])
                     combo_vars = Combo(comp_tmp, editable=False, items=allvars, minwidth=px(200), halign='fill', valign='fill')
-                    lbl_vals = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
-                    lbl_tol = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_vals = Edit(comp_tmp, message="value", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_tol = Edit(comp_tmp, message="tolerance", editable=True, minwidth=px(200), valign='fill', halign='fill')
                     lbl_tol.enabled = False
                     btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
 
                     def add_goalvar(*_) -> None:
                         # add variable represented by row to goal state specification
 
-                        self.asr.goal[combo_vars.selection] = parseval(
+                        self.asr.goal[combo_vars.selection] = self.parseval(
                             lbl_vals.text,
                             var=combo_vars.selection,
                             onlysets=True
                         )
-                        self.asr.goal_tolerances[combo_vars.selection] = lbl_tol.text
-                        updatequery()
+
+                    def add_tolerance(*_) -> None:
+                        self.asr.goal_tolerances[combo_vars.selection] = self.parseval(
+                            lbl_tol.text,
+                            var=combo_vars.selection,
+                            onlysets=True
+                        )
 
                     def rem_goalvar(*_) -> None:
                         # remove variable represented by row from goal state specification
@@ -919,18 +1016,18 @@ class BayRoBWeb:
                         if combo_vars.selection in self.asr.goal_tolerances and self.asr.goal_tolerances[combo_vars.selection] == lbl_tol.text:
                             del self.asr.goal_tolerances[combo_vars.selection]
                         comp_tmp.dispose()
-                        updatequery()
 
                     def update_suggestions(*_) -> None:
                         # add message with suggestions for possible values depending on selected variable
 
-                        lbl_vals.message = suggestions(combo_vars.selection)
+                        lbl_vals.message = self.suggestions(combo_vars.selection)
                         lbl_tol.enabled = combo_vars.selection.domain is Numeric
                         self.wnd_search.dolayout()
 
                     btn_rem_queryvar.on_select += rem_goalvar
                     combo_vars.on_select += update_suggestions
                     lbl_vals.on_modify += add_goalvar
+                    lbl_tol.on_modify += add_tolerance
                     self.wnd_search.dolayout()
 
                 def add_initvar_row(*_):
@@ -941,21 +1038,26 @@ class BayRoBWeb:
                     comp_tmp = Composite(comp_initsettings)
                     comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0, 1])
                     combo_vars = Combo(comp_tmp, editable=False, items=allvars, minwidth=px(200), halign='fill', valign='fill')
-                    lbl_vals = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
-                    lbl_tol = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_vals = Edit(comp_tmp, message="value", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_tol = Edit(comp_tmp, message="tolerance", editable=True, minwidth=px(200), valign='fill', halign='fill')
                     lbl_tol.enabled = False
                     btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
 
                     def add_initvar(*_) -> None:
                         # add variable represented by row to init state specification
 
-                        self.asr.init[combo_vars.selection] = parseval(
+                        self.asr.init[combo_vars.selection] = self.parseval(
                             lbl_vals.text,
                             var=combo_vars.selection,
                             onlysets=True
                         )
-                        self.asr.init_tolerances[combo_vars.selection] = lbl_tol.text
-                        updatequery()
+
+                    def add_tolerance(*_) -> None:
+                        self.asr.init_tolerances[combo_vars.selection] = self.parseval(
+                            lbl_tol.text,
+                            var=combo_vars.selection,
+                            onlysets=True
+                        )
 
                     def rem_initvar(*_) -> None:
                         # remove variable represented by row from init state specification
@@ -965,25 +1067,18 @@ class BayRoBWeb:
                         if combo_vars.selection in self.asr.init_tolerances and self.asr.init_tolerances[combo_vars.selection] == lbl_tol.text:
                             del self.asr.init[combo_vars.selection]
                         comp_tmp.dispose()
-                        updatequery()
 
                     def update_suggestions(*_) -> None:
                         # add message with suggestions for possible values depending on selected variable
 
-                        lbl_vals.message = suggestions(combo_vars.selection)
+                        lbl_vals.message = self.suggestions(combo_vars.selection)
                         lbl_tol.enabled = combo_vars.selection.domain is Numeric
                         self.wnd_search.dolayout()
 
                     btn_rem_queryvar.on_select += rem_initvar
                     combo_vars.on_select += update_suggestions
                     lbl_vals.on_modify += add_initvar
-                    self.wnd_search.dolayout()
-
-                def updatequery(*_):
-                    # update the text summary of query so far
-
-                    edit_query.text = ', '.join([f'{k}: {v}' for k, v in self.asr.goal.items()])
-                    edit_init.text = ', '.join([f'{k}: {v}' for k, v in self.asr.init.items()])
+                    lbl_tol.on_modify += add_tolerance
                     self.wnd_search.dolayout()
 
                 def loadpreset(*_):
@@ -993,13 +1088,31 @@ class BayRoBWeb:
                     clear_goal()
                     clear_init()
 
+                    for k, v in preset['init'].items():
+                        add_initvar_row()
+                        c = comp_initsettings.children[-1]
+                        c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                        c.children[1].text = str(v)
+
+                    for k, v in preset['goal'].items():
+                        add_goalvar_row()
+                        c = comp_goalsettings.children[-1]
+                        c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                        c.children[1].text = str(v)
+
+                    if preset['bwd']:
+                        opt_bwd.checked = True
+                        opt_fwd.checked = False
+                    else:
+                        opt_bwd.checked = False
+                        opt_fwd.checked = True
+
                     self.asr.init = {allvars_[k]: v for k, v in preset['init'].items()}
                     self.asr.init_tolerances = {allvars_[k]: v for k, v in preset['init_tolerances'].items()}
                     self.asr.goal = {allvars_[k]: v for k, v in preset['goal'].items()}
                     self.asr.goal_tolerances = {allvars_[k]: v for k, v in preset['goal_tolerances'].items()}
+                    self.asr.bwd = preset['bwd']
 
-                    edit_query.text = ', '.join([f'{k}: {v}' for k, v in self.asr.goal.items()])
-                    edit_init.text = ', '.join([f'{k}: {v}' for k, v in self.asr.init.items()])
                     self.wnd_search.dolayout()
 
                 def clear_goal(*_):
@@ -1024,13 +1137,16 @@ class BayRoBWeb:
 
                 # ==================================================================
 
-                btn_add_queryvar.on_select += add_goalvar_row()
+                self.wnd_search.on_resize += resize_scrolled
+                btn_add_queryvar.on_select += add_goalvar_row
                 btn_add_initvar.on_select += add_initvar_row
                 btn_clear_vars.on_select += clear_goal
                 btn_clear_initvars.on_select += clear_init
-                btn_clear_vars.on_select += updatequery
                 combo_presets.on_select += loadpreset
                 btn_execute_query.on_select += search
+                opt_bwd.on_checked += updatesearchdir
+                opt_fwd.on_checked += updatesearchdir
+                opt_bwd.checked = True
 
             self.wnd_search.show()
 
@@ -1046,61 +1162,103 @@ class BayRoBWeb:
                 self.wnd_query_model = Shell(parent=self._shell, title='BayRoB Query',
                                              border=True, btnclose=True, btnmin=True,
                                              resize=True, modal=False, titlebar=True)
-                self.wnd_query_model.on_resize += self.wnd_query_model.dolayout
+                # self.wnd_query_model.on_resize += self.wnd_query_model.dolayout
 
-                w = min(800., 0.8 * session.runtime.display.width.value)
-                h = min(600., 0.7 * session.runtime.display.height.value)
+                w = 500  # min(700., 0.8 * session.runtime.display.width.value)
+                h = 1000  # min(900., 0.9 * session.runtime.display.height.value)
                 self.wnd_query_model.bounds = self._shell.width.value/2 - w/2, self._shell.height.value/2 - h/2, w, h
-                comp = Composite(self.wnd_query_model.content, hscroll=True, vscroll=True)
+                # scrolled = ScrolledComposite(self.wnd_query_model.content,
+                #                              valign='fill',
+                #                              halign='fill',
+                #                              vscroll=True,
+                #                              hscroll=True,
+                #                              minwidth=px(w),
+                #                              minheight=px(400)
+                #                              )
+                comp = Composite(self.wnd_query_model.content)
                 comp.layout = RowLayout(halign='fill', valign='fill', flexrows={5: 1, 10: 1})
 
                 # ==================================================================
 
                 # combo to select tree model
-                Label(comp, text='Select model', valign='fill', halign='fill')
-                combo_models = Combo(comp, editable=False, items=[], halign='fill')
-                Separator(comp, horizontal=True, halign='fill')
+                Label(comp, text='Select model', valign='fill', halign='fill')  # 0
+                combo_models = Combo(comp, editable=False, items=[], halign='fill')  # 1
+                Separator(comp, horizontal=True, halign='fill')  # 2
 
                 # ==================================================================
 
                 # multiple combos to select variables from trees
                 # contains rows of triples (-, combovariable, text value)
-                Label(comp, text='Select query variable(s)', valign='fill', halign='fill')
-                comp_varsettings = Composite(comp)
+                Label(comp, text='Specify observation(s)', valign='fill', halign='fill')  # 3
+                scrolled_var = ScrolledComposite(comp,
+                                                  valign='fill',
+                                                  halign='fill',
+                                                  vscroll=True,
+                                                  hscroll=True,
+                                                  minwidth=px(w-10),
+                                                  minheight=px(.25*h)
+                                                  )  # 4
+                comp_varsettings = Composite(scrolled_var.content)
                 comp_varsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
 
                 # buttons to add new queryrow and remove entire query block
-                Label(comp, text='', valign='fill', halign='fill')
-                comp2 = Composite(comp)
+                Label(comp, text='', valign='fill', halign='fill')  # 5
+                comp2 = Composite(comp)  # 6
                 comp2.layout = ColumnLayout(halign='left', valign='fill')
                 btn_add_queryvar = Button(comp2, '+')
-                btn_clear_vars = Button(comp2, 'clear query')
+                btn_clear_vars = Button(comp2, 'clear evidence')
                 btn_add_queryvar.enabled = False
-                edit_query = Label(comp2, text="", valign='center', halign='fill')
-                Separator(comp, horizontal=True, halign='fill')
+                Separator(comp, horizontal=True, halign='fill')  # 7
 
                 # ==================================================================
 
-                Label(comp, text='Plot settings', valign='fill', halign='fill')
-                comp_varplot = Composite(comp)
+                Label(comp, text='Select query variables', valign='fill', halign='fill')  # 8
+                scrolled_plot = ScrolledComposite(comp,
+                                                  valign='fill',
+                                                  halign='fill',
+                                                  vscroll=True,
+                                                  hscroll=True,
+                                                  minwidth=px(w - 10),
+                                                  minheight=px(.25*h)
+                                                  )  # 9
+                comp_varplot = Composite(scrolled_plot.content)  # 9
                 comp_varplot.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
 
                 # buttons to add new queryrow and remove entire query block
-                Label(comp, text='', valign='fill', halign='fill')
+                Label(comp, text='', valign='fill', halign='fill')  # 10
                 comp3 = Composite(comp)
                 comp3.layout = ColumnLayout(halign='left', valign='fill')
                 btn_add_plotvar = Button(comp3, '+')
                 btn_add_plotvar.enabled = False
-                btn_clear_plotvars = Button(comp3, 'clear plot vars')
-                edit_plotvars = Label(comp3, text="", valign='center', halign='fill')
+                btn_clear_plotvars = Button(comp3, 'clear query variables')
 
                 # ==================================================================
 
-                btn_execute_query = Button(comp, 'Query', valign='fill', halign='fill')
+                comp_preset = Composite(comp)  # 11
+                comp_preset.layout = ColumnLayout(valign='fill', halign='fill', flexcols=1)
+                Label(comp_preset, text='Load preset', valign='center', halign='fill')
+                combo_presets = Combo(comp_preset, editable=False, items={}, minwidth=px(200), halign='fill',valign='fill')
+                combo_presets.enabled = False
+
+                # ==================================================================
+
+                btn_execute_query = Button(comp, 'Query', valign='fill', halign='fill')  # 13
 
                 # ==================================================================
 
                 self.qo = Query()
+
+                def resize_scrolled(*_):
+                    _, _, w, h = self.wnd_query_model.bounds
+                    w = min(500., w)
+                    h = min(1000., h)
+                    # scrolled.layout.minwidth = px(w)
+                    # scrolled.layout.minheight = px(min(400, h))
+                    scrolled_var.layout.minwidth = px(w-10)
+                    scrolled_var.layout.minheight = px(.25*h)
+                    scrolled_plot.layout.minwidth = px(w-10)
+                    scrolled_plot.layout.minheight = px(.25*h)
+                    self.wnd_query_model.dolayout()
 
                 def add_queryvar_row(*_):
                     # query specification:
@@ -1112,13 +1270,13 @@ class BayRoBWeb:
                     comp_tmp = Composite(comp_varsettings)
                     comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0, 1])
                     combo_vars = Combo(comp_tmp, editable=False, items=self.qo.model.variables, minwidth=px(200), halign='fill', valign='fill')
-                    lbl_vals = Edit(comp_tmp, message="", editable=True, minwidth=px(200), valign='fill', halign='fill')
+                    lbl_vals = Edit(comp_tmp, message="value", editable=True, minwidth=px(200), valign='fill', halign='fill')
                     btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
 
                     def add_queryvar(*_) -> None:
                         # add variable represented by row to query specification
 
-                        self.qo.query[combo_vars.selection] = parseval(
+                        self.qo.evidence[combo_vars.selection] = self.parseval(
                             lbl_vals.text,
                             var=combo_vars.selection
                         )
@@ -1127,15 +1285,15 @@ class BayRoBWeb:
                     def rem_queryvar(*_) -> None:
                         # remove variable represented by row from query specification
 
-                        if combo_vars.selection in self.qo.query and self.qo.query[combo_vars.selection] == lbl_vals.text:
-                            del self.qo.query[combo_vars.selection]
+                        if combo_vars.selection in self.qo.evidence and self.qo.evidence[combo_vars.selection] == lbl_vals.text:
+                            del self.qo.evidence[combo_vars.selection]
                         comp_tmp.dispose()
                         updatequery()
 
                     def update_suggestions(*_) -> None:
                         # add message with suggestions for possible values depending on selected variable
 
-                        lbl_vals.message = suggestions(combo_vars.selection)
+                        lbl_vals.message = self.suggestions(combo_vars.selection)
                         self.wnd_query_model.dolayout()
 
                     btn_rem_queryvar.on_select += rem_queryvar
@@ -1152,20 +1310,20 @@ class BayRoBWeb:
 
                     comp_tmp = Composite(comp_varplot)
                     comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols=[0])
-                    combo_vars = Combo(comp_tmp, editable=False, items=self.presets('plotvars')[self.qo.modelname], minwidth=px(200), halign='fill', valign='fill')
+                    combo_vars = Combo(comp_tmp, editable=False, items=self.presets('queryvars').get(self.qo.modelname, {}), minwidth=px(200), halign='fill', valign='fill')
                     btn_rem_var = Button(comp_tmp, '-', valign='fill', halign='fill')
 
                     def add_plotvar(*_) -> None:
                         # add variable represented by row to list of plots
 
-                        self.qo.plotvars.append(combo_vars.selection)
+                        self.qo.queryvars.append(combo_vars.selection)
                         updateplot()
 
                     def rem_plotvar(*_) -> None:
                         # remove variable represented by row from list of plots
 
-                        if combo_vars.selection in self.qo.plotvars:
-                            self.qo.plotvars.remove(combo_vars.selection)
+                        if combo_vars.selection in self.qo.queryvars:
+                            self.qo.queryvars.remove(combo_vars.selection)
                         comp_tmp.dispose()
                         updateplot()
                         self.wnd_query_model.dolayout()
@@ -1177,34 +1335,91 @@ class BayRoBWeb:
                 def updatequery(*_):
                     # update the text summary of query so far
 
-                    self.qo.querystr = build_constraints({k.name: v for k,v in self.qo.query.items()})
-                    edit_query.text = self.qo.querystr
+                    self.qo.querystr = build_constraints({k.name: v for k,v in self.qo.evidence.items()})
+                    # edit_querypreview.text = f"Evidence: {self.qo.querystr} \nQuery variables: {', '.join([str(x) for x in self.qo.queryvars])}"
                     self.wnd_query_model.dolayout()
 
                 def updateplot(*_) -> None:
                     # update the text summary variables to plot
 
-                    edit_plotvars.text = ', '.join([str(x) for x in self.qo.plotvars])
+                    # edit_querypreview.text = f"Evidence: {self.qo.querystr} \nQuery variables: {', '.join([str(x) for x in self.qo.queryvars])}"
                     self.wnd_query_model.dolayout()
+
+                def loadpreset(*_):
+                    # update init and goal state according to predefined settings, update summary texts
+
+                    preset = combo_presets.selection
+                    clear_query()
+                    clear_plot()
+
+                    logger.error(f"Loading query preset for model {self.qo.modelname}:", preset)
+                    for k, v in preset['evidence'].items():
+                        add_queryvar_row()
+                        c = comp_varsettings.children[-1]
+                        c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                        c.children[1].text = str(v)
+
+                    logger.error({self.qo.model.varnames[k]: self.parseval(
+                            v,
+                            var=self.qo.model.varnames[k]
+                        ) for k, v in preset['evidence'].items()})
+
+                    self.qo.evidence = {self.qo.model.varnames[k]: self.parseval(
+                            v,
+                            var=self.qo.model.varnames[k]
+                        ) for k, v in preset['evidence'].items()}
+                    self.qo.queryvars = [self.qo.model.varnames[k] for k in preset['queryvars']]
+                    updatequery()
+                    updateplot()
+
+                    #
+                    # for k, v in preset['init'].items():
+                    #     add_initvar_row()
+                    #     c = comp_initsettings.children[-1]
+                    #     c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                    #     c.children[1].text = str(v)
+                    #
+                    # for k, v in preset['goal'].items():
+                    #     add_goalvar_row()
+                    #     c = comp_goalsettings.children[-1]
+                    #     c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                    #     c.children[1].text = str(v)
+                    #
+                    # if preset['bwd']:
+                    #     opt_bwd.checked = True
+                    #     opt_fwd.checked = False
+                    # else:
+                    #     opt_bwd.checked = False
+                    #     opt_fwd.checked = True
+                    #
+                    # self.asr.init = {allvars_[k]: v for k, v in preset['init'].items()}
+                    # self.asr.init_tolerances = {allvars_[k]: v for k, v in preset['init_tolerances'].items()}
+                    # self.asr.goal = {allvars_[k]: v for k, v in preset['goal'].items()}
+                    # self.asr.goal_tolerances = {allvars_[k]: v for k, v in preset['goal_tolerances'].items()}
+                    # self.asr.bwd = preset['bwd']
 
                 def clear_query(*_):
                     # remove all query specifications
 
                     children = [c for c in comp_varsettings.children]
                     for c in children:
-                        if c.children[0].selection in self.qo.query:
-                            del self.qo.query[c.children[0].selection]
+                        if c.children[0].selection in self.qo.evidence:
+                            del self.qo.evidence[c.children[0].selection]
                         c.dispose()
                     btn_add_queryvar.enabled = True
                     btn_add_plotvar.enabled = True
                     self.qo.model = combo_models.selection
                     self.qo.modelname = list(combo_models.items.keys())[combo_models.selidx]
+
+                    combo_presets.items = self.presets(qtype='queryjpt').get(self.qo.modelname, {})
+                    combo_presets.enabled = True
+
                     self.wnd_query_model.dolayout()
 
                 def clear_plot(*_):
                     # remove all variables from plot list
 
-                    self.qo.plotvars = []
+                    self.qo.queryvars = []
                     children = [c for c in comp_varplot.children]
                     for c in children:
                         c.dispose()
@@ -1217,15 +1432,17 @@ class BayRoBWeb:
 
                 # ==================================================================
 
+                self.wnd_query_model.on_resize += resize_scrolled
                 combo_models.on_select += clear_query
                 combo_models.on_select += clear_plot
-                combo_models.items = self.bayrob.allmodels()
+                combo_models.items = self.bayrob.models
                 btn_add_queryvar.on_select += add_queryvar_row
                 btn_add_plotvar.on_select += add_plotvar_row
                 btn_clear_vars.on_select += clear_query
                 btn_clear_vars.on_select += updatequery
                 btn_clear_plotvars.on_select += clear_plot
                 btn_clear_plotvars.on_select += updatequery
+                combo_presets.on_select += loadpreset
                 btn_execute_query.on_select += query_jpt
 
             self.wnd_query_model.show()
@@ -1242,455 +1459,596 @@ class BayRoBWeb:
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     # MOBILE VERSION
     # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-    # def mobile(self, **kwargs) -> None:
-    #     self._shell = Shell(maximized=True, titlebar=False)
-    #     self._shell.bg = Color('transp')
-    #     self._shell.on_resize += self._shell.dolayout
-    #
-    #     comp_mainframe = Composite(self._shell.content)
-    #     comp_mainframe.layout = RowLayout(halign='fill', valign='fill', flexrows={1: 1}, vspace=0)
-    #
-    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    #     # HEADER
-    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    #     comp_header = Composite(comp_mainframe)
-    #     comp_header.layout = ColumnLayout(halign='fill', flexcols={1: 0.2, 4: 0.2}, padding=Pixels(0))
-    #     comp_header.css = 'navbar'
-    #     comp_header.bgimg = Image(res('static/images/dark-metal-texture_rot.png'))
-    #
-    #     # LOGOS #
-    #     h = 35
-    #     _logo = Image(res('static/images/logo.png')).resize(height=px(int(h)))
-    #     h = _logo.height
-    #     logo = Label(comp_header, padding=Pixels(0), img=_logo, valign='top')
-    #     logo.bg = Color('transp')
-    #     Label(comp_header, padding=Pixels(0))
-    #     ailogo = Label(comp_header, img=Image(res('static/images/ai_logo_white.png')).resize(height=Pixels(.9 * h)), valign='center', halign='center')
-    #     ailogo.bg = Color('transp')
-    #     Label(comp_header, padding=Pixels(0))
-    #
-    #     # MENU #
-    #     menulabel = Label(comp_header, img=Image(res('static/images/menu.png')).resize(height=Pixels(.9 * h)), valign='center', halign='right', padding=Pixels(5))
-    #     menulabel.layout.minheight = Pixels(.6 * h)
-    #     menulabel.bg = 'transp'
-    #
-    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    #     # BODY
-    #     # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    #     comp_body = Composite(comp_mainframe, border=True)
-    #     comp_body.layout = StackLayout(halign='fill', valign='fill')
-    #     comp_body.bg = Color('white')
-    #
-    #     lbl_status = Label(comp_mainframe, text='', valign='fill', halign='fill')
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # HOME PAGE #
-    #     comp_home = Composite(comp_body)
-    #     comp_home.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
-    #     comp_home.bg = Color('white')
-    #     comp_home.visible = True
-    #
-    #     comp = Composite(comp_home, hscroll=True, vscroll=True)
-    #     comp.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-    #
-    #     comp_profile = Composite(comp)
-    #     comp_profile.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0)
-    #
-    #     comp_features = Composite(comp_profile)
-    #     comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-    #     feature_table = Table(comp_features, halign='fill', valign='fill', headervisible=True, colsmoveable=True, check=False)
-    #     expdata = dict([(list(d.keys())[-1], d[list(d.keys())[-1]]) for d in json.load(open(os.path.join(locs.examples, 'paperexample', 'exampledata.json'), 'r'))])
-    #     combo_experiments = Combo(comp_features, editable=False, items=expdata, minwidth=self._shell.width.value/2, halign='fill', valign='fill')
-    #
-    #     def sort_by_feat(*_):
-    #         feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[0],
-    #                                      reverse=feature_table.sortedby[1] == 'down')
-    #
-    #     def sort_by_unit(*_):
-    #         feature_table.items = sorted(feature_table.items, key=lambda item: item.texts[1],
-    #                                      reverse=feature_table.sortedby[1] == 'down')
-    #
-    #     col_feature = feature_table.addcol('Feature', sortable=True, width=100)
-    #     col_feature.on_select += sort_by_feat
-    #     col_unit = feature_table.addcol('Unit', sortable=True, width=100)
-    #     col_unit.on_select += sort_by_unit
-    #     col_min = feature_table.addcol('Min', sortable=False, width=100)
-    #     col_max = feature_table.addcol('Max', sortable=False, width=100)
-    #
-    #     m = Menu(feature_table, popup=True)
-    #     rem = MenuItem(m, 'Remove feature from requirement profile...')
-    #     insert = MenuItem(m, 'Add feature to requirement profile...')
-    #
-    #     def insertitem(*_):
-    #         # inserts currently selected table item as propety axis in requirement profile.
-    #         # Values taken from previously loaded experimental data.
-    #         featurename = feature_table.selection.texts[0]
-    #         if featurename not in [axis.name for axis in radar_req.axes]:
-    #             datamin = float(self.descrs.get(featurename, {}).get('min', 0))
-    #             datamax = float(self.descrs.get(featurename, {}).get('max', 1))
-    #
-    #             radar_req.addaxis(
-    #                 featurename,
-    #                 minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
-    #                 maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
-    #                 unit=self.descrs.get(featurename, {}).get('unit', ''),
-    #                 intervalmin=datamin + abs(datamax - datamin) / 2,
-    #                 intervalmax=datamax - abs(datamax - datamin) / 2
-    #             )
-    #
-    #     def remitem(*_):
-    #         # removes currently selected table item (=property axis) from requirement profile
-    #         featurename = feature_table.selection.texts[0]
-    #         radar_req.remaxisbyname(featurename)
-    #
-    #     # TODO temporary preset loading and threshold entering, prettify or remove!
-    #     combo_presets = Combo(comp_features, items=[], halign='fill', valign='fill')
-    #
-    #     # grp_strategy = Group(comp_features, text='Strategy')
-    #     # grp_strategy.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
-    #     #
-    #     # opt_bfs = Option(grp_strategy, text='BFS')
-    #     # opt_dfs = Option(grp_strategy, text='DFS')
-    #     # opt_bfs.checked = True
-    #
-    #     lbl_threshold = Edit(comp_features, text="0.2", message='Threshold', editable=True, valign='center', halign='fill')
-    #
-    #     insert.on_select += insertitem
-    #     rem.on_select += remitem
-    #     feature_table.menu = m
-    #
-    #     def loadexperiment(*_) -> None:
-    #
-    #         # deletes previously loaded items
-    #         feature_table.items = []
-    #
-    #         for feature in self.descrs:
-    #             feature_table.additem([feature,
-    #                                    self.descrs.get(feature, {}).get('unit', ''),
-    #                                    self.descrs.get(feature, {}).get('min', ''),
-    #                                    self.descrs.get(feature, {}).get('max', '')])
-    #         self._shell.dolayout()
-    #
-    #         # update options for preset toggle button and load preset
-    #         self._sel = list(combo_experiments.items)[combo_experiments.selidx]
-    #         combo_presets.items = list(combo_experiments.selection.get('presets', {}).keys())
-    #
-    #     def loadpreset(*_) -> None:
-    #         self._sel = list(combo_experiments.items)[combo_experiments.selidx]
-    #
-    #         # delete possibly existing axes from previous experiment
-    #         radar_req.clear()
-    #         radar_req.layout.minwidth = self._shell.bounds[2] - 8
-    #         radar_req.layout.minheight = self._shell.bounds[3]*0.7
-    #
-    #         p = combo_experiments.selection['presets'].get(combo_presets.selection, None)
-    #
-    #         lbl_status.text = 'Currently loaded preset: {}'.format(combo_presets.selection)
-    #         logger.info('Currently loaded preset', combo_presets.selection, p)
-    #
-    #         if p is not None:
-    #             for feat in p.keys():
-    #                 datamin = float(self.descrs.get(feat, {}).get('min', 0) or 0)
-    #                 datamax = float(self.descrs.get(feat, {}).get('max', 1) or 1)
-    #
-    #                 radar_req.addaxis(
-    #                     feat,
-    #                     minval=.8 * datamin if datamin > 0 else 1.2 * datamin,
-    #                     maxval=1.2 * datamax if datamax > 0 else .8 * datamax,
-    #                     unit=self.descrs.get(feat, {}).get('unit', ''),
-    #                     intervalmin=datamin + abs(datamax - datamin) / 2 if p[feat] is None else p[feat][0],
-    #                     intervalmax=datamax - abs(datamax - datamin) / 2 if p[feat] is None else p[feat][1]
-    #                 )
-    #         switchpage(None, comp_definereq)
-    #         self._shell.dolayout(pack=True)
-    #
-    #     combo_experiments.on_select += loadexperiment
-    #     combo_presets.on_select += loadpreset
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # DEFINE REQUIREMENT PROFILE PAGE #
-    #     comp_definereq = Composite(comp_body)
-    #     comp_definereq.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-    #     comp_definereq.visible = False
-    #
-    #     comp_radar = ScrolledComposite(comp_definereq, valign='fill', halign='fill', vscroll=True, hscroll=True)
-    #
-    #     radar_req = Radar(comp_radar.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
-    #
-    #     # LISTENER FUNCTIONS
-    #     def setinterval(axis) -> None:
-    #         answer = ask_input(self._shell, 'Enter Interval for axis "{}"'.format(axis), message='[-2,3]')
-    #         if answer is not None:
-    #             try:
-    #                 interval = ContinuousSet.fromstring(answer)
-    #                 radar_req.interval(axis, minval=interval.lower, maxval=interval.upper)
-    #             except:
-    #                 msg_err(self._shell, 'Error', 'Unable to set Interval {}. Please use a valid notation (e.g. [-2,3])'.format(answer))
-    #
-    #     def remaxis(axis) -> None:
-    #         radar_req.remaxisbyname(axis)
-    #         lbl_status.text = 'Axis "{0}" was removed and will hence be ignored.'.format(axis)
-    #
-    #     def open_menu(axis):
-    #         # show menu for right click on axis in requirement profile radar
-    #
-    #         # AXIS MENU #
-    #         menuentries = OrderedDict([
-    #             ('Set interval', setinterval),
-    #             ('Remove axis "{}"'.format(axis), remaxis)
-    #         ])
-    #
-    #         answer, callback = options_list(self._shell, menuentries)
-    #         callback(axis)
-    #
-    #     lbl_req_changes = Label(comp_definereq, text='<b>Requirement changes:</b>', markup=True, halign='fill', valign='fill')
-    #     lbl_req_changes.visible = False
-    #     btn_query = Button(comp_definereq, 'Query')
-    #
-    #     def sel(*kwargs) -> None:
-    #         # listener function for interaction with requirement profile radar chart.
-    #         # Handles feedback for user
-    #         d = kwargs[0].args[0]
-    #         stat = ''
-    #         if d.get('type') == 'circle':
-    #             stat = 'The {1[name]} value for the alloy {0} has been changed to {1[value]}!'.format(d['dataset'], d['data'])
-    #         elif d.get('type') in ['mininterval', 'rs_miniv']:
-    #             stat = 'The lower bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
-    #         elif d.get('type') in ['maxinterval', 'rs_maxiv']:
-    #             stat = 'The upper bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
-    #         elif d.get('type') == 'axis':
-    #             if kwargs[0].button == 'right':
-    #                 switchpage(d['axis'])
-    #                 return
-    #         else:
-    #             stat = 'invalid datatype {}'.format(d.get('type'))
-    #         lbl_status.text = stat
-    #
-    #     def update(self) -> None:
-    #         # initialize radar chart containing candidate datasets
-    #         self.candidates = self.bayrob.hypotheses
-    #         radar_candidates = Radar(comp_res.content, legendtext='Hypotheses', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
-    #
-    #         # create empty radar chart from requirement profile
-    #         for axis in radar_req.axes:
-    #             radar_candidates.addaxis(axis.name,
-    #                                      minval=axis.minval,
-    #                                      maxval=axis.maxval,
-    #                                      unit=axis.unit,
-    #                                      intervalmin=axis.intervalmin,
-    #                                      intervalmax=axis.intervalmax)
-    #
-    #         data = {}
-    #         for i, hyp in enumerate(self.candidates):
-    #             pathvals = hyp.result
-    #             values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
-    #             data.update({hyp.id: values})
-    #             table_candidates.additem([hyp.id, str(hyp.performance)])
-    #
-    #         # sort results in table descending by probability
-    #         sort_by_sim(down=True)
-    #
-    #         # data maps example name (=material) to (sorted) list of values for the radar chart axes
-    #         radar_candidates.setdata(data)
-    #         lbl_status.text = '...done! Found {} candidates.'.format(len(self.candidates))
-    #
-    #         switchpage(None, comp_candidates)
-    #
-    #         self._shell.dolayout()
-    #
-    #     def showproc(*_) -> None:
-    #         if self.bayrob.resulttree:
-    #             cnamefull = table_candidates.selection.texts[0]
-    #
-    #             # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
-    #             # construct data for tree
-    #             generate_nodes()
-    #             data = nodedict(self.bayrob.resulttree.src, cnamefull)
-    #
-    #             tree.setdata(data)
-    #
-    #             switchpage(None, comp_tree)
-    #
-    #     def generate_nodes() -> None:
-    #         parentnode = ResTree.Node(None, nodetext='Start', printnode=False)
-    #         parentnode.isroot = True
-    #         parentnode.parameters = self.bayrob.query
-    #         self.bayrob.resulttree.src = parentnode
-    #
-    #         hyps = self.bayrob.hypotheses.copy()
-    #         generate_nodes_rec(self.bayrob.resulttree.src, hyps, 0)
-    #
-    #     def generate_nodes_rec(parent, hypotheses, d) -> None:
-    #         for h in hypotheses:
-    #             if d < len(h.steps):
-    #                 step = h.steps[d]
-    #
-    #                 # create node if not exists yet
-    #                 n_ = ResTree.Node(parent, printnode=False)
-    #                 n_.nodetext = 'H_' + '.'.join([str(el) for el in h.identifiers[:d+1]])
-    #                 n_.edgetext = step.name
-    #                 n_.result = step.value.copy()
-    #                 n_.parameters = step.path.copy()
-    #                 n_.confs = h.performance
-    #
-    #                 # leaf nodes show confs and overall result instead of step result
-    #                 if d == len(h.steps)-1:
-    #                     n_.nodetext = h.id
-    #                     n_.result = h.result.copy()
-    #                     n_.printnode = True
-    #
-    #                 # add node
-    #                 if n_ not in parent.children:
-    #                     parent.children.append(n_)
-    #
-    #         # recursive call
-    #         for n in parent.children:
-    #             generate_nodes_rec(n, [hyp for hyp in hypotheses if 'H_' + '.'.join([str(el) for el in hyp.identifiers[:d+1]]) == n.nodetext and d+1 < len(hyp.steps)], d+1)
-    #
-    #     def nodedict(node, hypname) -> dict:
-    #         d = {
-    #             "edgetext": str(node.edgetext),
-    #             "edgetooltip": str(node.edgetttext),
-    #             "name": str(node.nodetext),
-    #             "tooltip": str(node.nodetttext),
-    #             "type": "highlight" if hypname.startswith(node.nodetext) else None,
-    #             "showname": node.printnode,
-    #             "showedge": True,
-    #             "children": []
-    #             }
-    #         if node.children:
-    #            d.update({'children': [nodedict(c, hypname) for c in node.children]})
-    #         return d
-    #
-    #     @self.checkthread
-    #     def query(*_) -> None:
-    #         self.bayrob.pushsession.start()
-    #
-    #         try:
-    #             threshold = float(lbl_threshold.text)
-    #         except:
-    #             threshold = 0.0
-    #
-    #         # query = dict([(a.name, Interval(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
-    #         query = dict([(a.name, ContinuousSet(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
-    #
-    #         lbl_status.text = 'Querying: threshold={}, params= {}'.format(threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
-    #         logger.info('Querying', {k: str(v) for k, v in query.items()}, threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
-    #
-    #         for ti in [x for x in table_candidates.items]:
-    #             table_candidates.rmitem(ti)
-    #
-    #         for c in comp_res.content.children:
-    #             c.dispose()
-    #
-    #         # use bayrob reasoner to query system
-    #         self.bayrob.query = query
-    #         self.bayrob.threshold = threshold
-    #         self.bayrob.models = combo_experiments.selection['trees']
-    #         self.bayrob.callback = update
-    #         self.bayrob.start()
-    #
-    #     radar_req.on_select += sel
-    #     btn_query.on_select += query
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # CANDIDATES PAGE #
-    #     comp_candidates = Composite(comp_body)
-    #     comp_candidates.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
-    #     comp_candidates.bg = Color('white')
-    #     comp_candidates.visible = False
-    #
-    #     table_candidates = Table(comp_candidates, halign='fill', valign='fill', headervisible=True,
-    #                              colsmoveable=True, check=False)
-    #
-    #     def sort_by_sim(down=None) -> None:
-    #         if isinstance(down, bool):
-    #             table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=down)
-    #         else:
-    #             table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=table_candidates.sortedby[1] == 'down')
-    #
-    #     def sort_by_cand(*_) -> None:
-    #         table_candidates.items = sorted(table_candidates.items, key=lambda item: str(item.texts[0]), reverse=table_candidates.sortedby[1] == 'down')
-    #
-    #     col_candidatename = table_candidates.addcol('Candidate', sortable=True, width=100)
-    #     col_candidatename.on_select += sort_by_cand
-    #
-    #     col_sim = table_candidates.addcol('Probability', sortable=True, width=200)
-    #     col_sim.on_select += sort_by_sim
-    #
-    #     tcm = Menu(table_candidates, popup=True)
-    #     mitem_showproc = MenuItem(tcm, 'Show process history of candidate')
-    #     table_candidates.menu = tcm
-    #
-    #     table_candidates.on_dblclick += showproc
-    #
-    #     mitem_showproc.on_select += showproc
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # RESULTS PAGE
-    #     comp_res = ScrolledComposite(comp_body, valign='fill', halign='fill', vscroll=True, hscroll=True)
-    #
-    #     radar_candidates = Radar(comp_res.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3] * 0.7)
-    #     comp_res.visible = False
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # TREE PAGE
-    #     comp_tree = Composite(comp_body)
-    #     comp_tree.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-    #
-    #     tree = RadialTree(comp_tree, css=[res('static/css/charval.css')], halign='fill', valign='fill')
-    #
-    #     comp_tree.visible = False
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # DOCUMENTATION PAGE #
-    #     comp_docs = Composite(comp_body)
-    #     comp_docs.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
-    #
-    #     self.setupdoku()
-    #     Browser(comp_docs, url=config.get('upload', 'dokuloc', fallback=''.join(['http://', session.host, session.location, session.runtime.mngr.resources.get('users.html').location])), halign='fill', valign='fill')
-    #     comp_docs.visible = False
-    #
-    #     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    #
-    #     # MAIN MENU #
-    #     menuentries = OrderedDict([
-    #         ('Home', comp_home),
-    #         ('Define Requirement Profile', comp_definereq),
-    #         ('Candidates', comp_candidates),
-    #         ('Results', comp_res),
-    #         ('Tree', comp_tree),
-    #         ('Documentation', comp_docs)
-    #     ])
-    #
-    #     # LISTENER FUNCTIONS
-    #     def switchpage(_, widget=None) -> None:
-    #         if widget is None:
-    #             _, widget = options_list(self._shell, menuentries)
-    #
-    #         # make all widgets invisible and update the layers
-    #         for c in comp_body.children:
-    #             c.visible = False
-    #
-    #         # then get the one selected into the foreground
-    #         logger.debug('Moving widget to foreground', widget.id)
-    #         widget.visible = True
-    #
-    #     menulabel.on_mousedown += switchpage
-    #
-    #     # load initial preset
-    #     combo_experiments.selection = "PaperExample2"
-    #     # combo_presets.selection = 'preset3'
-    #     loadexperiment()
-    #
-    #     self._shell.show()
-    #
+    def mobile(self, **kwargs) -> None:
+        self._shell = Shell(maximized=True, titlebar=False)
+        self._shell.bg = Color('transp')
+        self._shell.on_resize += self._shell.dolayout
+
+        comp_mainframe = Composite(self._shell.content)
+        comp_mainframe.layout = RowLayout(halign='fill', valign='fill', flexrows={1: 1}, vspace=0)
+
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        # HEADER
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        comp_header = Composite(comp_mainframe)
+        comp_header.layout = ColumnLayout(halign='fill', flexcols={1: 0.2, 4: 0.2}, padding=Pixels(0))
+        comp_header.css = 'navbar'
+        comp_header.bgimg = Image(res('static/images/dark-metal-texture_rot.png'))
+
+        # LOGOS #
+        h = 35
+        _logo = Image(res('static/images/logo.png')).resize(height=px(int(h)))
+        h = _logo.height
+        logo = Label(comp_header, padding=Pixels(0), img=_logo, valign='top')
+        logo.bg = Color('transp')
+        Label(comp_header, padding=Pixels(0))
+        ailogo = Label(comp_header, img=Image(res('static/images/ai_logo_white.png')).resize(height=Pixels(.9 * h)), valign='center', halign='center')
+        ailogo.bg = Color('transp')
+        Label(comp_header, padding=Pixels(0))
+
+        # MENU #
+        menulabel = Label(comp_header, img=Image(res('static/images/menu.png')).resize(height=Pixels(.9 * h)), valign='center', halign='right', padding=Pixels(5))
+        menulabel.layout.minheight = Pixels(.6 * h)
+        menulabel.bg = 'transp'
+
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        # BODY
+        # * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+        comp_body = Composite(comp_mainframe, border=True)
+        comp_body.layout = StackLayout(halign='fill', valign='fill')
+        comp_body.bg = Color('white')
+
+        self.lbl_status = Label(comp_mainframe, text='', valign='fill', halign='fill')
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # HOME PAGE #
+        comp_home = Composite(comp_body)
+        comp_home.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
+        comp_home.bg = Color('white')
+        comp_home.visible = False
+
+        comp = Composite(comp_home, hscroll=True, vscroll=True)
+        comp.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+
+        comp_profile = Composite(comp)
+        comp_profile.layout = ColumnLayout(halign='fill', valign='fill', flexcols=0)
+
+        comp_features = Composite(comp_profile)
+        comp_features.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+
+        # TODO temporary preset loading and threshold entering, prettify or remove!
+        combo_presets = Label(comp_features, "HI", halign='fill', valign='fill')
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # DEFINE REQUIREMENT PROFILE PAGE #
+        comp_search = Composite(comp_body)
+        comp_search.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+        comp_search.visible = True
+
+        w = session.runtime.display.width.value
+        h = session.runtime.display.height.value
+
+        scrolled = ScrolledComposite(comp_search, valign='fill', halign='fill', vscroll=True, hscroll=True, minwidth=px(w), minheight=px(h))
+        comp = Composite(scrolled.content)
+        comp.layout = RowLayout(halign='fill', valign='fill', flexrows={8: 1})
+
+        # ==================================================================
+
+        Label(comp, text='Specify goal', valign='center', halign='fill')  # 0
+        # multiple combos to select variables from tree
+        # contains rows of triples (-, combovariable, text value)
+        scrolled_goal = ScrolledComposite(comp,
+                                          valign='fill',
+                                          halign='fill',
+                                          vscroll=True,
+                                          hscroll=True,
+                                          minwidth=px(w),
+                                          minheight=px(h / 6)
+                                          )  # 1
+        comp_goalsettings = Composite(scrolled_goal.content)
+        comp_goalsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
+
+        # buttons to add new queryrow and remove entire query block
+        comp2 = Composite(comp)  # 2
+        comp2.layout = ColumnLayout(halign='left', valign='fill')
+        btn_add_queryvar = Button(comp2, '+')
+        btn_clear_vars = Button(comp2, 'clear query')
+        Separator(comp, horizontal=True, halign='fill')  # 3
+
+        # ==================================================================
+
+        Label(comp, text='Specify init state', valign='center', halign='fill')  # 4
+        scrolled_init = ScrolledComposite(comp,
+                                          valign='fill',
+                                          halign='fill',
+                                          vscroll=True,
+                                          hscroll=True,
+                                          minwidth=px(w - 5),
+                                          minheight=px(h / 6)
+                                          )  # 5
+
+        comp_initsettings = Composite(scrolled_init.content)
+        comp_initsettings.layout = RowLayout(halign='fill', valign='fill', equalheights=True)
+
+        # buttons to add new queryrow and remove entire query block
+        comp3 = Composite(comp)  # 6
+        comp3.layout = ColumnLayout(halign='left', valign='fill')
+        btn_add_initvar = Button(comp3, '+')
+        btn_clear_initvars = Button(comp3, 'clear init vars')
+
+        # ==================================================================
+
+        # Label(comp, text='Specify search direction', valign='center', halign='fill')
+        grp_strategy = Group(comp, text='Specify search direction')  # 7
+        grp_strategy.layout = ColumnLayout(halign='fill', valign='fill', equalwidths=True)
+
+        opt_fwd = Option(grp_strategy, text='forward')
+        opt_bwd = Option(grp_strategy, text='backward')
+
+        # ==================================================================
+
+        comp_preset = Composite(comp)  # 8
+        comp_preset.layout = ColumnLayout(valign='fill', halign='fill', flexcols=1)
+        Label(comp_preset, text='Load preset', valign='center', halign='fill')  # 9
+        combo_presets = Combo(comp_preset, editable=False, items=self.presets(qtype='search'), minwidth=px(50),
+                              halign='fill', valign='fill')
+
+        # ==================================================================
+
+        btn_search = Button(comp, 'Search', valign='fill', halign='fill')  # 10
+
+        # ==================================================================
+
+        self.asr = Search()
+
+        allvars = self.bayrob.models['move'].variables + self.bayrob.models['turn'].variables + \
+                  self.bayrob.models['perception'].variables
+        allvars_ = {v.name: v for v in allvars}
+
+        def resize_scrolled(*_):
+            _, _, w, h = self._shell.bounds
+            scrolled.layout.minwidth = px(w)
+            scrolled.layout.minheight = px(h)
+            scrolled_goal.layout.minwidth = px(w - 5)
+            scrolled_goal.layout.minheight = px(h / 6)
+            scrolled_init.layout.minwidth = px(w - 5)
+            scrolled_init.layout.minheight = px(h / 6)
+            self._shell.dolayout()
+
+        def updatesearchdir(*_):
+            self.asr.bwd = opt_bwd.checked
+
+        def add_goalvar_row(*_):
+            # goal state specification:
+            # add row containing dropdown box for variable selection (all variables from all models), value
+            # specification, (tolerance specification for Numeric variables) and button to remove entire row
+
+            comp_tmp = Composite(comp_goalsettings)
+            comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 1})
+            combo_vars = Combo(comp_tmp, editable=False, items=allvars, halign='fill', valign='fill', minwidth=px(200))
+            lbl_vals = Edit(comp_tmp, message="value", editable=True, valign='fill', halign='fill', minwidth=px(50))
+            lbl_tol = Edit(comp_tmp, message="tolerance", editable=True, valign='fill', halign='fill', minwidth=px(50))
+            lbl_tol.enabled = False
+            btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
+
+            def add_goalvar(*_) -> None:
+                # add variable represented by row to goal state specification
+
+                self.asr.goal[combo_vars.selection] = self.parseval(
+                    lbl_vals.text,
+                    var=combo_vars.selection,
+                    onlysets=True
+                )
+                self.asr.goal_tolerances[combo_vars.selection] = lbl_tol.text
+
+            def rem_goalvar(*_) -> None:
+                # remove variable represented by row from goal state specification
+
+                if combo_vars.selection in self.asr.goal and self.asr.goal[combo_vars.selection] == lbl_vals.text:
+                    del self.asr.goal[combo_vars.selection]
+                if combo_vars.selection in self.asr.goal_tolerances and self.asr.goal_tolerances[
+                    combo_vars.selection] == lbl_tol.text:
+                    del self.asr.goal_tolerances[combo_vars.selection]
+                comp_tmp.dispose()
+
+            def update_suggestions(*_) -> None:
+                # add message with suggestions for possible values depending on selected variable
+
+                lbl_vals.message = self.suggestions(combo_vars.selection)
+                lbl_tol.enabled = combo_vars.selection.domain is Numeric
+                self._shell.dolayout()
+
+            btn_rem_queryvar.on_select += rem_goalvar
+            combo_vars.on_select += update_suggestions
+            lbl_vals.on_modify += add_goalvar
+            self._shell.dolayout()
+
+        def add_initvar_row(*_):
+            # init state specification:
+            # add row containing dropdown box for variable selection (all variables from all models), value
+            # specification, (tolerance specification for Numeric variables) and button to remove entire row
+
+            comp_tmp = Composite(comp_initsettings)
+            comp_tmp.layout = ColumnLayout(halign='fill', valign='fill', flexcols={0: 1})
+            combo_vars = Combo(comp_tmp, editable=False, items=allvars, minwidth=px(200), halign='fill', valign='fill')
+            lbl_vals = Edit(comp_tmp, message="value", editable=True, minwidth=px(50), valign='fill', halign='fill')
+            lbl_tol = Edit(comp_tmp, message="tolerance", editable=True, minwidth=px(50), valign='fill', halign='fill')
+            lbl_tol.enabled = False
+            btn_rem_queryvar = Button(comp_tmp, '-', valign='fill', halign='fill')
+
+            def add_initvar(*_) -> None:
+                # add variable represented by row to init state specification
+
+                self.asr.init[combo_vars.selection] = self.parseval(
+                    lbl_vals.text,
+                    var=combo_vars.selection,
+                    onlysets=True
+                )
+                self.asr.init_tolerances[combo_vars.selection] = lbl_tol.text
+
+            def rem_initvar(*_) -> None:
+                # remove variable represented by row from init state specification
+
+                if combo_vars.selection in self.asr.init and self.asr.init[combo_vars.selection] == lbl_vals.text:
+                    del self.asr.init[combo_vars.selection]
+                if combo_vars.selection in self.asr.init_tolerances and self.asr.init_tolerances[
+                    combo_vars.selection] == lbl_tol.text:
+                    del self.asr.init[combo_vars.selection]
+                comp_tmp.dispose()
+
+            def update_suggestions(*_) -> None:
+                # add message with suggestions for possible values depending on selected variable
+
+                lbl_vals.message = self.suggestions(combo_vars.selection)
+                lbl_tol.enabled = combo_vars.selection.domain is Numeric
+                self.wnd_search.dolayout()
+
+            btn_rem_queryvar.on_select += rem_initvar
+            combo_vars.on_select += update_suggestions
+            lbl_vals.on_modify += add_initvar
+            self._shell.dolayout()
+
+        def loadpreset(*_):
+            # update init and goal state according to predefined settings, update summary texts
+
+            preset = combo_presets.selection
+            clear_goal()
+            clear_init()
+
+            logger.error(f"Loading search preset:", preset)
+            for k, v in preset['init'].items():
+                add_initvar_row()
+                c = comp_initsettings.children[-1]
+                c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                c.children[1].text = str(v)
+
+            for k, v in preset['goal'].items():
+                add_goalvar_row()
+                c = comp_goalsettings.children[-1]
+                c.children[0].selidx = [var.name for var in c.children[0].items.values()].index(k)
+                c.children[1].text = str(v)
+
+            if preset['bwd']:
+                opt_bwd.checked = True
+                opt_fwd.checked = False
+            else:
+                opt_bwd.checked = False
+                opt_fwd.checked = True
+
+            self.asr.init = {allvars_[k]: v for k, v in preset['init'].items()}
+            self.asr.init_tolerances = {allvars_[k]: v for k, v in preset['init_tolerances'].items()}
+            self.asr.goal = {allvars_[k]: v for k, v in preset['goal'].items()}
+            self.asr.goal_tolerances = {allvars_[k]: v for k, v in preset['goal_tolerances'].items()}
+            self.asr.bwd = preset['bwd']
+
+            self._shell.dolayout()
+
+        def clear_goal(*_):
+            # remove all goal state specifications
+
+            children = [c for c in comp_goalsettings.children]
+            for c in children:
+                c.dispose()
+            btn_add_queryvar.enabled = True
+            btn_add_initvar.enabled = True
+            self._shell.dolayout()
+
+        def clear_init(*_):
+            # remove all init state specifications
+
+            children = [c for c in comp_initsettings.children]
+            for c in children:
+                c.dispose()
+            btn_add_queryvar.enabled = True
+            btn_add_initvar.enabled = True
+            self._shell.dolayout()
+
+        # ==================================================================
+
+        self._shell.on_resize += resize_scrolled
+        btn_add_queryvar.on_select += add_goalvar_row
+        btn_add_initvar.on_select += add_initvar_row
+        btn_clear_vars.on_select += clear_goal
+        btn_clear_initvars.on_select += clear_init
+        combo_presets.on_select += loadpreset
+        # btn_execute_query.on_select += search
+        opt_bwd.on_checked += updatesearchdir
+        opt_fwd.on_checked += updatesearchdir
+        opt_bwd.checked = True
+
+        # comp_radar = ScrolledComposite(comp_search, valign='fill', halign='fill', vscroll=True, hscroll=True)
+
+        # radar_req = Radar(comp_radar.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
+
+        # LISTENER FUNCTIONS
+        # def setinterval(axis) -> None:
+        #     answer = ask_input(self._shell, 'Enter Interval for axis "{}"'.format(axis), message='[-2,3]')
+        #     if answer is not None:
+        #         try:
+        #             interval = ContinuousSet.fromstring(answer)
+        #             radar_req.interval(axis, minval=interval.lower, maxval=interval.upper)
+        #         except:
+        #             msg_err(self._shell, 'Error', 'Unable to set Interval {}. Please use a valid notation (e.g. [-2,3])'.format(answer))
+        #
+        # def remaxis(axis) -> None:
+        #     radar_req.remaxisbyname(axis)
+        #     lbl_status.text = 'Axis "{0}" was removed and will hence be ignored.'.format(axis)
+
+        # def open_menu(axis):
+        #     # show menu for right click on axis in requirement profile radar
+        #
+        #     # AXIS MENU #
+        #     menuentries = OrderedDict([
+        #         ('Set interval', setinterval),
+        #         ('Remove axis "{}"'.format(axis), remaxis)
+        #     ])
+        #
+        #     answer, callback = options_list(self._shell, menuentries)
+        #     callback(axis)
+        #
+        # lbl_req_changes = Label(comp_search, text='<b>Requirement changes:</b>', markup=True, halign='fill', valign='fill')
+        # lbl_req_changes.visible = False
+        # btn_query = Button(comp_search, 'Query')
+
+        # def sel(*kwargs) -> None:
+        #     # listener function for interaction with requirement profile radar chart.
+        #     # Handles feedback for user
+        #     d = kwargs[0].args[0]
+        #     stat = ''
+        #     if d.get('type') == 'circle':
+        #         stat = 'The {1[name]} value for the alloy {0} has been changed to {1[value]}!'.format(d['dataset'], d['data'])
+        #     elif d.get('type') in ['mininterval', 'rs_miniv']:
+        #         stat = 'The lower bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
+        #     elif d.get('type') in ['maxinterval', 'rs_maxiv']:
+        #         stat = 'The upper bound for the property "{0[name]}" was set to {1}!'.format(d['dataset'], d['data'])
+        #     elif d.get('type') == 'axis':
+        #         if kwargs[0].button == 'right':
+        #             switchpage(d['axis'])
+        #             return
+        #     else:
+        #         stat = 'invalid datatype {}'.format(d.get('type'))
+        #     lbl_status.text = stat
+
+        # def update(self) -> None:
+        #     # initialize radar chart containing candidate datasets
+        #     self.candidates = self.bayrob.hypotheses
+        #     radar_candidates = Radar(comp_res.content, legendtext='Hypotheses', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3]*0.7)
+        #
+        #     # create empty radar chart from requirement profile
+        #     for axis in radar_req.axes:
+        #         radar_candidates.addaxis(axis.name,
+        #                                  minval=axis.minval,
+        #                                  maxval=axis.maxval,
+        #                                  unit=axis.unit,
+        #                                  intervalmin=axis.intervalmin,
+        #                                  intervalmax=axis.intervalmax)
+        #
+        #     data = {}
+        #     for i, hyp in enumerate(self.candidates):
+        #         pathvals = hyp.result
+        #         values = [pathvals.get(a.name, 0) for a in radar_candidates.axes]
+        #         data.update({hyp.id: values})
+        #         table_candidates.additem([hyp.id, str(hyp.performance)])
+        #
+        #     # sort results in table descending by probability
+        #     sort_by_sim(down=True)
+        #
+        #     # data maps example name (=material) to (sorted) list of values for the radar chart axes
+        #     radar_candidates.setdata(data)
+        #     lbl_status.text = '...done! Found {} candidates.'.format(len(self.candidates))
+        #
+        #     switchpage(None, comp_candidates)
+        #
+        #     self._shell.dolayout()
+        #
+        # def showproc(*_) -> None:
+        #     if self.bayrob.resulttree:
+        #         cnamefull = table_candidates.selection.texts[0]
+        #
+        #         # self.candidates is a list of [confs, RegressionTree nodes (path from leaf to src)]
+        #         # construct data for tree
+        #         generate_nodes()
+        #         data = nodedict(self.bayrob.resulttree.src, cnamefull)
+        #
+        #         tree.setdata(data)
+        #
+        #         switchpage(None, comp_tree)
+        #
+        # def generate_nodes() -> None:
+        #     parentnode = ResTree.Node(None, nodetext='Start', printnode=False)
+        #     parentnode.isroot = True
+        #     parentnode.parameters = self.bayrob.query
+        #     self.bayrob.resulttree.src = parentnode
+        #
+        #     hyps = self.bayrob.hypotheses.copy()
+        #     generate_nodes_rec(self.bayrob.resulttree.src, hyps, 0)
+        #
+        # def generate_nodes_rec(parent, hypotheses, d) -> None:
+        #     for h in hypotheses:
+        #         if d < len(h.steps):
+        #             step = h.steps[d]
+        #
+        #             # create node if not exists yet
+        #             n_ = ResTree.Node(parent, printnode=False)
+        #             n_.nodetext = 'H_' + '.'.join([str(el) for el in h.identifiers[:d+1]])
+        #             n_.edgetext = step.name
+        #             n_.result = step.value.copy()
+        #             n_.parameters = step.path.copy()
+        #             n_.confs = h.performance
+        #
+        #             # leaf nodes show confs and overall result instead of step result
+        #             if d == len(h.steps)-1:
+        #                 n_.nodetext = h.id
+        #                 n_.result = h.result.copy()
+        #                 n_.printnode = True
+        #
+        #             # add node
+        #             if n_ not in parent.children:
+        #                 parent.children.append(n_)
+        #
+        #     # recursive call
+        #     for n in parent.children:
+        #         generate_nodes_rec(n, [hyp for hyp in hypotheses if 'H_' + '.'.join([str(el) for el in hyp.identifiers[:d+1]]) == n.nodetext and d+1 < len(hyp.steps)], d+1)
+        #
+        # def nodedict(node, hypname) -> dict:
+        #     d = {
+        #         "edgetext": str(node.edgetext),
+        #         "edgetooltip": str(node.edgetttext),
+        #         "name": str(node.nodetext),
+        #         "tooltip": str(node.nodetttext),
+        #         "type": "highlight" if hypname.startswith(node.nodetext) else None,
+        #         "showname": node.printnode,
+        #         "showedge": True,
+        #         "children": []
+        #         }
+        #     if node.children:
+        #        d.update({'children': [nodedict(c, hypname) for c in node.children]})
+        #     return d
+
+        # @self.checkthread
+        # def query(*_) -> None:
+        #     self.bayrob.pushsession.start()
+        #
+        #     try:
+        #         threshold = float(lbl_threshold.text)
+        #     except:
+        #         threshold = 0.0
+        #
+        #     # query = dict([(a.name, Interval(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
+        #     query = dict([(a.name, ContinuousSet(a.intervalmin, a.intervalmax)) for a in radar_req.axes])
+        #
+        #     lbl_status.text = 'Querying: threshold={}, params= {}'.format(threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
+        #     logger.info('Querying', {k: str(v) for k, v in query.items()}, threshold, ', '.join(['{}: {}'.format(a.name, str(ContinuousSet(a.intervalmin, a.intervalmax))) for a in radar_req.axes]))
+        #
+        #     for ti in [x for x in table_candidates.items]:
+        #         table_candidates.rmitem(ti)
+        #
+        #     for c in comp_res.content.children:
+        #         c.dispose()
+        #
+        #     # use bayrob reasoner to query system
+        #     self.bayrob.query = query
+        #     self.bayrob.threshold = threshold
+        #     self.bayrob.models = combo_experiments.selection['trees']
+        #     self.bayrob.callback = update
+        #     self.bayrob.start()
+
+        # radar_req.on_select += sel
+        # btn_query.on_select += query
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # CANDIDATES PAGE #
+        comp_query = Composite(comp_body)
+        comp_query.layout = RowLayout(flexrows=0, halign='fill', valign='fill')
+        comp_query.bg = Color('white')
+        comp_query.visible = False
+
+        # table_candidates = Table(comp_candidates, halign='fill', valign='fill', headervisible=True,
+        #                          colsmoveable=True, check=False)
+        #
+        # def sort_by_sim(down=None) -> None:
+        #     if isinstance(down, bool):
+        #         table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=down)
+        #     else:
+        #         table_candidates.items = sorted(table_candidates.items, key=lambda item: float(item.texts[1]), reverse=table_candidates.sortedby[1] == 'down')
+        #
+        # def sort_by_cand(*_) -> None:
+        #     table_candidates.items = sorted(table_candidates.items, key=lambda item: str(item.texts[0]), reverse=table_candidates.sortedby[1] == 'down')
+        #
+        # col_candidatename = table_candidates.addcol('Candidate', sortable=True, width=100)
+        # col_candidatename.on_select += sort_by_cand
+        #
+        # col_sim = table_candidates.addcol('Probability', sortable=True, width=200)
+        # col_sim.on_select += sort_by_sim
+        #
+        # tcm = Menu(table_candidates, popup=True)
+        # mitem_showproc = MenuItem(tcm, 'Show process history of candidate')
+        # table_candidates.menu = tcm
+        #
+        # table_candidates.on_dblclick += showproc
+        #
+        # mitem_showproc.on_select += showproc
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # RESULTS PAGE
+        comp_res = ScrolledComposite(comp_body, valign='fill', halign='fill', vscroll=True, hscroll=True)
+        #
+        # radar_candidates = Radar(comp_res.content, legendtext='', halign='fill', valign='fill', minwidth=self._shell.bounds[2], minheight=self._shell.bounds[3] * 0.7)
+        comp_res.visible = False
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # TREE PAGE
+        comp_tree = Composite(comp_body)
+        comp_tree.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+
+        # tree = RadialTree(comp_tree, css=[res('static/css/charval.css')], halign='fill', valign='fill')
+        lbl_tree = Label(comp_tree, halign='fill', valign='fill')
+
+        comp_tree.visible = False
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # DOCUMENTATION PAGE #
+        comp_docs = Composite(comp_body)
+        comp_docs.layout = RowLayout(halign='fill', valign='fill', flexrows=0)
+
+        self.setupdoku()
+        Browser(comp_docs, url=config.get('upload', 'dokuloc', fallback=''.join(['http://', session.host, session.location.strip("mobile"), session.runtime.mngr.resources.get('index.html').location])), halign='fill', valign='fill')
+        comp_docs.visible = False
+
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+        # MAIN MENU #
+        menuentries = OrderedDict([
+            ('Home', comp_home),
+            ('Search', comp_search),
+            ('Query', comp_query),
+            ('Results', comp_res),
+            ('Documentation', comp_docs)
+        ])
+
+        # LISTENER FUNCTIONS
+        def switchpage(_, widget=None) -> None:
+            if widget is None:
+                _, widget = options_list(self._shell, menuentries)
+
+            # make all widgets invisible and update the layers
+            for c in comp_body.children:
+                c.visible = False
+
+            # then get the one selected into the foreground
+            logger.debug('Moving widget to foreground', widget.id)
+            widget.visible = True
+
+        menulabel.on_mousedown += switchpage
+
+        self._shell.show()
+
     def empty(self, **kwargs) -> None:
         self._shell = Shell(maximized=True, titlebar=False)
         self._shell.bg = Color('transp')
@@ -1709,7 +2067,7 @@ def main(ip='127.0.0.1', port=5008) -> None:
                        path='bayrob',
                        name='BayRoB',
                        entrypoints={'desktop': BayRoBWeb.desktop,
-                                    # 'mobile': BayRoBWeb.mobile,
+                                    'mobile': BayRoBWeb.mobile,
                                     'empty': BayRoBWeb.empty,
                                     },
                        setup=BayRoBWeb.setup,

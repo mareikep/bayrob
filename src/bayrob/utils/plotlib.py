@@ -39,8 +39,8 @@ def defaultconfig(fname=None, format='svg'):
             filename=Path(fname).stem if fname is not None else 'calo_plot',
             scale=1  # Multiply title/legend/axis/canvas sizes by this factor
         ),
+        responsive=True
         # autosizable=True,
-        # responsive=True,
         # fillFrame=True,
        #  modeBarButtonsToAdd=[  # allow drawing tools to highlight important regions before downloading snapshot
        #      'drawline',
@@ -660,6 +660,8 @@ def plot_heatmap(
             title=yvar,
             range=[*limy] if limy is not None else limy
         ),
+        width=1000,
+        height=1000
         # paper_bgcolor="black",
         # plot_bgcolor="black"
     )
@@ -957,8 +959,8 @@ def plot_scatter_quiver(
         x=data[xvar],
         y=data[yvar],
         marker=dict(
-            color=list(range(len(colors_discr_a))),  # set color equal to a variable
-            colorscale=colors_discr_a,
+            # color=list(range(len(colors_discr_a))),  # set color equal to a variable
+            # colorscale=colors_discr_a,
             size=15,
             line=dict(
                 color='rgba(255,255,255,1.0)',
@@ -972,7 +974,7 @@ def plot_scatter_quiver(
                       'dir: (%{customdata[0]:.2f},%{customdata[1]:.2f})<br>'
                       '<extra>%{customdata[2]}</extra>',
         mode="markers",
-        text=data['step'],
+        # text=data['step'],
         showlegend=False,
     )
 
@@ -985,21 +987,21 @@ def plot_scatter_quiver(
     )
 
     # draw line connecting points to create a path
-    fig_l = px.line(
-        data,
-        x=xvar,
-        y=yvar
-    )
-
-    fig_l.update_traces(
-        line=dict(
-            color='rgba(0,0,0,0.1)'
-        )
-    )
-
-    mainfig.add_traces(
-        data=fig_l.data
-    )
+    # fig_l = px.line(
+    #     data,
+    #     x=xvar,
+    #     y=yvar
+    # )
+    #
+    # fig_l.update_traces(
+    #     line=dict(
+    #         color='rgba(0,0,0,0.1)'
+    #     )
+    # )
+    #
+    # mainfig.add_traces(
+    #     data=fig_l.data
+    # )
 
     # draw direction arrows (iteration over data as workaround to get differently colored arrows)
     # dxx = []
@@ -1047,7 +1049,7 @@ def plot_scatter_quiver(
         )
 
         f_q.update_traces(
-            line_color=colors_discr[idx % len(colors_discr)],
+            line_color='rgb(0,104,180)',  # colors_discr[idx % len(colors_discr)],
             showlegend=False
         )
 
@@ -1356,7 +1358,7 @@ def plot_typst_tree_json(
     :param title: title of the plot
     :param filename: the name of the JPT (will also be used as filename; extension will be added automatically)
     :param directory: the location to save the SVG file to
-    :param plotvars: the variables to be plotted in the graph
+    :param queryvars: the variables to be plotted in the graph
     :param view: whether the generated SVG file will be opened automatically
     :param max_symb_values: limit the maximum number of symbolic values that are plotted to this number
     :param nodefill: the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
