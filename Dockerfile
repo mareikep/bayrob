@@ -18,7 +18,7 @@ COPY . /bayrob-dev
 RUN mkdir /bayrob-dev/logs
 RUN cd bayrob-dev && python -m pip install -U -r requirements.txt
 RUN cd bayrob-dev/doc && python -m pip install -U -r requirements.txt && make clean && make html
-ENV PYTHONPATH=/bayrob-dev/src:$PYTHONPATH
+ENV PYTHONPATH=/bayrob-dev/src
 
 # uncomment the following two lines and run `sudo docker run --rm -ti -p 5005:5005 bayrob-web-img` (make run) or
 # comment them out and run `sudo docker compose up` (make compose),

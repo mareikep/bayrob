@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bayrob"
+authors = [
+  { name="Mareike Picklum", email="mareikep@cs.uni-bremen.de" },
+]
+description = "joint probability distributions to generate action models from robot experience data"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+keywords=["Probabilistic Inference", "Robotics", "action model"]
+dynamic = ["version", "dependencies"]
+
+[project.urls]
+"Source" = 'https://github.com/mareikep/bayrob'
+"Bug Tracker" = 'https://github.com/mareikep/bayrob/issues'
+
+[tool.setuptools.packages.find]
+where = ["src"]  # list of folders that contain the packages (["."] by default)
+include = ["bayrob*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bayrob.__version__"}
+dependencies = {file = "requirements.txt"}

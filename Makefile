@@ -1,4 +1,4 @@
-.PHONY: help check build run compose
+.PHONY: help check build run compose run-img
 .DEFAULT: help
 
 # name of docker container and image
@@ -21,13 +21,15 @@ check:
 	@docker --version >> /dev/null || ( echo "\nDocker is not installed!\n"; exit 1 )
 
 build: check
-	@sudo docker build --tag $(NAME)-img .
+	@docker build --tag $(NAME)-img .
 
-run: check
-	@sudo docker run --rm -ti -p 5005:5005 $(NAME)-img
+run-img: check
+	@docker run --rm -ti -p 5005:5005 $(NAME)-img
+
+run: check build compose
 
 compose: check
-	@sudo docker compose up
+	@docker compose up -d
 
 clean: check
 	@docker system prune --volumes
