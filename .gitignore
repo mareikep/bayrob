@@ -49,3 +49,4 @@ examples/move_exp/20*
 examples/pr2/20*
 examples/pr2_exp/*
 logs/*
+docs/*.html
