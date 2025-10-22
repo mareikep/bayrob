@@ -1,0 +1,1 @@
+#let bayrob = smallcaps([BayRoB])

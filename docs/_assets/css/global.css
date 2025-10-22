@@ -1,0 +1,244 @@
+/* ================================
+   Light theme (default)
+   ================================ */
+:root {
+  --bg: #f8f9fa;         /* body background */
+  --fg: #212529;         /* body text */
+  --heading: #000000;    /* headings */
+  --border: #dee2e6;     /* borders */
+  --nav-bg: #ffffff;     /* navbar bg */
+  --nav-link: #6c757d;   /* navbar link */
+  --nav-link-hover: #0066cc;
+  --nav-link-active: #0066cc;
+  --accent: #0066cc;
+  --accent-hover: #004999;
+  --accent-visited: #5c80bc;
+  --dk-blue: #5c80bc;
+
+  /* added: referenced light grays */
+  --lt-gray0: #ffffff;
+  --lt-gray2: #dee2e6;
+
+  /* added: code colors */
+  --code-bg: #32302f;
+  --code-text: #d5c4a1;
+}
+
+/* ================================
+   Dark theme
+   ================================ */
+:root[data-theme="dark"] {
+  --bg: #1e1e1e;
+  --fg: #e0e0e0;
+  --heading: #f1f3f5;    /* improved contrast on dark */
+  --border: #3e3e3e;
+  --nav-bg: #2a2a2a;     /* darker navbar for contrast */
+  --nav-link: #66B3FF;
+  --nav-link-hover: #3399FF;
+  --nav-link-active: #8ab4f8;
+  --accent: #8ab4f8;
+  --accent-hover: #3399FF;
+  --accent-visited: #984B82;
+  --dk-blue: #5c80bc;
+
+  /* added: referenced dark grays */
+  --dk-gray1: #2a2a2a;
+  --dk-gray3: #3e3e3e;
+
+  /* added: code colors for dark */
+  --code-bg: #272822;
+  --code-text: #f8f8f2;
+}
+
+/* ================================
+   Main styles
+   ================================ */
+body {
+  margin: 40px auto;
+  max-width: 900px;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+h1,h2,h3,h4 {
+  line-height: 1.25;
+  color: var(--heading);
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; color: var(--accent-hover); }
+a:visited { color: var(--accent-visited); }
+
+/* ================================
+   Theme toggle button
+   ================================ */
+.theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: background 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--accent-hover);
+}
+
+/* ================================
+   Navbar
+   ================================ */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--nav-bg);
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* Brand */
+.navbar .navbar-brand {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Nav links wrapper */
+.navbar .nav-links ul {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Individual links */
+.navbar .nav-links a {
+  color: var(--nav-link);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease, border-bottom 0.2s ease;
+}
+
+.navbar .nav-links a:hover {
+  color: var(--nav-link-hover);
+}
+
+.navbar .nav-links a.active {
+  color: var(--nav-link-active);
+  font-weight: 600;
+  border-bottom: 2px solid var(--nav-link-active);
+  padding-bottom: 2px;
+}
+
+/* Dropdown wrapper */
+.navbar .nav-links li.dropdown {
+  position: relative;
+}
+
+/* Dropdown toggle link */
+.navbar .nav-links .dropdown-toggle {
+  cursor: pointer;
+  display: inline-block;
+}
+
+/* Dropdown menu hidden by default */
+.navbar .nav-links .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%; /* below the parent link */
+  left: 0;
+  background: var(--lt-gray0);
+  border: 1px solid var(--lt-gray2);
+  border-radius: 4px;
+  padding: 0.5rem 0;
+  list-style: none;
+  min-width: 180px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 2000;
+}
+
+/* Show on hover (CSS-only dropdown) */
+.navbar .nav-links li.dropdown:hover > .dropdown-menu {
+  display: block;
+}
+
+/* Dropdown items */
+.navbar .nav-links .dropdown-menu li {
+  padding: 0;
+  margin: 0;
+}
+
+.navbar .nav-links .dropdown-menu a {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--fg);
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navbar .nav-links .dropdown-menu a:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Dark theme support */
+:root[data-theme="dark"] .navbar .nav-links .dropdown-menu {
+  background: var(--dk-gray1);
+  border: 1px solid var(--dk-gray3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+:root[data-theme="dark"] .navbar .nav-links .dropdown-menu a {
+  color: var(--fg);
+}
+
+:root[data-theme="dark"] .navbar .nav-links .dropdown-menu a:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Reset <p> inside navbar so it behaves like a <span> */
+.navbar p {
+  margin: 0;
+  padding: 0;
+  display: inline;      /* inline keeps it from breaking layout */
+}
+
+/* Ensure links inside and outside <p> align vertically */
+.navbar a,
+.navbar p a {
+  display: inline-block;
+  padding: 0.5rem 1rem; /* consistent padding */
+  line-height: 1.5rem;  /* normalize height */
+  vertical-align: middle;
+}
+
+/* Inline code styling */
+span code {
+  background-color: var(--code-bg);
+  color: var(--code-text);
+  font-family: monospace;
+  font-size: 0.95em;
+  padding: 3px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
