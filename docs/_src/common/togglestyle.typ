@@ -4,7 +4,7 @@
 #css.include-file("_assets/css/global.css")
 
 // The button itself
-#html.button(class: "theme-toggle", {[🌙 Dark Mode]})
+//#html.button(class: "theme-toggle", {[🌙 Dark Mode]})
 
 // The JS logic
 #js.inline(```js

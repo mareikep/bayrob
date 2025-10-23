@@ -35,7 +35,14 @@ If you are a user, go to #link("users.html")[For Users] to find out how to use t
 When you publish research work that makes use of this software, we gratefully appreciate if a reference to #bayrob
 can be found in your work in the following way:
 
-```bibtex
+#excerpt.code("@software{picklumbayrob,
+    author  = {Picklum, Mareike},
+    title   = {BayRoB},
+    url     = {https://github.com/mareikep/bayrob},
+    version = {1.0.0},
+}", lang: "bibtex")
+
+```ini
 @software{picklumbayrob,
     author  = {Picklum, Mareike},
     title   = {BayRoB},
@@ -46,7 +53,7 @@ can be found in your work in the following way:
 
 The PhD thesis @picklum2024phd gives further insight about the capabilities of this software. For citations, the following Bibtex entry can be used for documents based on LaTeX:
 
-```bibtex
+```yaml
 @phdthesis{picklum2024phd,
     author           = {Mareike Picklum},
     title            = {Probabilistic Action Prospection based on Experiences - 

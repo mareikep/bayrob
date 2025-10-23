@@ -81,7 +81,7 @@ a:visited { color: var(--accent-visited); }
    ================================ */
 .theme-toggle {
   position: fixed;
-  top: 1rem;
+  bottom: .5rem;
   right: 1rem;
   background: var(--accent);
   color: #fff;
