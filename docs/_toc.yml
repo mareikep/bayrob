@@ -7,20 +7,21 @@ parts:
 - caption: Setup
   chapters:
     - file: setup/installation
-- caption: For Users
+- caption: Usage Guide
   chapters:
     - file: user/intro
       sections:
         - file: user/reasoning
         - file: user/plan_refinement
-- caption: For Developers
-  chapters:
     - file: dev/intro
       sections:
         - file: dev/learning
         - file: dev/reasoning
         - file: dev/plan_refinement
+- caption: API Reference
+  chapters:
+    - file: autoapi/bayrob/core/index
+    - file: autoapi/bayrob/models/index
 - caption: References
   chapters:
-    - file: autoapi/index
     - file: bibliography

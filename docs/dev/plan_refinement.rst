@@ -1,5 +1,5 @@
 Plan Refinement
-====
+===============
 
 *BayRoB* can be used to refine robot plans by searching for a path from the current state to a desired, user-defined
 goal state. The result is a sequence of belief states representing the prospected outcomes of parameterized action steps

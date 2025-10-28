@@ -1,8 +1,8 @@
 # Book settings
 
 title: BayRoB
-author: AICOR Institute for Artificial Intelligence
-logo: _static/images/krrood_logo.svg
+author: Mareike Picklum
+logo: _static/images/logo.png
 
 # Force re-execution of notebooks on each build.
 # See https://jupyterbook.org/content/execute.html
@@ -37,7 +37,8 @@ sphinx:
       - undoc-members
       - show-inheritance
       - show-module-summary
-    autoapi_add_toctree_entry: True
+    suppress_warnings: [ "etoc.toctree" ]
+    autoapi_add_toctree_entry: true
 
 
 # Information about where the book exists on the web

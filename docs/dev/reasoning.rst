@@ -1,5 +1,5 @@
 Reasoning
-=====
+=========
 
 Reasoning in #bayrob is performed using the :py:class:`bayrob.core.base.BayRoB` class, which triggers the query of the
 respective action models (of type :py:class:`jpt.trees.JPT`) with a passed :py:class:`bayrob.core.base.Query` object. This
