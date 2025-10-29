@@ -51,14 +51,14 @@ jobs:
           cd -
 
           # Install the rest of your Python requirements
-          pip install -r requirements.txt --no-deps  # skip pyrap if still in requirements.txt
+          pip install -r requirements_.txt --no-deps
           pip install .
           pip install -r docs/requirements.txt
       - name: cache executed notebooks
         uses: actions/cache@v4
         with:
           path: doc/_build/.jupyter_cache
-          key: jupyter-book-cache-${{ hashFiles('requirements.txt') }}
+          key: jupyter-book-cache-${{ hashFiles('requirements_.txt') }}
 
       - name: Build the book
         run: |
