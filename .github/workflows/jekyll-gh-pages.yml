@@ -30,10 +30,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3-dev libcairo2-dev pkg-config
           pip install -U pip setuptools wheel meson meson-python
+          pip install --use-pep517=false git+https://github.com/danielnyga/pyrap.git@master
           pip install -r requirements.txt
-          pip install -r requirements-deb.txt
-          pip install -r requirements-dev.txt
-          pip install -r requirements-plot.txt
           pip install .
           pip install -r docs/requirements.txt
 
