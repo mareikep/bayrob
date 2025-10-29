@@ -39,9 +39,8 @@ jobs:
           echo $TAG > src/bayrob/.version
           cat src/bayrob/.version
 
-      - name: Upgrade pip, setuptools, wheel, meson
-        run: |
-          pip install --upgrade pip setuptools wheel meson meson-python
+      - name: Upgrade pip and build tools
+        run: pip install --upgrade pip setuptools wheel meson meson-python
 
       - name: Install pyrap from GitHub
         run: |
@@ -67,23 +66,25 @@ jobs:
           pip install .
           pip install -r docs/requirements.txt
 
+      - name: Clean previous build
+        run: rm -rf docs/_build
+
       - name: Cache executed notebooks
         uses: actions/cache@v4
         with:
-          path: doc/_build/.jupyter_cache
+          path: docs/_build/.jupyter_cache
           key: jupyter-book-cache-${{ hashFiles('requirements_.txt') }}
 
-      - name: Clean previous build
-        run: rm -rf docs/_build docs/_doctrees
-        
       - name: Build the book
-        run: jupyter-book build docs --all
+        run: |
+          cd $GITHUB_WORKSPACE 
+          jupyter-book build docs --all
 
       # Upload the book's HTML as an artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "docs/_build/html"
+          path: docs/_build/html
 
       # Deploy the book's HTML to GitHub Pages
       - name: Deploy to GitHub Pages
