@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          pip install -U pip && pip install -r requirements.txt && pip install . && pip install -r docs/requirements.txt
+          pip install -U pip && pip install -U pip setuptools wheel build && pip install -r requirements.txt && pip install . && pip install -r docs/requirements.txt
 
       - name: cache executed notebooks
         uses: actions/cache@v4
