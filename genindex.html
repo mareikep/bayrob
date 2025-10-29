@@ -1,0 +1,1521 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; BayRoB</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=fd3f3429" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/css/default.css?v=65391cf8" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">BayRoB</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="index.html">
+                    BayRoB
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Setup</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="setup/installation.html">Getting Started</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Usage Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="user/intro.html">For Users</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/reasoning.html">Reasoning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/plan_refinement.html">Plan Refinement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="dev/intro.html">For Developers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev/learning.html">Learning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/reasoning.html">Reasoning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/plan_refinement.html">Plan Refinement</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="autoapi/bayrob/core/index.html">bayrob.core</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/bayrob/core/astar/index.html">bayrob.core.astar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/bayrob/core/astar_jpt/index.html">bayrob.core.astar_jpt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/bayrob/core/base/index.html">bayrob.core.base</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="autoapi/bayrob/models/index.html">bayrob.models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/bayrob/models/action/index.html">bayrob.models.action</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/bayrob/models/world/index.html">bayrob.models.world</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="bibliography.html">Bibliography</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/mareikep/bayrob" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/mareikep/bayrob/issues/new?title=Issue%20on%20page%20%2Fgenindex.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#J"><strong>J</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#Q"><strong>Q</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ | <a href="#X"><strong>X</strong></a>
+ | <a href="#Y"><strong>Y</strong></a>
+ 
+</div>
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.actions_to_treedata">actions_to_treedata() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.add">add() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.adddatapath">adddatapath() (bayrob.core.base.BayRoB method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.adddatapath">(bayrob.web.thread.BayRoBSessionThread method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Agent">Agent (class in bayrob.models.world)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.angle">angle() (in module bayrob.utils.utils)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.angledeg">angledeg() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.APPAUTHOR">APPAUTHOR (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.APPNAME">APPNAME (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.asr">asr (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar">AStar (class in bayrob.core.astar)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.astar">astar() (bayrob.web.thread.BayRoBSessionThread method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.b_astar">b_astar (bayrob.core.astar.BiDirAStar attribute)</a>
+</li>
+      <li>
+    bayrob
+
+      <ul>
+        <li><a href="autoapi/bayrob/index.html#module-bayrob">module</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.bayrob">bayrob (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB">BayRoB (class in bayrob.core.base)</a>
+</li>
+      <li>
+    bayrob.application
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/index.html#module-bayrob.application">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.application.astar_jpt_app
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#module-bayrob.application.astar_jpt_app">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.config
+
+      <ul>
+        <li><a href="autoapi/bayrob/config/index.html#module-bayrob.config">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.core
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/index.html#module-bayrob.core">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.core.astar
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#module-bayrob.core.astar">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.core.astar_jpt
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#module-bayrob.core.astar_jpt">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.core.base
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/base/index.html#module-bayrob.core.base">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.logs
+
+      <ul>
+        <li><a href="autoapi/bayrob/logs/index.html#module-bayrob.logs">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.logs.logs
+
+      <ul>
+        <li><a href="autoapi/bayrob/logs/logs/index.html#module-bayrob.logs.logs">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.models
+
+      <ul>
+        <li><a href="autoapi/bayrob/models/index.html#module-bayrob.models">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.models.action
+
+      <ul>
+        <li><a href="autoapi/bayrob/models/action/index.html#module-bayrob.models.action">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    bayrob.models.world
+
+      <ul>
+        <li><a href="autoapi/bayrob/models/world/index.html#module-bayrob.models.world">module</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result">BayRoB.Result (class in bayrob.core.base)</a>
+</li>
+      <li>
+    bayrob.utils
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/index.html#module-bayrob.utils">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.utils.constants
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/constants/index.html#module-bayrob.utils.constants">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.utils.locs
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/locs/index.html#module-bayrob.utils.locs">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.utils.plotlib
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#module-bayrob.utils.plotlib">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.utils.utils
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/utils/index.html#module-bayrob.utils.utils">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.web
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/index.html#module-bayrob.web">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.web.server
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/server/index.html#module-bayrob.web.server">module</a>
+</li>
+      </ul></li>
+      <li>
+    bayrob.web.thread
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/thread/index.html#module-bayrob.web.thread">module</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.bayrobfileloggerv">bayrobfileloggerv (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.bayrobfilelooger">bayrobfilelooger (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.bayrobjsonlogger">bayrobjsonlogger (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.bayroblogger">bayroblogger (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread">BayRoBSessionThread (class in bayrob.web.thread)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb">BayRoBWeb (class in bayrob.web.server)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar">BiDirAStar (class in bayrob.core.astar)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.build_constraints">build_constraints() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Search.bwd">bwd (bayrob.core.base.Search attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.cache">cache (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.callback">callback (bayrob.web.thread.BayRoBSessionThread attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.cancel_bayrob">cancel_bayrob() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.checkthread">checkthread() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result.clear">clear() (bayrob.core.base.BayRoB.Result method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.closed">closed (bayrob.core.astar.AStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.code_base">code_base (in module bayrob.utils.locs)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.collided">collided (bayrob.models.world.GridAgent property)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.collides">collides() (bayrob.models.world.Grid method)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.collides_obstacle">collides_obstacle() (bayrob.models.world.Grid method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.collides_wall">collides_wall() (bayrob.models.world.Grid method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.common_node">common_node() (bayrob.core.astar.BiDirAStar method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.compiledoku">compiledoku() (bayrob.web.server.BayRoBWeb static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/config/index.html#bayrob.config.Config">Config (class in bayrob.config)</a>
+</li>
+      <li><a href="autoapi/bayrob/config/index.html#bayrob.config.config">config (in module bayrob.config)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.connectionlogger">connectionlogger (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.coords">coords (bayrob.models.world.Grid attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.cov">cov() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.cs">cs (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.cst">cst (in module bayrob.utils.constants)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.datalogger">datalogger (in module bayrob.models.action)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.datapaths">datapaths (bayrob.core.base.BayRoB property)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.datasets">datasets (bayrob.core.base.BayRoB property)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.datasets">(bayrob.web.thread.BayRoBSessionThread property)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.defaultconfig">defaultconfig() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/config/index.html#bayrob.config.Config.DEFAULTS">DEFAULTS (bayrob.config.Config attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.DEG_U">DEG_U (bayrob.models.action.Move attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.desktop">desktop() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.dhms">dhms() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.dir">dir (bayrob.models.world.GridAgent property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.TrajectorySimulation.dir">dir() (bayrob.models.action.TrajectorySimulation method)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.dirx">dirx (bayrob.models.world.GridAgent property)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.diry">diry (bayrob.models.world.GridAgent property)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.discr_colors">discr_colors() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.DIST_U">DIST_U (bayrob.models.action.Move attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.Goal.distance">distance() (bayrob.core.astar_jpt.Goal method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.State.distance">(bayrob.core.astar_jpt.State method)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.distance">(in module bayrob.utils.utils)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.doc">doc (in module bayrob.utils.locs)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.doct">doct (in module bayrob.utils.locs)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.dotproduct">dotproduct() (in module bayrob.utils.utils)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.empty">empty() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result.error">error (bayrob.core.base.BayRoB.Result property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.euler_from_quaternion">euler_from_quaternion() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.evidence">evidence (bayrob.core.base.Query attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.examples">examples (in module bayrob.utils.locs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.Node.f">f (bayrob.core.astar.Node property)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.f_astar">f_astar (bayrob.core.astar.BiDirAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.fast_jaccard_cont">fast_jaccard_cont (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.fast_jaccard_set">fast_jaccard_set (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.fig_from_json_file">fig_from_json_file() (in module bayrob.utils.plotlib)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.fig_to_file">fig_to_file() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.FILESTRFMT">FILESTRFMT (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.FILESTRFMT_NOTIME">FILESTRFMT_NOTIME (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.FILESTRFMT_SEC">FILESTRFMT_SEC (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.filter_dataframe">filter_dataframe() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.fmt">fmt() (in module bayrob.utils.utils)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.Node.g">g (bayrob.core.astar.Node attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.gaussian">gaussian() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.gendata">gendata() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.gendata">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.gendata">(in module bayrob.utils.plotlib)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.gendata_mixture">gendata_mixture() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.gendata_multiple">gendata_multiple() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.gendata_path">gendata_path() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.generate_steps">generate_steps() (bayrob.core.astar_jpt.SubAStar method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.generate_steps">(bayrob.core.astar_jpt.SubAStarBW method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.generate_successors">generate_successors() (bayrob.core.astar.AStar method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.generate_successors">(bayrob.core.astar_jpt.SubAStar method)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.generate_successors">(bayrob.core.astar_jpt.SubAStarBW method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.generatemln">generatemln() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.get_ancestor">get_ancestor() (bayrob.core.astar_jpt.SubAStarBW static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/config/index.html#bayrob.config.Config.getlist">getlist() (bayrob.config.Config method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.goal">goal (bayrob.core.astar.AStar attribute)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.goal">(bayrob.core.astar.BiDirAStar attribute)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Search.goal">(bayrob.core.base.Search attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.Goal">Goal (class in bayrob.core.astar_jpt)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.goal_confidence">goal_confidence (bayrob.core.astar.AStar property)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.goal_confidence">(bayrob.core.astar.BiDirAStar property)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.goal_t">goal_t (bayrob.core.astar.BiDirAStar attribute)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.goal_t">(bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Search.goal_tolerances">goal_tolerances (bayrob.core.base.Search attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid">Grid (class in bayrob.models.world)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent">GridAgent (class in bayrob.models.world)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.Node.h">h (bayrob.core.astar.Node attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.h">h() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.h">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.h">(bayrob.core.astar.AStar method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.hextorgb">hextorgb() (in module bayrob.utils.plotlib)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Search.init">init (bayrob.core.base.Search attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.init">init() (bayrob.core.astar.AStar method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.init">(bayrob.core.astar_jpt.SubAStar method)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.init">(bayrob.core.astar_jpt.SubAStarBW method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/logs/logs/index.html#bayrob.logs.logs.init_loggers">init_loggers() (in module bayrob.logs.logs)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.init_random">init_random() (bayrob.models.world.GridAgent method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Search.init_tolerances">init_tolerances (bayrob.core.base.Search attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.initialize">initialize() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.initstate">initstate (bayrob.core.astar.AStar attribute)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.initstate">(bayrob.core.astar.BiDirAStar attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.isgoal">isgoal() (bayrob.core.astar.AStar method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.isgoal">(bayrob.core.astar_jpt.SubAStar method)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.isgoal">(bayrob.core.astar_jpt.SubAStarBW method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="J">J</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.jaccard_similarity">jaccard_similarity() (bayrob.core.astar_jpt.SubAStar static method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.jaccard_similarity">(bayrob.core.astar_jpt.SubAStarBW static method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.jsonlogger">jsonlogger (in module bayrob.core.base)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.jsonlogger">(in module bayrob.web.server)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.lbl_status">lbl_status (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.State.leaf">leaf (bayrob.core.astar_jpt.State attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.length">length() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/logs/logs/index.html#bayrob.logs.logs.LEVELS">LEVELS (in module bayrob.logs.logs)</a>
+</li>
+      <li><a href="autoapi/bayrob/config/index.html#bayrob.config.logger">logger (in module bayrob.config)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.logger">(in module bayrob.core.astar)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.logger">(in module bayrob.core.astar_jpt)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.logger">(in module bayrob.core.base)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.logger">(in module bayrob.utils.plotlib)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.logger">(in module bayrob.utils.utils)</a>
+</li>
+        <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.logger">(in module bayrob.web.server)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.logs">logs (in module bayrob.utils.constants)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.logs">(in module bayrob.utils.locs)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.main">main() (in module bayrob.web.server)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.menu_width">menu_width (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result.message">message (bayrob.core.base.BayRoB.Result property)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.mobile">mobile() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.model">model (bayrob.core.base.Query attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.modelname">modelname (bayrob.core.base.Query attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.models">models (bayrob.core.astar_jpt.SubAStar attribute)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.models">(bayrob.core.base.BayRoB property)</a>
+</li>
+        <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.models">(bayrob.web.thread.BayRoBSessionThread property)</a>
+</li>
+      </ul></li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="autoapi/bayrob/index.html#module-bayrob">bayrob</a>
+</li>
+        <li><a href="autoapi/bayrob/application/index.html#module-bayrob.application">bayrob.application</a>
+</li>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#module-bayrob.application.astar_jpt_app">bayrob.application.astar_jpt_app</a>
+</li>
+        <li><a href="autoapi/bayrob/config/index.html#module-bayrob.config">bayrob.config</a>
+</li>
+        <li><a href="autoapi/bayrob/core/index.html#module-bayrob.core">bayrob.core</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar/index.html#module-bayrob.core.astar">bayrob.core.astar</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#module-bayrob.core.astar_jpt">bayrob.core.astar_jpt</a>
+</li>
+        <li><a href="autoapi/bayrob/core/base/index.html#module-bayrob.core.base">bayrob.core.base</a>
+</li>
+        <li><a href="autoapi/bayrob/logs/index.html#module-bayrob.logs">bayrob.logs</a>
+</li>
+        <li><a href="autoapi/bayrob/logs/logs/index.html#module-bayrob.logs.logs">bayrob.logs.logs</a>
+</li>
+        <li><a href="autoapi/bayrob/models/index.html#module-bayrob.models">bayrob.models</a>
+</li>
+        <li><a href="autoapi/bayrob/models/action/index.html#module-bayrob.models.action">bayrob.models.action</a>
+</li>
+        <li><a href="autoapi/bayrob/models/world/index.html#module-bayrob.models.world">bayrob.models.world</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/index.html#module-bayrob.utils">bayrob.utils</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/constants/index.html#module-bayrob.utils.constants">bayrob.utils.constants</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/locs/index.html#module-bayrob.utils.locs">bayrob.utils.locs</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#module-bayrob.utils.plotlib">bayrob.utils.plotlib</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/utils/index.html#module-bayrob.utils.utils">bayrob.utils.utils</a>
+</li>
+        <li><a href="autoapi/bayrob/web/index.html#module-bayrob.web">bayrob.web</a>
+</li>
+        <li><a href="autoapi/bayrob/web/server/index.html#module-bayrob.web.server">bayrob.web.server</a>
+</li>
+        <li><a href="autoapi/bayrob/web/thread/index.html#module-bayrob.web.thread">bayrob.web.thread</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move">Move (class in bayrob.models.action)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.moveforward">moveforward() (bayrob.models.action.Move static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.movestep">movestep() (bayrob.models.action.Move static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.n_workers">n_workers (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.nl">nl (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.Node">Node (class in bayrob.core.astar)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.obstacle">obstacle() (bayrob.models.world.Grid method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.obstacle_kitchen_boundaries">obstacle_kitchen_boundaries (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.obstaclenames">obstaclenames (bayrob.models.world.Grid property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.Grid.obstacles">obstacles (bayrob.models.world.Grid property)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.obstacles">(in module bayrob.utils.constants)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.omitmodels">omitmodels (bayrob.core.base.BayRoB attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.open">open (bayrob.core.astar.AStar attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.Node.parent">parent (bayrob.core.astar.Node attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.parser">parser (in module bayrob.web.server)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.parseval">parseval() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.pathdata">pathdata() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.pcc">pcc() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.pcc_">pcc_() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.pearson">pearson() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.plot">plot() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.plot">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.plot">(bayrob.core.astar.AStar method)</a>
+</li>
+        <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.plot">(bayrob.models.action.Move static method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_data_subset">plot_data_subset() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.plot_dir">plot_dir() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.plot_dir">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_dir">(in module bayrob.utils.plotlib)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.plot_dist_bar">plot_dist_bar() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.plot_dist_heatmap">plot_dist_heatmap() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_dists_layered">plot_dists_layered() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.plot_ground_truth">plot_ground_truth() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_heatmap">plot_heatmap() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_multiple_dists">plot_multiple_dists() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.plot_path">plot_path() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.plot_path">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_path">(in module bayrob.utils.plotlib)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.plot_pos">plot_pos() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.plot_pos">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_pos">(in module bayrob.utils.plotlib)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_pt_sq">plot_pt_sq() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_scatter_quiver">plot_scatter_quiver() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.plot_tree">plot_tree (bayrob.core.base.Query attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_tree_dist">plot_tree_dist() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_tree_leaves">plot_tree_leaves() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_typst_jpt">plot_typst_jpt() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plot_typst_tree_json">plot_typst_tree_json() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plotly_animation">plotly_animation() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plotly_pt">plotly_pt() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.plotly_sq">plotly_sq() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.plotme">plotme (bayrob.core.astar.AStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.plottype">plottype (bayrob.core.base.Query attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.pnt2line">pnt2line() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.pnt2line_">pnt2line_() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.pool">pool (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.pos">pos (bayrob.models.world.GridAgent property)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.presets">presets() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.projectnameLOW">projectnameLOW() (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.projectnameUP">projectnameUP() (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.pushsession">pushsession (bayrob.web.thread.BayRoBSessionThread attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Q">Q</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.qo">qo (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.query">query (bayrob.core.base.BayRoB property)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.query">(bayrob.web.thread.BayRoBSessionThread property)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query">Query (class in bayrob.core.base)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.query_jpts">query_jpts() (bayrob.core.base.BayRoB method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.query_jpts">(bayrob.web.thread.BayRoBSessionThread method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result.query_object">query_object (bayrob.core.base.BayRoB.Result property)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.querypresets">querypresets (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.querystr">querystr (bayrob.core.base.Query attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Query.queryvars">queryvars (bayrob.core.base.Query attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.reached">reached (bayrob.core.astar.AStar attribute)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.reached">(bayrob.core.astar.BiDirAStar attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.recent_example">recent_example() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.removedatapath">removedatapath() (bayrob.core.base.BayRoB method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.res">res() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.res1">res1 (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.resource">resource (in module bayrob.utils.locs)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.result">result (bayrob.core.base.BayRoB property)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result.result">(bayrob.core.base.BayRoB.Result property)</a>
+</li>
+        <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.result">(bayrob.web.thread.BayRoBSessionThread property)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.resultlog">resultlog (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.retrace_path">retrace_path() (bayrob.core.astar.AStar method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.retrace_path">(bayrob.core.astar.BiDirAStar method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW.reverse">reverse() (bayrob.core.astar_jpt.SubAStarBW method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.robot_positions">robot_positions (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.rotate">rotate() (bayrob.models.action.Move static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.run">run() (bayrob.web.thread.BayRoBSessionThread method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.run_bayrob">run_bayrob() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.runfunction">runfunction (bayrob.web.thread.BayRoBSessionThread attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.TrajectorySimulation.sample">sample() (bayrob.models.action.TrajectorySimulation method)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.sampletrajectory">sampletrajectory() (bayrob.models.action.Move static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.satisfies">satisfies() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.scale">scale() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.scatterplot">scatterplot() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.Search">Search (class in bayrob.core.base)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.search">search() (bayrob.core.astar.AStar method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.search">(bayrob.core.astar.BiDirAStar method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.search_astar">search_astar() (bayrob.core.base.BayRoB method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.search_mode">search_mode (bayrob.core.base.BayRoB attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.searchpresets">searchpresets (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.setup">setup() (bayrob.web.server.BayRoBWeb static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.setupdoku">setupdoku() (bayrob.web.server.BayRoBWeb static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.Goal.similarity">similarity() (bayrob.core.astar_jpt.Goal method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.State.similarity">(bayrob.core.astar_jpt.State method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.src">src (in module bayrob.utils.locs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.Node.state">state (bayrob.core.astar.Node attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.State">State (class in bayrob.core.astar_jpt)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.state_similarity">state_similarity (bayrob.core.astar.AStar property)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.state_similarity">(bayrob.core.astar.BiDirAStar property)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.BiDirAStar.state_t">state_t (bayrob.core.astar.BiDirAStar attribute)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.state_t">(bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.TrajectorySimulation.step">step() (bayrob.models.action.TrajectorySimulation method)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_.stepcost">stepcost() (bayrob.application.astar_jpt_app.SubAStar_ method)</a>
+
+      <ul>
+        <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_.stepcost">(bayrob.application.astar_jpt_app.SubAStarBW_ method)</a>
+</li>
+        <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.stepcost">(bayrob.core.astar.AStar method)</a>
+</li>
+      </ul></li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.STEPSIZE">STEPSIZE (bayrob.models.action.Move attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar">SubAStar (class in bayrob.core.astar_jpt)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStar_">SubAStar_ (class in bayrob.application.astar_jpt_app)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStarBW">SubAStarBW (class in bayrob.core.astar_jpt)</a>
+</li>
+      <li><a href="autoapi/bayrob/application/astar_jpt_app/index.html#bayrob.application.astar_jpt_app.SubAStarBW_">SubAStarBW_ (class in bayrob.application.astar_jpt_app)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/base/index.html#bayrob.core.base.BayRoB.Result.success">success (bayrob.core.base.BayRoB.Result property)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.suggestions">suggestions() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.timeout">timeout (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/constants/index.html#bayrob.utils.constants.TMPFILESTRFMT">TMPFILESTRFMT (in module bayrob.utils.constants)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/plotlib/index.html#bayrob.utils.plotlib.to_rgb">to_rgb() (in module bayrob.utils.plotlib)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.tovariablemapping">tovariablemapping() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.TrajectorySimulation">TrajectorySimulation (class in bayrob.models.action)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.trdparty">trdparty (in module bayrob.utils.locs)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.State.tree">tree (bayrob.core.astar_jpt.State attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.turndeg">turndeg() (bayrob.models.action.Move static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.turnleft">turnleft() (bayrob.models.action.Move static method)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/action/index.html#bayrob.models.action.Move.turnright">turnright() (bayrob.models.action.Move static method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.uniform_numeric">uniform_numeric() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.unit">unit() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.uploaddir">uploaddir (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.urlable">urlable() (in module bayrob.utils.utils)</a>
+</li>
+      <li><a href="autoapi/bayrob/core/astar_jpt/index.html#bayrob.core.astar_jpt.SubAStar.use_multiprocessing">use_multiprocessing (bayrob.core.astar_jpt.SubAStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.user_data">user_data (in module bayrob.utils.locs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.vector">vector() (in module bayrob.utils.utils)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/core/astar/index.html#bayrob.core.astar.AStar.verbose">verbose (bayrob.core.astar.AStar attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/utils/index.html#bayrob.utils.utils.visualize_jpt_outer_limits">visualize_jpt_outer_limits() (in module bayrob.utils.utils)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.wait_bounds">wait_bounds() (bayrob.web.server.BayRoBWeb method)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.wait_imgsize">wait_imgsize (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.wait_padding">wait_padding (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/utils/locs/index.html#bayrob.utils.locs.web">web (in module bayrob.utils.locs)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/thread/index.html#bayrob.web.thread.BayRoBSessionThread.webapp">webapp (bayrob.web.thread.BayRoBSessionThread attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.wnd_query_model">wnd_query_model (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.wnd_search">wnd_search (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/web/server/index.html#bayrob.web.server.BayRoBWeb.wnd_wait">wnd_wait (bayrob.web.server.BayRoBWeb attribute)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.world">world (bayrob.models.world.GridAgent property)</a>
+</li>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.World">World (class in bayrob.models.world)</a>
+</li>
+      <li><a href="autoapi/bayrob/config/index.html#bayrob.config.Config.write">write() (bayrob.config.Config method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="X">X</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.x">x (bayrob.models.world.GridAgent property)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Y">Y</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/bayrob/models/world/index.html#bayrob.models.world.GridAgent.y">y (bayrob.models.world.GridAgent property)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Mareike Picklum
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2023.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

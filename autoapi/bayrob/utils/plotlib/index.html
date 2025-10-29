@@ -1,0 +1,1005 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>bayrob.utils.plotlib &#8212; BayRoB</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=fd3f3429" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/default.css?v=65391cf8" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../../../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../../_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../../../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../../../../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/bayrob/utils/plotlib/index';</script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">BayRoB</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="../../../../index.html">
+                    BayRoB
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Setup</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../../setup/installation.html">Getting Started</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Usage Guide</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../user/intro.html">For Users</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user/reasoning.html">Reasoning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../user/plan_refinement.html">Plan Refinement</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../dev/intro.html">For Developers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../dev/learning.html">Learning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../dev/reasoning.html">Reasoning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../dev/plan_refinement.html">Plan Refinement</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../core/index.html">bayrob.core</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../core/astar/index.html">bayrob.core.astar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../core/astar_jpt/index.html">bayrob.core.astar_jpt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../core/base/index.html">bayrob.core.base</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../models/index.html">bayrob.models</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../models/action/index.html">bayrob.models.action</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../models/world/index.html">bayrob.models.world</a></li>
+</ul>
+</details></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../../../../bibliography.html">Bibliography</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/mareikep/bayrob" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/mareikep/bayrob/issues/new?title=Issue%20on%20page%20%2Fautoapi/bayrob/utils/plotlib/index.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../../../_sources/autoapi/bayrob/utils/plotlib/index.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>bayrob.utils.plotlib</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#attributes">Attributes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.logger"><code class="docutils literal notranslate"><span class="pre">logger</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.defaultconfig"><code class="docutils literal notranslate"><span class="pre">defaultconfig()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.fig_from_json_file"><code class="docutils literal notranslate"><span class="pre">fig_from_json_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.fig_to_file"><code class="docutils literal notranslate"><span class="pre">fig_to_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.hextorgb"><code class="docutils literal notranslate"><span class="pre">hextorgb()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.to_rgb"><code class="docutils literal notranslate"><span class="pre">to_rgb()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_pos"><code class="docutils literal notranslate"><span class="pre">plot_pos()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_dir"><code class="docutils literal notranslate"><span class="pre">plot_dir()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gendata_mixture"><code class="docutils literal notranslate"><span class="pre">gendata_mixture()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gendata"><code class="docutils literal notranslate"><span class="pre">gendata()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gendata_multiple"><code class="docutils literal notranslate"><span class="pre">gendata_multiple()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plotly_animation"><code class="docutils literal notranslate"><span class="pre">plotly_animation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_dists_layered"><code class="docutils literal notranslate"><span class="pre">plot_dists_layered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_tree_dist"><code class="docutils literal notranslate"><span class="pre">plot_tree_dist()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.pathdata"><code class="docutils literal notranslate"><span class="pre">pathdata()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_path"><code class="docutils literal notranslate"><span class="pre">plot_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plotly_pt"><code class="docutils literal notranslate"><span class="pre">plotly_pt()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plotly_sq"><code class="docutils literal notranslate"><span class="pre">plotly_sq()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_pt_sq"><code class="docutils literal notranslate"><span class="pre">plot_pt_sq()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_scatter_quiver"><code class="docutils literal notranslate"><span class="pre">plot_scatter_quiver()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.build_constraints"><code class="docutils literal notranslate"><span class="pre">build_constraints()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.filter_dataframe"><code class="docutils literal notranslate"><span class="pre">filter_dataframe()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_data_subset"><code class="docutils literal notranslate"><span class="pre">plot_data_subset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gaussian"><code class="docutils literal notranslate"><span class="pre">gaussian()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_multiple_dists"><code class="docutils literal notranslate"><span class="pre">plot_multiple_dists()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_tree_leaves"><code class="docutils literal notranslate"><span class="pre">plot_tree_leaves()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_typst_tree_json"><code class="docutils literal notranslate"><span class="pre">plot_typst_tree_json()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_typst_jpt"><code class="docutils literal notranslate"><span class="pre">plot_typst_jpt()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.robot_positions"><code class="docutils literal notranslate"><span class="pre">robot_positions</span></code></a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="module-bayrob.utils.plotlib">
+<span id="bayrob-utils-plotlib"></span><h1>bayrob.utils.plotlib<a class="headerlink" href="#module-bayrob.utils.plotlib" title="Link to this heading">#</a></h1>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.logger" title="bayrob.utils.plotlib.logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">logger</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.robot_positions" title="bayrob.utils.plotlib.robot_positions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">robot_positions</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.defaultconfig" title="bayrob.utils.plotlib.defaultconfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">defaultconfig</span></code></a>([fname, format])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.fig_from_json_file" title="bayrob.utils.plotlib.fig_from_json_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fig_from_json_file</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.fig_to_file" title="bayrob.utils.plotlib.fig_to_file"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fig_to_file</span></code></a>(→ None)</p></td>
+<td><p>Writes figure to file with name <cite>fname</cite>. If multiple extensions are given in ftypes, the same figure is saved</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.hextorgb" title="bayrob.utils.plotlib.hextorgb"><code class="xref py py-obj docutils literal notranslate"><span class="pre">hextorgb</span></code></a>(col)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.to_rgb" title="bayrob.utils.plotlib.to_rgb"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_rgb</span></code></a>(color[, opacity])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_pos" title="bayrob.utils.plotlib.plot_pos"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_pos</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p>Plot Heatmap representing distribution of <cite>x_in</cite>, <cite>y_in</cite> variables from a <cite>path</cite>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_dir" title="bayrob.utils.plotlib.plot_dir"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_dir</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.gendata_mixture" title="bayrob.utils.plotlib.gendata_mixture"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gendata_mixture</span></code></a>(xvar, yvar, states[, limx, limy, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.gendata" title="bayrob.utils.plotlib.gendata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gendata</span></code></a>(xvar, yvar, state[, params, conf])</p></td>
+<td><p>Generates data points</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.gendata_multiple" title="bayrob.utils.plotlib.gendata_multiple"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gendata_multiple</span></code></a>(vars, states[, params, conf])</p></td>
+<td><p>Generates data points</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plotly_animation" title="bayrob.utils.plotlib.plotly_animation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotly_animation</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p>Animated Plot</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_dists_layered" title="bayrob.utils.plotlib.plot_dists_layered"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_dists_layered</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_heatmap" title="bayrob.utils.plotlib.plot_heatmap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_heatmap</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p>Plot heatmap (animation) or 3D surface plot with plotly.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_tree_dist" title="bayrob.utils.plotlib.plot_tree_dist"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_tree_dist</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p>Plots a heatmap representing the belief state for the agents' position, i.e. the joint</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.pathdata" title="bayrob.utils.plotlib.pathdata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pathdata</span></code></a>(→ List)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_path" title="bayrob.utils.plotlib.plot_path"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_path</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plotly_pt" title="bayrob.utils.plotlib.plotly_pt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotly_pt</span></code></a>(→ Any)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plotly_sq" title="bayrob.utils.plotlib.plotly_sq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotly_sq</span></code></a>(→ Any)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_pt_sq" title="bayrob.utils.plotlib.plot_pt_sq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_pt_sq</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_scatter_quiver" title="bayrob.utils.plotlib.plot_scatter_quiver"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_scatter_quiver</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p>Plot heatmap or 3D surface plot with plotly</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.build_constraints" title="bayrob.utils.plotlib.build_constraints"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_constraints</span></code></a>(constraints)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.filter_dataframe" title="bayrob.utils.plotlib.filter_dataframe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">filter_dataframe</span></code></a>(→ pandas.DataFrame)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_data_subset" title="bayrob.utils.plotlib.plot_data_subset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_data_subset</span></code></a>(df, xvar, yvar, constraints[, limx, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.gaussian" title="bayrob.utils.plotlib.gaussian"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gaussian</span></code></a>(mean1, cov1, mean2, cov2[, i])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_multiple_dists" title="bayrob.utils.plotlib.plot_multiple_dists"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_multiple_dists</span></code></a>(gaussians[, limx, limy, save, show])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_tree_leaves" title="bayrob.utils.plotlib.plot_tree_leaves"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_tree_leaves</span></code></a>(→ plotly.graph_objs.Figure)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_typst_tree_json" title="bayrob.utils.plotlib.plot_typst_tree_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_typst_tree_json</span></code></a>(→ str)</p></td>
+<td><p>Generates an SVG representation of the generated regression tree.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#bayrob.utils.plotlib.plot_typst_jpt" title="bayrob.utils.plotlib.plot_typst_jpt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_typst_jpt</span></code></a>(→ str)</p></td>
+<td><p>Generates an SVG representation of the generated regression tree.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">#</a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.logger">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">logger</span></span><a class="headerlink" href="#bayrob.utils.plotlib.logger" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.defaultconfig">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">defaultconfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'svg'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.defaultconfig" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.fig_from_json_file">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">fig_from_json_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.fig_from_json_file" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.fig_to_file">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">fig_to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">configname</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ftypes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forcecreate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.fig_to_file" title="Link to this definition">#</a></dt>
+<dd><p>Writes figure to file with name <cite>fname</cite>. If multiple extensions are given in ftypes, the same figure is saved
+to multiple file formats.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fig</strong> – The plotly Figure to save</p></li>
+<li><p><strong>fname</strong> – The file name (including path) to save the figure to</p></li>
+<li><p><strong>configname</strong> – The name to use for the plotly config when showing the figure</p></li>
+<li><p><strong>ftypes</strong> – A list of file types to save the figure as (e.g. [‘.html’, ‘.png’]). If None, the file type is inferred from the suffix of <cite>fname</cite>.</p></li>
+<li><p><strong>forcecreate</strong> – Whether to force creation of parent directories if they do not exist</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.hextorgb">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">hextorgb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">col</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.hextorgb" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.to_rgb">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">to_rgb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">color</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">opacity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.to_rgb" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_pos">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_pos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fun</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'heatmap'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_pos" title="Link to this definition">#</a></dt>
+<dd><p>Plot Heatmap representing distribution of <cite>x_in</cite>, <cite>y_in</cite> variables from a <cite>path</cite>.
+<cite>path</cite> is a list of (state, params) tuples generated in <cite>test_astar_jpt_robotaction.test_astar_cram_path</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – List of (state, params) tuples</p></li>
+<li><p><strong>title</strong> – Plot title</p></li>
+<li><p><strong>conf</strong> – Confidence threshold</p></li>
+<li><p><strong>limx</strong> – X-axis limits</p></li>
+<li><p><strong>limy</strong> – Y-axis limits</p></li>
+<li><p><strong>limz</strong> – Z-axis limits</p></li>
+<li><p><strong>save</strong> – Save path</p></li>
+<li><p><strong>show</strong> – Whether to show plot</p></li>
+<li><p><strong>fun</strong> – Plot type (‘heatmap’ or ‘surface’)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_dir">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fun</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'heatmap'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_dir" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.gendata_mixture">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">gendata_mixture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">states</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">priors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">numpoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.gendata_mixture" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.gendata">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">gendata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.gendata" title="Link to this definition">#</a></dt>
+<dd><p>Generates data points</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xvar</strong> – X variable name</p></li>
+<li><p><strong>yvar</strong> – Y variable name</p></li>
+<li><p><strong>state</strong> – State dictionary</p></li>
+<li><p><strong>params</strong> – Additional parameters</p></li>
+<li><p><strong>conf</strong> – Confidence threshold</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.gendata_multiple">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">gendata_multiple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">states</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.gendata_multiple" title="Link to this definition">#</a></dt>
+<dd><p>Generates data points</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vars</strong> – List of (xvar, yvar) tuples</p></li>
+<li><p><strong>states</strong> – List of states</p></li>
+<li><p><strong>params</strong> – Additional parameters</p></li>
+<li><p><strong>conf</strong> – Confidence threshold</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plotly_animation">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plotly_animation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">showbuttons</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">speed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plotly_animation" title="Link to this definition">#</a></dt>
+<dd><p>Animated Plot</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>names</strong></p></li>
+<li><p><strong>data</strong></p></li>
+<li><p><strong>title</strong></p></li>
+<li><p><strong>save</strong></p></li>
+<li><p><strong>show</strong></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_dists_layered">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_dists_layered</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_dists_layered" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_heatmap">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fun</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'heatmap'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">showbuttons</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dark</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_heatmap" title="Link to this definition">#</a></dt>
+<dd><p>Plot heatmap (animation) or 3D surface plot with plotly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xvar</strong> (<em>str</em>) – The name of the x-axis of the heatmap and of the respective column in the <cite>data</cite> Dataframe</p></li>
+<li><p><strong>yvar</strong> (<em>str</em>) – The name of the y-axis of the heatmap and of the respective column in the <cite>data</cite> Dataframe</p></li>
+<li><p><strong>data</strong> (<em>pd.DataFrame</em>) – Each row (!) consists of an entire dataset, such that multiple rows result in an animation, i.e. for an n x m heatmap, each <cite>xvar</cite> cell contains an array of shape (n,), each <cite>yvar</cite> cell contains an array of shape (m,) and the <cite>z</cite> cells contain arrays shaped (m,n). May also contain an optional column called <cite>lbl</cite> of shape (n,) or (m,n) which serves as custom information when hovering over data points.</p></li>
+<li><p><strong>title</strong> (<em>str</em>) – The title of the plot</p></li>
+<li><p><strong>limx</strong> (<em>Tuple</em>) – The limits of the x-axis. Determined automatically from data if not given</p></li>
+<li><p><strong>limy</strong> (<em>Tuple</em>) – The limits of the y-axis. Determined automatically from data if not given</p></li>
+<li><p><strong>save</strong> (<em>str</em>) – a full path (including file name) to save the plot to.</p></li>
+<li><p><strong>show</strong> (<em>bool</em>) – whether to automatically open the plot in the default browser.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_tree_dist">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_tree_dist</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jpt.trees.JPT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qvars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qvarx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qvary</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conf</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_tree_dist" title="Link to this definition">#</a></dt>
+<dd><p>Plots a heatmap representing the belief state for the agents’ position, i.e. the joint
+probability of the x and y variables: P(x, y).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – The plot title</p></li>
+<li><p><strong>conf</strong> – A confidence value. Values below this threshold are set to 0. (= equal color for lowest value in plot)</p></li>
+<li><p><strong>limx</strong> – The limits for the x-variable; determined from boundaries if not given</p></li>
+<li><p><strong>limy</strong> – The limits for the y-variable; determined from boundaries if not given</p></li>
+<li><p><strong>limz</strong> – The limits for the z-variable; determined from data if not given</p></li>
+<li><p><strong>save</strong> – The location where the plot is saved (if given)</p></li>
+<li><p><strong>show</strong> – Whether the plot is shown</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.pathdata">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">pathdata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.pathdata" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_path">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_path</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">obstacles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dark</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_path" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plotly_pt">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plotly_pt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'rgb(15,21,110)'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plotly_pt" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plotly_sq">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plotly_sq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">area</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Goal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'rgb(59,41,106)'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legend</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plotly_sq" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_pt_sq">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_pt_sq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_pt_sq" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_scatter_quiver">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_scatter_quiver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_scatter_quiver" title="Link to this definition">#</a></dt>
+<dd><p>Plot heatmap or 3D surface plot with plotly</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xvar</strong> – The name of the x-axis of the heatmap and of the respective column in the <cite>data</cite> Dataframe</p></li>
+<li><p><strong>yvar</strong> – The name of the y-axis of the heatmap and of the respective column in the <cite>data</cite> Dataframe</p></li>
+<li><p><strong>data</strong> – A Dataframe containing columns <cite>xvar</cite>, <cite>yvar</cite>, `</p></li>
+<li><p><strong>title</strong> – The title of the plot</p></li>
+<li><p><strong>save</strong> – a full path (including file name) to save the plot to.</p></li>
+<li><p><strong>show</strong> – whether to automatically open the plot in the default browser.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.build_constraints">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">build_constraints</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constraints</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.build_constraints" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.filter_dataframe">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">filter_dataframe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pandas.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pandas.DataFrame</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.filter_dataframe" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_data_subset">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_data_subset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yvar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'scatter'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rgb(15,21,110)'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.plot_data_subset" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.gaussian">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">gaussian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mean1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.gaussian" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_multiple_dists">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_multiple_dists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gaussians</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#bayrob.utils.plotlib.plot_multiple_dists" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_tree_leaves">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_tree_leaves</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jpt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jpt.trees.JPT</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">varx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vary</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">plotly.graph_objs.Figure</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_tree_leaves" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_typst_tree_json">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_typst_tree_json</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'unnamed'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span> <span class="pre">or</span> <span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_typst_tree_json" title="Link to this definition">#</a></dt>
+<dd><p>Generates an SVG representation of the generated regression tree.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – title of the plot</p></li>
+<li><p><strong>filename</strong> – the name of the JPT (will also be used as filename; extension will be added automatically)</p></li>
+<li><p><strong>directory</strong> – the location to save the SVG file to</p></li>
+<li><p><strong>queryvars</strong> – the variables to be plotted in the graph</p></li>
+<li><p><strong>view</strong> – whether the generated SVG file will be opened automatically</p></li>
+<li><p><strong>max_symb_values</strong> – limit the maximum number of symbolic values that are plotted to this number</p></li>
+<li><p><strong>nodefill</strong> – the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name</p></li>
+<li><p><strong>leaffill</strong> – the color of the leaf nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name</p></li>
+<li><p><strong>alphabet</strong> – whether to plot symbolic variables in alphabetic order, if False, they are sorted by probability (descending); default is False</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(str) the path under which the renderd image has been saved.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.plot_typst_jpt">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">plot_typst_jpt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">jpt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'unnamed'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span> <span class="pre">or</span> <span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plotvars</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_symb_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imgtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'svg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alphabet</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">svg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#bayrob.utils.plotlib.plot_typst_jpt" title="Link to this definition">#</a></dt>
+<dd><p>Generates an SVG representation of the generated regression tree.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>title</strong> – title of the plot</p></li>
+<li><p><strong>filename</strong> – the name of the JPT (will also be used as filename; extension will be added automatically)</p></li>
+<li><p><strong>directory</strong> – the location to save the SVG file to</p></li>
+<li><p><strong>plotvars</strong> – the variables to be plotted in the graph</p></li>
+<li><p><strong>view</strong> – whether the generated SVG file will be opened automatically</p></li>
+<li><p><strong>max_symb_values</strong> – limit the maximum number of symbolic values that are plotted to this number</p></li>
+<li><p><strong>nodefill</strong> – the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name</p></li>
+<li><p><strong>leaffill</strong> – the color of the leaf nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name</p></li>
+<li><p><strong>alphabet</strong> – whether to plot symbolic variables in alphabetic order, if False, they are sorted by probability (descending); default is False</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(str) the path under which the renderd image has been saved.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="bayrob.utils.plotlib.robot_positions">
+<span class="sig-prename descclassname"><span class="pre">bayrob.utils.plotlib.</span></span><span class="sig-name descname"><span class="pre">robot_positions</span></span><a class="headerlink" href="#bayrob.utils.plotlib.robot_positions" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./autoapi/bayrob/utils/plotlib"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#attributes">Attributes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.logger"><code class="docutils literal notranslate"><span class="pre">logger</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.defaultconfig"><code class="docutils literal notranslate"><span class="pre">defaultconfig()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.fig_from_json_file"><code class="docutils literal notranslate"><span class="pre">fig_from_json_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.fig_to_file"><code class="docutils literal notranslate"><span class="pre">fig_to_file()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.hextorgb"><code class="docutils literal notranslate"><span class="pre">hextorgb()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.to_rgb"><code class="docutils literal notranslate"><span class="pre">to_rgb()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_pos"><code class="docutils literal notranslate"><span class="pre">plot_pos()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_dir"><code class="docutils literal notranslate"><span class="pre">plot_dir()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gendata_mixture"><code class="docutils literal notranslate"><span class="pre">gendata_mixture()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gendata"><code class="docutils literal notranslate"><span class="pre">gendata()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gendata_multiple"><code class="docutils literal notranslate"><span class="pre">gendata_multiple()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plotly_animation"><code class="docutils literal notranslate"><span class="pre">plotly_animation()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_dists_layered"><code class="docutils literal notranslate"><span class="pre">plot_dists_layered()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_heatmap()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_tree_dist"><code class="docutils literal notranslate"><span class="pre">plot_tree_dist()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.pathdata"><code class="docutils literal notranslate"><span class="pre">pathdata()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_path"><code class="docutils literal notranslate"><span class="pre">plot_path()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plotly_pt"><code class="docutils literal notranslate"><span class="pre">plotly_pt()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plotly_sq"><code class="docutils literal notranslate"><span class="pre">plotly_sq()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_pt_sq"><code class="docutils literal notranslate"><span class="pre">plot_pt_sq()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_scatter_quiver"><code class="docutils literal notranslate"><span class="pre">plot_scatter_quiver()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.build_constraints"><code class="docutils literal notranslate"><span class="pre">build_constraints()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.filter_dataframe"><code class="docutils literal notranslate"><span class="pre">filter_dataframe()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_data_subset"><code class="docutils literal notranslate"><span class="pre">plot_data_subset()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.gaussian"><code class="docutils literal notranslate"><span class="pre">gaussian()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_multiple_dists"><code class="docutils literal notranslate"><span class="pre">plot_multiple_dists()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_tree_leaves"><code class="docutils literal notranslate"><span class="pre">plot_tree_leaves()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_typst_tree_json"><code class="docutils literal notranslate"><span class="pre">plot_typst_tree_json()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.plot_typst_jpt"><code class="docutils literal notranslate"><span class="pre">plot_typst_jpt()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#bayrob.utils.plotlib.robot_positions"><code class="docutils literal notranslate"><span class="pre">robot_positions</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Mareike Picklum
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2023.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
