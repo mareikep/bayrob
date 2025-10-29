@@ -32,6 +32,7 @@ sphinx:
     autoapi_type: python
     autoapi_dirs:
       - ../src
+    autoapi_root: autoapi
     autoapi_options:
       - members
       - undoc-members
