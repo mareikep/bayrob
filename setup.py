@@ -1,3 +1,4 @@
+import os
 
 from setuptools import setup, find_packages, Extension
 from Cython.Build import cythonize
@@ -13,6 +14,12 @@ def parse_requirements(filename):
         if line and not line.startswith("#"):
             reqs.append(line)
     return reqs
+
+version_file = os.path.join('src', 'bayrob', '.version')
+if os.path.exists(version_file):
+    __version__ = open(version_file).read().strip()
+else:
+    __version__ = 'v0.0.1'
 
 install_requires = parse_requirements("requirements_.txt")
 
@@ -40,7 +47,7 @@ except ImportError:
 
 setup(
     name="bayrob",
-    version="0.1.0",
+    version=__version__,
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     ext_modules=ext_modules,
