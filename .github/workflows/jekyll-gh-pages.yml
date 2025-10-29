@@ -74,7 +74,7 @@ jobs:
           key: jupyter-book-cache-${{ hashFiles('requirements_.txt') }}
 
       - name: Build the book
-        run: jupyter-book build docs -E
+        run: jupyter-book build docs --all
 
       # Upload the book's HTML as an artifact
       - name: Upload artifact
