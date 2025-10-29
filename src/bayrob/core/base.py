@@ -13,7 +13,7 @@ from bayrob.application.astar_jpt_app import SubAStarBW_, SubAStar_
 from bayrob.core.astar import BiDirAStar
 from bayrob.core.astar_jpt import Goal, State
 from bayrob.utils.constants import bayroblogger, bayrobjsonlogger
-from jpt import JPT
+from jpt.trees import JPT
 from jpt.distributions import Gaussian, Numeric
 from jpt.variables import VariableMap
 

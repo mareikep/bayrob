@@ -1,9 +1,15 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = [
+    "setuptools>=67.8.0",
+    "wheel",
+    "Cython>=3.0.0",
+    "numpy>=1.24.3,<2.0.0"
+]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "bayrob"
+version = "0.1.0"
 authors = [
   { name="Mareike Picklum", email="mareikep@cs.uni-bremen.de" },
 ]
@@ -29,3 +35,9 @@ include = ["bayrob*"]
 [tool.setuptools.dynamic]
 version = {attr = "bayrob.__version__"}
 dependencies = {file = "requirements.txt"}
+
+#[tool.pytest.ini_options]
+#log_cli = true
+#log_cli_level = "DEBUG"
+#log_cli_format = "%(asctime)s - %(levelname)8s - %(message)s"
+#log_cli_date_format = "%Y-%m-%d %H:%M:%S"

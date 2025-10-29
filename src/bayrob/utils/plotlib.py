@@ -24,9 +24,11 @@ from tqdm import tqdm
 from bayrob.utils import locs
 from bayrob.utils.constants import bayroblogger
 from bayrob.utils.utils import unit, discr_colors, fmt
-from jpt import JPT
+from jpt.trees import JPT
 from jpt.distributions import Gaussian
 from jpt.plotting.helpers import color_to_rgb
+
+pio.renderers.default = "browser"
 
 logger = dnutils.getlogger(bayroblogger, level=dnutils.DEBUG)
 
@@ -48,7 +50,7 @@ def defaultconfig(fname=None, format='svg'):
        #      'drawclosedpath',
        #      'drawcircle',
        #      'drawrect',
-       #      'eraseshape'
+       #      'eraseshape'search
        # ]
     )
 
@@ -58,10 +60,25 @@ def fig_from_json_file(fname) -> Figure:
         return pio.from_json(json.dumps(json.load(f)))
 
 
-def fig_to_file(fig, fname, configname=None, ftypes=None) -> None:
-    '''Writes figure to file with name `fname`. If multiple extensions are given in ftypes, the same figure is saved
+def fig_to_file(
+        fig,
+        fname,
+        configname=None,
+        ftypes=None,
+        forcecreate=False
+) -> None:
+    """
+    Writes figure to file with name `fname`. If multiple extensions are given in ftypes, the same figure is saved
     to multiple file formats.
-    '''
+
+    :param fig: The plotly Figure to save
+    :param fname: The file name (including path) to save the figure to
+    :param configname: The name to use for the plotly config when showing the figure
+    :param ftypes:  A list of file types to save the figure as (e.g. ['.html', '.png']). If None, the file type is inferred from the suffix of `fname`.
+    :param forcecreate: Whether to force creation of parent directories if they do not exist
+
+    """
+    Path(fname).absolute().parent.mkdir(parents=forcecreate or True, exist_ok=True)
     fpath = Path(fname)
     suffix = fpath.suffix
     fname = fpath.stem
@@ -129,21 +146,21 @@ def plot_pos(
         show: bool = True,
         fun: str = "heatmap"
 ) -> Figure:
-    '''
+    """
     Plot Heatmap representing distribution of `x_in`, `y_in` variables from a `path`.
     `path` is a list of (state, params) tuples generated in `test_astar_jpt_robotaction.test_astar_cram_path`.
-    The
-    :param path:
-    :param title:
-    :param conf:
-    :param limx:
-    :param limy:
-    :param limz:
-    :param save:
-    :param show:
-    :param fun:
-    :return:
-    '''
+
+    :param path: List of (state, params) tuples
+    :param title: Plot title
+    :param conf: Confidence threshold
+    :param limx: X-axis limits
+    :param limy: Y-axis limits
+    :param limz: Z-axis limits
+    :param save: Save path
+    :param show: Whether to show plot
+    :param fun: Plot type ('heatmap' or 'surface')
+
+    """
 
     # generate datapoints
     if d is None:
@@ -254,15 +271,16 @@ def gendata(
         params: Dict = {},
         conf: float = None
 ):
-    '''
+    """
     Generates data points
-    :param xvar:
-    :param yvar:
-    :param state:
-    :param params:
-    :param conf:
-    :return:
-    '''
+
+    :param xvar: X variable name
+    :param yvar: Y variable name
+    :param state: State dictionary
+    :param params: Additional parameters
+    :param conf: Confidence threshold
+
+    """
     # generate datapoints
     x = state[xvar].pdf.boundaries()
     y = state[yvar].pdf.boundaries()
@@ -295,14 +313,15 @@ def gendata_multiple(
         params: Dict = {},
         conf: float = None
 ):
-    '''
+    """
     Generates data points
-    :param vars:
-    :param states:
-    :param params:
-    :param conf:
-    :return:
-    '''
+
+    :param vars: List of (xvar, yvar) tuples
+    :param states: List of states
+    :param params: Additional parameters
+    :param conf: Confidence threshold
+
+    """
 
     data = []
     for (xvar, yvar), state in zip(vars, states):
@@ -341,7 +360,8 @@ def plotly_animation(
         showbuttons: bool = True,
         speed: int = 100
 ) -> Figure:
-    '''
+    """
+    Animated Plot
 
     :param names:
     :param data:
@@ -349,7 +369,8 @@ def plotly_animation(
     :param save:
     :param show:
     :return:
-    '''
+
+    """
 
     if names is None:
         names = [f'Step {i}' for i in range(len(data))]
@@ -533,7 +554,6 @@ def plot_dists_layered(
                 colorbar=dict(
                     title=f"P({xvar},{yvar})",
                     orientation='v',
-                    titleside="top",
                 ),
                 hovertemplate='x: %{x}<br>'
                               'y: %{y}<br>'
@@ -575,18 +595,17 @@ def plot_heatmap(
         show: bool = True,
         text: str = None,
         fun: str = "heatmap",
-        showbuttons: bool = True
+        showbuttons: bool = True,
+        dark: bool = False
 ) -> Figure:
-    """Plot heatmap (animation) or 3D surface plot with plotly.
+    """
+    Plot heatmap (animation) or 3D surface plot with plotly.
 
     :param xvar: The name of the x-axis of the heatmap and of the respective column in the `data` Dataframe
     :type xvar: str
     :param yvar: The name of the y-axis of the heatmap and of the respective column in the `data` Dataframe
     :type yvar: str
-    :param data: Each row (!) consists of an entire dataset, such that multiple rows result in an animation, i.e. for
-    an n x m heatmap, each `xvar` cell contains an array of shape (n,), each `yvar` cell contains an array of shape
-    (m,) and the `z` cells contain arrays shaped (m,n). May also contain an optional column called `lbl` of
-    shape (n,) or (m,n) which serves as custom information when hovering over data points.
+    :param data: Each row (!) consists of an entire dataset, such that multiple rows result in an animation, i.e. for an n x m heatmap, each `xvar` cell contains an array of shape (n,), each `yvar` cell contains an array of shape (m,) and the `z` cells contain arrays shaped (m,n). May also contain an optional column called `lbl` of shape (n,) or (m,n) which serves as custom information when hovering over data points.
     :type data: pd.DataFrame
     :param title: The title of the plot
     :type title: str
@@ -598,6 +617,7 @@ def plot_heatmap(
     :type save: str
     :param show: whether to automatically open the plot in the default browser.
     :type show: bool
+
     """
 
     # determine limits, if not given
@@ -630,7 +650,7 @@ def plot_heatmap(
                 colorbar=dict(
                     title=f"P({xvar},{yvar})",
                     orientation='v',
-                    titleside="top",
+                    # side="top",
                 ),
                 hovertemplate='x: %{x}<br>'
                               'y: %{y}<br>'
@@ -651,6 +671,7 @@ def plot_heatmap(
     )
 
     fig.update_layout(
+        template="plotly_dark" if dark else "plotly",
         xaxis=dict(
             title=xvar,
             side='bottom',
@@ -696,7 +717,8 @@ def plot_tree_dist(
     save: str = None,
     show: bool = True
 ) -> Figure:
-    """Plots a heatmap representing the belief state for the agents' position, i.e. the joint
+    """
+    Plots a heatmap representing the belief state for the agents' position, i.e. the joint
     probability of the x and y variables: P(x, y).
 
     :param title: The plot title
@@ -707,6 +729,7 @@ def plot_tree_dist(
     :param save: The location where the plot is saved (if given)
     :param show: Whether the plot is shown
     :return: None
+
     """
     if qvars is None:
         qvars = {}
@@ -781,6 +804,7 @@ def plot_path(
         title: str = None,
         save: str = None,
         show: bool = False,
+        dark: bool = False
 ) -> Figure:
 
     # generate data points
@@ -813,6 +837,7 @@ def plot_path(
     fig.add_traces(fig_.data)
     fig.layout = fig_.layout
     fig.update_layout(
+        template="plotly_dark" if dark else "none",
         height=1000,
         width=1200,
         title=title
@@ -938,7 +963,17 @@ def plot_scatter_quiver(
         save: str = None,
         show: bool = False
 ) -> Figure:
-    """Plot heatmap or 3D surface plot with plotly
+    """
+    Plot heatmap or 3D surface plot with plotly
+
+    :param xvar: The name of the x-axis of the heatmap and of the respective column in the `data` Dataframe
+    :param yvar: The name of the y-axis of the heatmap and of the respective column in the `data` Dataframe
+    :param data: A Dataframe containing columns `xvar`, `yvar`, `
+    :param title: The title of the plot
+    :param save: a full path (including file name) to save the plot to.
+    :param show: whether to automatically open the plot in the default browser.
+    :return: Figure
+
     """
     mainfig = go.Figure()
 
@@ -1363,10 +1398,10 @@ def plot_typst_tree_json(
     :param max_symb_values: limit the maximum number of symbolic values that are plotted to this number
     :param nodefill: the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
     :param leaffill: the color of the leaf nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
-    :param alphabet: whether to plot symbolic variables in alphabetic order, if False, they are sorted by
-    probability (descending); default is False
+    :param alphabet: whether to plot symbolic variables in alphabetic order, if False, they are sorted by probability (descending); default is False
 
     :return:   (str) the path under which the renderd image has been saved.
+
     """
     import html
     import yaml
@@ -1444,10 +1479,10 @@ def plot_typst_jpt(
     :param max_symb_values: limit the maximum number of symbolic values that are plotted to this number
     :param nodefill: the color of the inner nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
     :param leaffill: the color of the leaf nodes in the plot; accepted formats: RGB, RGBA, HSV, HSVA or color name
-    :param alphabet: whether to plot symbolic variables in alphabetic order, if False, they are sorted by
-    probability (descending); default is False
+    :param alphabet: whether to plot symbolic variables in alphabetic order, if False, they are sorted by probability (descending); default is False
 
     :return:   (str) the path under which the renderd image has been saved.
+
     """
     from jpt.trees import Leaf
     import html

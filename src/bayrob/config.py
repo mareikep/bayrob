@@ -83,7 +83,7 @@ class Config(ConfigParser):
         return filter(bool, [s.strip() for s in self.get(section, key).split(separator)])
 
 
-config = Config(os.path.join(locs.user_data, 'caloconf'))
+config = Config(os.path.join(locs.app_data, 'caloconf'))
 logger.info(f'Loading config file "{config.filename}"')
 
 sys.modules[__name__] = config

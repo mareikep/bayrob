@@ -1,9 +1,19 @@
 import heapq
 from collections import defaultdict
 from typing import List, Dict, Any, Union
+from functools import partial
+from multiprocessing import cpu_count
+from concurrent.futures import ProcessPoolExecutor, as_completed, TimeoutError
+import multiprocessing as mp
+import os
 
 import dnutils
 import numpy as np
+
+try:
+    from numpy import product
+except ImportError:
+    from numpy import prod as product
 import pyximport
 
 import jpt
@@ -100,10 +110,13 @@ class State(dict):
     def __eq__(self, other) -> bool:
         return isinstance(other, State) and self.leaf == other.leaf and self.tree == other.tree
 
+    def __hash__(self):
+        return hash((self.tree, self.leaf))
+
 
 class Goal(State):
 
-    def __init__(self, d: dict=None):
+    def __init__(self, d: dict = None):
         super().__init__(d=d)
 
     def similarity(
@@ -143,6 +156,118 @@ class Goal(State):
                 self.similarity(other) >= 0.8)
 
 
+def _process_tree_forward(tree_item, node_state_dict, state_type):
+    treename, tree = tree_item
+
+    # Build evidence preserving distribution info where possible
+    evidence = {}
+    full_distributions = {}
+
+    for var, val_data in node_state_dict.items():
+        if val_data['type'] == 'full':
+            full_distributions[var] = val_data['distribution']
+            evidence[var] = val_data['distribution'].mpe()[0]
+        elif val_data['type'] == 'interval':
+            evidence[var] = ContinuousSet(val_data['ppf_bounds'][0], val_data['ppf_bounds'][1])
+        else:
+            evidence[var] = val_data['mpe']
+
+    # Check if tree is relevant
+    query_vars = set(evidence.keys())
+    if query_vars.isdisjoint(set(tree.varnames)):
+        return treename, None
+
+    try:
+        condtree = tree.conditional_jpt(
+            evidence=tree.bind(
+                {k: v for k, v in evidence.items() if k in tree.varnames},
+                allow_singular_values=False
+            ),
+            fail_on_unsatisfiability=False
+        )
+        return treename, condtree
+    except Exception as e:
+        logger.warning(f"Error processing tree {treename}: {e}")
+        return treename, None
+
+
+def _process_tree_backward(tree_item, node_query, state_type):
+    """Static function for parallel tree processing in backward search.
+    Must be picklable (top-level function).
+    """
+    treename, tree = tree_item
+
+    # Check if tree is relevant
+    query_vars = set([v if isinstance(v, str) else v for v in node_query.keys()])
+    if query_vars.isdisjoint(set(tree.varnames)):
+        return treename, []
+
+    try:
+        q_ = tree.bind(
+            {k: v for k, v in node_query.items() if k in tree.varnames},
+            allow_singular_values=False
+        )
+
+        query_ = tree._preprocess_query(q_, skip_unknown_variables=True)
+
+        results = []
+        for idx, leaf in tree.leaves.items():
+            conf = defaultdict(float)
+            s_ = state_type()
+            s_.tree = treename
+            s_.leaf = idx
+
+            skip_leaf = False
+            for v, _ in leaf.distributions.items():
+                vname = v.name
+
+                if vname.endswith('_out'):
+                    continue
+                elif vname not in node_query:
+                    c_ = 1
+                    d_ = leaf.distributions[vname]
+                elif vname.endswith('_in') and vname.replace('_in', '_out') in leaf.distributions:
+                    invar = vname.replace('_out', '_in')
+                    outvar = vname.replace('_in', '_out')
+
+                    outdist = leaf.distributions[outvar]
+                    indist = leaf.distributions[invar]
+
+                    tmp_dist = indist + outdist
+                    c_ = tmp_dist.p(query_[vname])
+
+                    if not c_ > 0:
+                        skip_leaf = True
+                        break
+
+                    try:
+                        cond = tmp_dist.crop(query_[vname])
+                        tmp_diff = cond - outdist
+                        d_ = tmp_diff.approximate(n_segments=10)
+                    except Unsatisfiability:
+                        skip_leaf = True
+                        break
+                else:
+                    c_ = leaf.distributions[vname].p(query_[vname])
+                    d_ = leaf.distributions[vname]
+
+                if not c_ > 0:
+                    skip_leaf = True
+                    break
+
+                conf[vname] = c_
+                s_[vname] = d_
+
+            if not skip_leaf:
+                results.append((s_, conf))
+
+        return treename, results
+
+    except Exception as e:
+        logger.warning(f"Error processing tree {treename}: {e}")
+        return treename, []
+
+
 class SubAStar(AStar):
 
     def __init__(
@@ -151,11 +276,64 @@ class SubAStar(AStar):
             goal: Any,
             models: Dict,
             state_similarity: float = .2,
-            goal_confidence: float = .01
+            goal_confidence: float = .01,
+            n_workers: int = None,
+            use_multiprocessing: bool = True
     ):
         self.models = models
         self.state_t = type(initstate)
         self.goal_t = type(goal)
+
+        # Multiprocessing configuration
+        # Use 4+ models threshold to avoid overhead with too few tasks
+        self.use_multiprocessing = use_multiprocessing and len(models) >= 3
+        self.n_workers = n_workers or max(1, min(cpu_count() - 1, len(models)))
+        self.pool = None
+        self.timeout = 60  # Default timeout in seconds
+
+        if self.use_multiprocessing:
+            try:
+                # Use spawn method for better pickle compatibility
+                mp.set_start_method('spawn', force=True)
+            except RuntimeError:
+                # Method already set, ignore
+                pass
+
+            # Initialize pool with maxtasksperchild to prevent memory leaks
+            self.pool = ProcessPoolExecutor(
+                max_workers=self.n_workers,
+                mp_context=mp.get_context('spawn')
+            )
+
+            # Warmup pool to avoid first-call latency issues
+            try:
+                warmup_futures = [self.pool.submit(lambda x: x, i) for i in range(self.n_workers)]
+                for future in as_completed(warmup_futures, timeout=5):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        logger.warning(f"Pool warmup task failed: {e}")
+            except TimeoutError:
+                logger.warning("Pool warmup timed out")
+            except Exception as e:
+                logger.warning(f"Pool warmup failed: {e}")
+
+            logger.info(f"Initialized ProcessPoolExecutor with {self.n_workers} workers for {len(models)} models")
+        else:
+            logger.info(f"Multiprocessing disabled (models={len(models)}, threshold=4)")
+
+        # Try to load Cython optimizations
+        self.cache = None
+        self.fast_jaccard_cont = None
+        self.fast_jaccard_set = None
+        try:
+            from bayrob.core.astar_jpt_ext import StateCache, fast_jaccard_continuous, fast_jaccard_sets
+            self.cache = StateCache(max_size=50000)
+            self.fast_jaccard_cont = fast_jaccard_continuous
+            self.fast_jaccard_set = fast_jaccard_sets
+            logger.info("Cython optimizations loaded successfully")
+        except ImportError:
+            logger.warning("Cython extensions not available, using pure Python")
 
         super().__init__(
             initstate,
@@ -163,6 +341,13 @@ class SubAStar(AStar):
             state_similarity=state_similarity,
             goal_confidence=goal_confidence
         )
+
+    def __del__(self):
+        if self.pool is not None:
+            try:
+                self.pool.shutdown(wait=True, cancel_futures=True)
+            except Exception as e:
+                logger.warning(f"Error shutting down pool: {e}")
 
     def init(self):
         logger.debug(f'Init SubAStar...')
@@ -206,7 +391,8 @@ class SubAStar(AStar):
             return len(intersection) / len(union)
 
         else:
-            raise ValueError(f"Both d1 and d2 must be of the same type, either ContinuousSet or set. Got {d1}({type(d1)}) for d1 and {d2}({type(d2)}) for d2.")
+            raise ValueError(
+                f"Both d1 and d2 must be of the same type, either ContinuousSet or set. Got {d1}({type(d1)}) for d1 and {d2}({type(d2)}) for d2.")
 
     def isgoal(
             self,
@@ -221,31 +407,138 @@ class SubAStar(AStar):
         # to change if Goal objects contain actual distributions instead of (Continuous)sets
         if isinstance(node.state, Goal): return False
 
-        if node.state.distance(self.goal, vars=[]) <= 0.5: return True
+        # Use cached distance if available
+        if self.cache is not None:
+            cached_dist = self.cache.get_distance(node.state, self.goal)
+            if cached_dist >= 0:
+                if cached_dist <= 0.5:
+                    return True
+            else:
+                dist = node.state.distance(self.goal, vars=[])
+                self.cache.set_distance(node.state, self.goal, dist)
+                if dist <= 0.5:
+                    return True
+        else:
+            if node.state.distance(self.goal, vars=[]) <= 0.5:
+                return True
 
         for var in self.goal:
             if isinstance(node.state[var], Distribution):
                 # case node state is intermediate state -> values are distributions
                 # if less than 70% of the node.state match the goal spec, return false
                 intersection = node.state[var].mpe()[0].intersection(self.goal[var].mpe()[0])
-                if self.jaccard_similarity(intersection, node.state[var].mpe()[0]) < .7:
+
+                # Use optimized Jaccard if available
+                if self.fast_jaccard_cont is not None and isinstance(intersection, ContinuousSet):
+                    sim = self.fast_jaccard_cont(
+                        intersection.lower, intersection.upper,
+                        node.state[var].mpe()[0].lower, node.state[var].mpe()[0].upper
+                    )
+                elif self.fast_jaccard_set is not None and isinstance(intersection, set):
+                    sim = self.fast_jaccard_set(intersection, node.state[var].mpe()[0])
+                else:
+                    sim = self.jaccard_similarity(intersection, node.state[var].mpe()[0])
+
+                if sim < .7:
                     return False
         return True
 
-    def generate_steps(
-            self,
-            node
-    ) -> List[Any]:
-        """Generates potential next steps by restricting the trees to only contain leaves that are reachable from the
-        current position.
-
-        :param node: the current node
-        :type node: SubNode
+    def _serialize_node_state(self, node):
+        """Serialize node state - use pickle-compatible representation.
         """
-        # generate evidence by using intervals from the 5th percentile to the 95th percentile for each distribution
-        # TODO: remove else case once ppf exists for Integer
+        import pickle
+        serialized = {}
+        for var, val in node.state.items():
+            try:
+                # Try to pickle the distribution directly
+                pickle.dumps(val)
+                serialized[var] = {'distribution': val, 'type': 'full'}
+            except (pickle.PicklingError, TypeError, AttributeError) as e:
+                logger.debug(f"Cannot pickle distribution for {var}: {e}")
+                # Fallback strategies
+                try:
+                    if hasattr(val, 'ppf'):
+                        serialized[var] = {
+                            'ppf_bounds': (float(val.ppf(.05)), float(val.ppf(.95))),
+                            'type': 'interval'
+                        }
+                    elif hasattr(val, 'mpe'):
+                        mpe_val = val.mpe()[0]
+                        serialized[var] = {
+                            'mpe': mpe_val,
+                            'type': 'mpe'
+                        }
+                    else:
+                        logger.warning(f"Cannot serialize {var}, skipping")
+                except Exception as e2:
+                    logger.error(f"Failed to serialize {var}: {e2}")
+                    continue
+
+        return serialized
+
+    def generate_steps(self, node) -> List[Any]:
+        """Generates potential next steps (parallelized with ProcessPoolExecutor).
+        """
+        if self.pool is None:
+            return self._generate_steps_serial(node)
+
+        # Serialize node state for pickling
+        serialized_state = self._serialize_node_state(node)
+
+        # Prepare processing function
+        process_func = partial(_process_tree_forward,
+                               node_state_dict=serialized_state,
+                               state_type=self.state_t)
+
+        tree_items = list(self.models.items())
+
+        # Submit all tasks
+        futures = {
+            self.pool.submit(process_func, item): item[0]
+            for item in tree_items
+        }
+
+        # Collect results with timeout
+        condtrees = []
+        completed_count = 0
+        failed_count = 0
+
+        try:
+            for future in as_completed(futures, timeout=self.timeout):
+                treename = futures[future]
+                try:
+                    result_treename, condtree = future.result(timeout=5)
+                    condtrees.append([result_treename, condtree])
+                    completed_count += 1
+                except TimeoutError:
+                    logger.error(f"Task for tree {treename} timed out")
+                    condtrees.append([treename, None])
+                    failed_count += 1
+                except Exception as e:
+                    logger.error(f"Task for tree {treename} failed: {e}")
+                    condtrees.append([treename, None])
+                    failed_count += 1
+
+        except TimeoutError:
+            logger.error(f"Overall timeout reached. Completed: {completed_count}, Failed: {failed_count}")
+            # Cancel remaining futures
+            for future in futures:
+                if not future.done():
+                    future.cancel()
+                    treename = futures[future]
+                    condtrees.append([treename, None])
+
+        logger.debug(f"Forward processing: {completed_count} completed, {failed_count} failed")
+        return condtrees
+
+    def _generate_steps_serial(self, node) -> List[Any]:
+        """Original serial implementation.
+        """
         evidence = {
-            var: ContinuousSet(node.state[var].ppf(.05), node.state[var].ppf(.95)) if hasattr(node.state[var], 'ppf') else node.state[var].mpe()[0] for var in node.state.keys()
+            var: ContinuousSet(node.state[var].ppf(.05), node.state[var].ppf(.95)) if hasattr(node.state[var],
+                                                                                              'ppf') else
+            node.state[var].mpe()[0]
+            for var in node.state.keys()
         }
 
         condtrees = [
@@ -295,12 +588,12 @@ class SubAStar(AStar):
                         # from the leaf distribution
                         indist = s_[invar]
                         outdist = leaf.distributions[outvar]
-                        if len(indist.cdf.functions) > 20:
-                            # print(f"A Approximating {invar} distribution of s_ with {len(indist.cdf.functions)} functions")
-                            indist = indist.approximate(n_segments=20)
-                        if len(outdist.cdf.functions) > 20:
-                            # print(f"B Approximating {outvar} distribution of best with {len(outdist.cdf.functions)} functions")
-                            outdist = outdist.approximate(n_segments=20)
+
+                        # Aggressive approximation: 20 -> 10 segments
+                        if len(indist.cdf.functions) > 10:
+                            indist = indist.approximate(n_segments=10)
+                        if len(outdist.cdf.functions) > 10:
+                            outdist = outdist.approximate(n_segments=10)
                         vname = invar
                         s_[vname] = indist + outdist
                     elif vname.endswith('_in') and vname in s_:
@@ -309,9 +602,9 @@ class SubAStar(AStar):
                     else:
                         s_[vname] = d
 
-                    if hasattr(s_[vname], 'approximate'):
+                    if hasattr(s_[vname], 'approximate') and len(s_[vname].cdf.functions) > 10:
                         # print(f"C Approximating {vname} distribution of s_ (result) with {len(s_[vname].cdf.functions)} functions")
-                        s_[vname] = s_[vname].approximate(n_segments=20)
+                        s_[vname] = s_[vname].approximate(n_segments=10)
 
                 successors.append(
                     Node(
@@ -332,14 +625,18 @@ class SubAStarBW(SubAStar):
             goal: Goal,  # init state in forward-search
             models: Dict,
             state_similarity: float = .2,
-            goal_confidence: float = .2
+            goal_confidence: float = .01,
+            n_workers: int = None,
+            use_multiprocessing: bool = True
     ):
         super().__init__(
             initstate,
             goal,
             models=models,
             state_similarity=state_similarity,
-            goal_confidence=goal_confidence
+            goal_confidence=goal_confidence,
+            n_workers=n_workers,
+            use_multiprocessing=use_multiprocessing
         )
 
     def init(self):
@@ -354,7 +651,6 @@ class SubAStarBW(SubAStar):
 
         heapq.heappush(self.open, (n_.f, n_))
 
-
     @staticmethod
     def jaccard_similarity(
             d1: Union[ContinuousSet, set],
@@ -363,23 +659,6 @@ class SubAStarBW(SubAStar):
         if d1 == d2:
             return 1
 
-        # if isinstance(d1, ContinuousSet) and isinstance(d2, ContinuousSet):
-        #
-        #     if d1.isinf() or d2.isinf():
-        #         raise ValueError(f"Similarity not defined on infinity intervals. Intervals: d1={d1}, d2={d2} ")
-        #
-        #     intersection = d1.intersection(d2).width
-        #     union_ = d1.union(d2)
-        #     if hasattr(union_, "width"):
-        #         union = union_.width
-        #     else:
-        #         union = sum([i.width for i in union_.intervals])
-        #
-        #     # if the union is empty, both sets must be empty, therefore they are identical
-        #     if not union: return 1.
-        #     return intersection / union
-        #
-        # elif isinstance(d1, set) and isinstance(d2, set):
         if isinstance(d1, set) and isinstance(d2, set):
             intersection = d1.intersection(d2)
             union = d1.union(d2)
@@ -389,7 +668,8 @@ class SubAStarBW(SubAStar):
             return len(intersection) / len(union)
 
         else:
-            raise ValueError(f"Both d1 and d2 must be of the same type, either ContinuousSet or set. Got {d1}({type(d1)}) for d1 and {d2}({type(d2)}) for d2.")
+            raise ValueError(
+                f"Both d1 and d2 must be of the same type, either ContinuousSet or set. Got {d1}({type(d1)}) for d1 and {d2}({type(d2)}) for d2.")
 
     def isgoal(
             self,
@@ -416,41 +696,48 @@ class SubAStarBW(SubAStar):
                     return False
         else:
             if np.mean(
-                [
-                    type(val).jaccard_similarity(self.initstate[var], val) for var, val in node.state.items() if var in self.initstate.keys()
-                ]
+                    [
+                        type(val).jaccard_similarity(self.initstate[var], val) for var, val in node.state.items() if
+                        var in self.initstate.keys()
+                    ]
             ) < .7:
                 return False
         return True
 
     @staticmethod
-    def get_ancestor(
-            node
-    ):
+    def get_ancestor(node):
         current_node = node
         while current_node.parent is not None and not isinstance(current_node.parent.state, Goal):
             current_node = current_node.parent
         return current_node
 
-
-    def reverse(
-            self,
-            t: jpt.trees.JPT,
-            node: Node,
-            treename: str = None,
-    ) -> List:
+    def _serialize_query(self, node):
+        """Serialize query for multiprocessing - converts to pickle-safe format.
         """
-        Determines the leaf nodes that match query best and returns them along with their respective confidence.
+        query = {}
+        for var in node.state.keys():
+            val = node.state[var]
+            try:
+                if isinstance(val, (set, ContinuousSet)):
+                    # Already serializable
+                    query[var] = val
+                elif hasattr(val, 'mpe'):
+                    # Extract mpe value
+                    mpe_val = val.mpe()[0]
+                    query[var] = mpe_val
+                else:
+                    # Fallback to direct value
+                    query[var] = val
+            except Exception as e:
+                logger.warning(f"Failed to serialize query for {var}: {e}")
+                # Skip problematic variables
+                continue
+        return query
 
-        :param query: a mapping from featurenames to either numeric value intervals or an iterable of categorical values
-        :returns: a tuple of probabilities and jpt.trees.Leaf objects that match requirement (representing path to root)
+    def reverse(self, t: jpt.trees.JPT, node: Node, treename: str = None) -> List:
+        """Serial implementation of reverse (kept for compatibility).
         """
-        # ascertain in generate_successors, that node.state only contains _out variables
-        query = {
-            var:
-                node.state[var] if isinstance(node.state[var], (set, ContinuousSet)) else
-                node.state[var].mpe()[0] for var in node.state.keys()
-        }
+        query = self._serialize_query(node)
 
         # if none of the target variables is present in the query, there is no match possible
         # only check variable names, because multiple trees can have the (semantically) same variable, which differs as
@@ -459,17 +746,12 @@ class SubAStarBW(SubAStar):
             return []
 
         q_ = t.bind(
-            {
-                k: v for k, v in query.items() if k in t.varnames
-            },
+            {k: v for k, v in query.items() if k in t.varnames},
             allow_singular_values=False
         )
 
         # Transform into internal values/intervals (symbolic values to their indices)
-        query_ = t._preprocess_query(
-            q_,
-            skip_unknown_variables=True
-        )
+        query_ = t._preprocess_query(q_, skip_unknown_variables=True)
 
         def determine_leaf_confs(l):
             #  assuming, that the _out variables are deltas but querying for _out semantically means querying for the
@@ -513,7 +795,8 @@ class SubAStarBW(SubAStar):
                     try:
                         cond = tmp_dist.crop(query_[vname])
                         tmp_diff = cond - outdist
-                        d_ = tmp_diff.approximate(n_segments=20)
+                        # Aggressive approximation: 20 -> 10 segments
+                        d_ = tmp_diff.approximate(n_segments=10)
                     except Unsatisfiability:
                         return
                 else:
@@ -547,13 +830,68 @@ class SubAStarBW(SubAStar):
 
         return steps
 
-    def generate_steps(
-            self,
-            node: Node
-    ) -> List[Any]:
+    def generate_steps(self, node: Node) -> List[Any]:
+        """Generates potential previous steps (parallelized with ProcessPoolExecutor).
         """
+        if self.pool is None:
+            return self._generate_steps_serial(node)
+
+        # Use the CORRECT serialization for backward search
+        serialized_query = self._serialize_query(node)
+
+        # Prepare processing function
+        process_func = partial(_process_tree_backward,
+                               node_query=serialized_query,  # Fixed!
+                               state_type=self.state_t)
+
+        tree_items = list(self.models.items())
+
+        # Submit all tasks
+        futures = {
+            self.pool.submit(process_func, item): item[0]
+            for item in tree_items
+        }
+
+        # Collect results with timeout
+        all_steps = []
+        completed_count = 0
+        failed_count = 0
+
+        try:
+            for future in as_completed(futures, timeout=self.timeout):
+                treename = futures[future]
+                try:
+                    result_treename, steps = future.result(timeout=5)
+                    all_steps.extend(steps)
+                    completed_count += 1
+                except TimeoutError:
+                    logger.error(f"Backward task for tree {treename} timed out")
+                    failed_count += 1
+                except Exception as e:
+                    logger.error(f"Backward task for tree {treename} failed: {e}")
+                    failed_count += 1
+
+        except TimeoutError:
+            logger.error(f"Backward overall timeout. Completed: {completed_count}, Failed: {failed_count}")
+            # Cancel remaining futures
+            for future in futures:
+                if not future.done():
+                    future.cancel()
+
+        logger.debug(f"Backward processing: {completed_count} completed, {failed_count} failed, {len(all_steps)} steps")
+
+        # Sort candidates according to overall confidence and select n best ones
+        n = 50
+        selected_steps = sorted(all_steps, reverse=True, key=lambda x: product([v for _, v in x[1].items()]))[:n]
+
+        # Add info so selected_steps contains tuples (step, confidence, distance to init state)
+        selected_steps = [(s, c, self.h(s)) for s, c in selected_steps]
+
+        return selected_steps
+
+    def _generate_steps_serial(self, node: Node) -> List[Any]:
+        """Original serial implementation.
         """
-        # steps contains triples of (state, confidence, leaf prior) generated by self.reverse
         steps = []
         for treename, tree in self.models.items():
             steps.extend(
@@ -566,7 +904,7 @@ class SubAStarBW(SubAStar):
 
         # sort candidates according to overall confidence (=probability to reach) and select n best ones
         n = 50
-        selected_steps = sorted(steps, reverse=True, key=lambda x: np.product([v for _, v in x[1].items()]))[:n]
+        selected_steps = sorted(steps, reverse=True, key=lambda x: product([v for _, v in x[1].items()]))[:n]
 
         # add info so selected_steps contains tuples (step, confidence, distance to init state, leaf prior)
         selected_steps = [(s, c, self.h(s)) for s, c in selected_steps]
@@ -576,14 +914,9 @@ class SubAStarBW(SubAStar):
 
         return selected_steps
 
-    def generate_successors(
-            self,
-            node: Node
-    ) -> List[Node]:
-
+    def generate_successors(self, node: Node) -> List[Node]:
         predecessors = []
         for s_, conf, dist in self.generate_steps(node):
-
             # update states to contain unchanged vars
 
             predecessors.append(

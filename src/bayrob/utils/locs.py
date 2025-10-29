@@ -27,8 +27,11 @@ else:
         # ~/.local/share/bayrob/
         app_data = user_data
 
+print(f"BayRoB Locations:\ncode_base: {code_base}\nuser_data: {user_data}\napp_data: {app_data}")
+
 trdparty = os.path.join(app_data, '3rdparty')
-doc = os.path.join(app_data, 'doc')
+doct = os.path.join(app_data, 'doc')
+doc = os.path.join(app_data, 'docs')
 logs = os.path.join(app_data, 'logs')
 examples = os.path.join(app_data, 'examples')
 web = os.path.join(code_base, 'web')

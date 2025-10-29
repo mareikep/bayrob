@@ -86,6 +86,7 @@ class AStar:
         self.closed = []
 
         self.verbose = dnutils.DEBUG
+        self.plotme = False
 
         self.reached = False
         self.init()
@@ -162,10 +163,9 @@ class AStar:
     def search(self) -> Any:
         ts = datetime.now()
         logger.debug(f'{ts.strftime("%Y-%m-%d_%H:%M:%S")} Searching path from {self.initstate} to {self.goal}')
-        plotme = False
         while self.open:
             cf, cur_node = heapq.heappop(self.open)
-            if plotme:
+            if self.plotme:
                 try:
                     self.plot(cur_node)
                 except:
@@ -180,14 +180,14 @@ class AStar:
                             f'Expanded nodes: {len(self.closed)}')
                 self.reached = True
 
-                try:
-                    if self.verbose <= dnutils.DEBUG:
+                if self.verbose <= dnutils.DEBUG and self.plotme:
+                    try:
                         self.plot(cur_node)
-                except NotImplementedError:
-                    logger.info('Could not plot result. Function not implemented.')
-                except:
-                    logger.info('Could not plot result for some random reason.')
-                    traceback.print_exc()
+                    except NotImplementedError:
+                        logger.info('Could not plot result. Function not implemented.')
+                    except:
+                        logger.info('Could not plot result for some random reason.')
+                        traceback.print_exc()
 
                 return self.retrace_path(cur_node)
 
