@@ -27,15 +27,29 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # System packages needed for builds
           sudo apt-get update
           sudo apt-get install -y build-essential python3-dev libcairo2-dev pkg-config
-          pip install -U pip setuptools wheel meson meson-python
-          pip install --no-use-pep517 git+https://github.com/danielnyga/pyrap.git@master
-          pip install --no-use-pep517 git+https://github.com/joint-probability-trees/jpt-dev.git@integer-plotly-merge-wip
-          pip install -r requirements_.txt
+
+          # Upgrade pip, setuptools, wheel, and meson
+          pip install --upgrade pip setuptools wheel meson meson-python
+
+          # Install pyrap directly from GitHub (bypassing PEP 517 issues)
+          git clone https://github.com/danielnyga/pyrap.git /tmp/pyrap-dev
+          cd /tmp/pyrap-dev
+          python setup.py install
+          cd -
+          
+          # Install pyrap directly from GitHub (bypassing PEP 517 issues)
+          git clone https://github.com/joint-probability-trees/jpt-dev.git@integer-plotly-merge-wip /tmp/jpt-dev
+          cd /tmp/jpt-dev
+          python setup.py install
+          cd -
+
+          # Install the rest of your Python requirements
+          pip install -r requirements.txt --no-deps  # skip pyrap if still in requirements.txt
           pip install .
           pip install -r docs/requirements.txt
-
       - name: cache executed notebooks
         uses: actions/cache@v4
         with:
