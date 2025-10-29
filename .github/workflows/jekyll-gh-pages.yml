@@ -41,7 +41,7 @@ jobs:
           cd -
           
           # Install pyrap directly from GitHub (bypassing PEP 517 issues)
-          git clone https://github.com/joint-probability-trees/jpt-dev/tree/integer-plotly-merge-wip /tmp/jpt-dev
+          git clone -b integer-plotly-merge-wip  https://github.com/joint-probability-trees/jpt-dev.git /tmp/jpt-dev
           cd /tmp/jpt-dev
           python setup.py install
           cd -
