@@ -1,6 +1,9 @@
 jupyter-book
 matplotlib
 numpy
+pylint
 sphinx-autoapi
 sphinxcontrib-plantuml
-pylint
+jupyter-book
+sphinxcontrib-bibtex
+myst-nb
