@@ -27,10 +27,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip setuptools wheel meson meson-python
           sudo apt-get update
           sudo apt-get install -y build-essential python3-dev libcairo2-dev pkg-config
-          pip install --no-build-isolation git+https://github.com/danielnyga/pyrap.git@master
+          pip install -U pip setuptools wheel meson meson-python
           pip install -r requirements.txt
           pip install -r requirements-deb.txt
           pip install -r requirements-dev.txt
