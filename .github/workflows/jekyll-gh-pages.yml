@@ -24,7 +24,11 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip # Implicitly uses requirements.txt for cache key
-
+      - name: Debug repo contents
+        run: |
+          pwd
+          ls -al
+          cat requirements_.txt
       - name: Install dependencies
         run: |
           # System packages needed for builds
@@ -39,17 +43,17 @@ jobs:
           pip install .
           pip install -r docs/requirements.txt
 
-          # Install pyrap directly from GitHub (bypassing PEP 517 issues)
+          # Install pyrap directly from GitHub
           git clone https://github.com/danielnyga/pyrap.git /tmp/pyrap-dev
           cd /tmp/pyrap-dev
           pip install -r requirements.txt
           python setup.py install
           cd -
           
-          # Install pyrap directly from GitHub (bypassing PEP 517 issues)
+          # Install jpt directly from GitHub 
           git clone -b integer-plotly-merge-wip  https://github.com/joint-probability-trees/jpt-dev.git /tmp/jpt-dev
           cd /tmp/jpt-dev
-          sudo apt -y install < requirements-deb.txt
+          xargs sudo apt-get install -y < requirements-deb.txt
           pip install -r requirements-dev.txt
           pip install -r requirements-plot.txt
           python setup.py install

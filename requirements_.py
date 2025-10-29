@@ -1,3 +1,19 @@
--r requirements.txt
-pyrap @ git+https://github.com/danielnyga/pyrap.git@master
-pyjpt @ git+https://github.com/joint-probability-trees/jpt-dev.git@integer-plotly-merge-wip
+# Core dependencies - install these first
+numpy>=1.24.3,<2.0.0
+Cython>=3.0.0
+
+# Other dependencies
+appdirs==1.4.4
+chart_studio==1.1.0
+ddt==1.6.0
+dnutils>=0.3.12
+matplotlib>=3.7.1
+pandas>=2.0.1
+plotly==5.18.0
+pymongo==4.3.3
+scikit_learn==1.2.2
+setuptools>=67.8.0
+xlwt==1.3.0
+fastparquet==2023.10.1
+pyarrow
+kaleido==0.2.1
