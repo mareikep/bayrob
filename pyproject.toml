@@ -20,16 +20,17 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-keywords=["Probabilistic Inference", "Robotics", "action model"]
-dynamic = ["dependencies"]
+keywords = ["Probabilistic Inference", "Robotics", "action model"]
+dynamic = ["version", "dependencies"]
 
 [project.urls]
-"Source" = 'https://github.com/mareikep/bayrob'
-"Bug Tracker" = 'https://github.com/mareikep/bayrob/issues'
+"Source" = "https://github.com/mareikep/bayrob"
+"Bug Tracker" = "https://github.com/mareikep/bayrob/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["bayrob*"]
 
 [tool.setuptools.dynamic]
+version = {attr = "bayrob.__version__"}
 dependencies = {file = "requirements_.txt"}
