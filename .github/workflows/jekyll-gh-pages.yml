@@ -24,11 +24,6 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip # Implicitly uses requirements.txt for cache key
-      - name: Debug repo contents
-        run: |
-          pwd
-          ls -al
-          cat requirements_.txt
       - name: Install dependencies
         run: |
           # System packages needed for builds
@@ -37,11 +32,6 @@ jobs:
 
           # Upgrade pip, setuptools, wheel, and meson
           pip install --upgrade pip setuptools wheel meson meson-python
-          
-          # Install the rest of your Python requirements
-          pip install -r requirements_.txt --no-deps
-          pip install .
-          pip install -r docs/requirements.txt
 
           # Install pyrap directly from GitHub
           git clone https://github.com/danielnyga/pyrap.git /tmp/pyrap-dev
@@ -58,6 +48,11 @@ jobs:
           pip install -r requirements-plot.txt
           python setup.py install
           cd -
+          
+          # Install the rest of your Python requirements
+          pip install -r requirements_.txt --no-deps
+          pip install .
+          pip install -r docs/requirements.txt
       - name: cache executed notebooks
         uses: actions/cache@v4
         with:
