@@ -4,6 +4,5 @@ numpy
 pylint
 sphinx-autoapi
 sphinxcontrib-plantuml
-jupyter-book
 sphinxcontrib-bibtex
 myst-nb
